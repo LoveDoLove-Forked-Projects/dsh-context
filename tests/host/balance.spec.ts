@@ -3,8 +3,8 @@
 // route), the per-request resolution of the llm-deepseek connection facts
 // (settings section + credentials), the typed `null` for every
 // not-configured or failed read (the route must never throw into the
-// transport), the payload's hostile-entry dropping, and the TTL/in-flight
-// sharing of the outbound platform read.
+// transport), the payload's hostile-entry dropping, and the read that serves
+// every caller the platform's current figures (shared only while in flight).
 
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, test, vi } from 'vitest'
@@ -251,12 +251,12 @@ describe('balance route outcomes', () => {
       ['null entry', { balance_infos: [null] }, 'ok'],
       ['primitive entry', { balance_infos: ['CNY'] }, 'ok'],
       ['entry not a record', { balance_infos: [[]] }, 'ok'],
-      ['missing currency', { balance_infos: [{ total_balance: '1', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
-      ['empty currency', { balance_infos: [{ currency: '', total_balance: '1', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
-      ['non-numeric total', { balance_infos: [{ currency: 'CNY', total_balance: 'abc', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
-      ['NaN amount', { balance_infos: [{ currency: 'CNY', total_balance: 'NaN', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
-      ['negative amount', { balance_infos: [{ currency: 'CNY', total_balance: '-1', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
-      ['missing amount', { balance_infos: [{ currency: 'CNY', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
+      ['missing currency', { balance_infos: [{ granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
+      ['empty currency', { balance_infos: [{ currency: '', granted_balance: '0', topped_up_balance: '0' }] }, 'ok'],
+      ['non-numeric part', { balance_infos: [{ currency: 'CNY', granted_balance: 'abc', topped_up_balance: '0' }] }, 'ok'],
+      ['NaN part', { balance_infos: [{ currency: 'CNY', granted_balance: 'NaN', topped_up_balance: '0' }] }, 'ok'],
+      ['negative part', { balance_infos: [{ currency: 'CNY', granted_balance: '-1', topped_up_balance: '0' }] }, 'ok'],
+      ['missing part', { balance_infos: [{ currency: 'CNY', total_balance: '110.00', granted_balance: '10.00' }] }, 'ok'],
       ['all entries invalid', { balance_infos: [null, { currency: 'CNY' }] }, 'ok'],
     ]
     for (const [label, body, mode] of failures) {
@@ -294,62 +294,60 @@ describe('balanceOfPayload (direct)', () => {
     assert.deepEqual(balance?.balances.map(b => b.currency), ['CNY', 'USD'])
   })
 
+  test('a platform total that disagrees with its parts is not used', () => {
+    const balance = balanceOfPayload({
+      is_available: true,
+      balance_infos: [
+        { currency: 'CNY', total_balance: '940.67', granted_balance: '920.85', topped_up_balance: '19.81' },
+      ],
+    })
+    assert.deepEqual(balance?.balances, [{ currency: 'CNY', total: 940.66, granted: 920.85, toppedUp: 19.81 }])
+    // The parts are what prove the entry, so a total the platform gets wrong
+    // (or omits) never drops it: total_balance is not read at all.
+    for (const totalField of [{}, { total_balance: 'abc' }, { total_balance: '-1' }, { total_balance: null }]) {
+      assert.deepEqual(balanceOfPayload({
+        is_available: true,
+        balance_infos: [{ currency: 'CNY', granted_balance: '10.00', topped_up_balance: '100.00', ...totalField }],
+      })?.balances, [{ currency: 'CNY', total: 110, granted: 10, toppedUp: 100 }])
+    }
+    // Without both parts there is no total to derive, whatever total_balance says.
+    assert.equal(balanceOfPayload({
+      is_available: true,
+      balance_infos: [{ currency: 'CNY', total_balance: '110.00' }],
+    }), null)
+  })
+
   test('a hostile entry object drops without throwing', () => {
     const hostile = new Proxy({}, { get() { throw new Error('hostile') } })
     assert.equal(balanceOfPayload({ is_available: true, balance_infos: [hostile] }), null)
   })
 })
 
-describe('balance caching', () => {
-  test('identical reads within the TTL share one platform fetch', async () => {
+describe('balance reads', () => {
+  test('every read goes to the platform — no answer is remembered', async () => {
     const { ctx, captured } = ctxOf(configuredCtx())
     watchBalanceChannel(ctx)
     const { calls } = stubPlatform(CNY_BALANCE)
     await serve(captured)
     await serve(captured)
     vi.setSystemTime(1_000_000 + 4 * 60_000)
-    await serve(captured)
-    assert.equal(calls(), 1)
+    const settled = await serve(captured)
+    assert.equal(calls(), 3, 'the account moves with every billed request, so no read is served from a cache')
+    assert.deepEqual(settled, { ok: true, value: { isAvailable: true, balances: [{ currency: 'CNY', total: 110, granted: 10, toppedUp: 100 }] } })
   })
 
-  test('a key change busts the cache (the account switched)', async () => {
-    const a = ctxOf(configuredCtx())
-    watchBalanceChannel(a.ctx)
-    const b = ctxOf(configuredCtx({ credentials: credentialsOf('sk-other') }))
-    watchBalanceChannel(b.ctx)
-    const { log, calls } = stubPlatform(CNY_BALANCE)
-    await serve(a.captured)
-    await serve(b.captured)
-    assert.equal(calls(), 2)
-    assert.equal(log[0]?.auth, 'Bearer sk-test')
-    assert.equal(log[1]?.auth, 'Bearer sk-other')
-  })
-
-  test('a success re-reads after the success TTL, a failure decays faster', async () => {
+  test('a failing read is not remembered either — the next read retries at once', async () => {
     const { ctx, captured } = ctxOf(configuredCtx())
     watchBalanceChannel(ctx)
-    const { calls } = stubPlatform(CNY_BALANCE)
-    await serve(captured)
-    vi.setSystemTime(1_000_000 + 6 * 60_000)
-    await serve(captured)
-    assert.equal(calls(), 2, 'success cached 5 minutes')
-    // Now fail (the +6min read refreshed the cache, so step past +11min):
-    // the null must re-read within a minute, not after five.
     let fails = 0
     setBalanceFetcher(async () => {
       fails++
       throw new Error('down')
     })
-    vi.setSystemTime(1_000_000 + 12 * 60_000)
     await serve(captured)
-    assert.equal(fails, 1)
-    vi.setSystemTime(1_000_000 + 12 * 60_000 + 30_000)
     await serve(captured)
-    assert.equal(fails, 1, 'failure cached only 60s')
-    vi.setSystemTime(1_000_000 + 13 * 60_000 + 1_000)
-    await serve(captured)
-    assert.equal(fails, 2, 'failure re-reads after 60s')
-    assert.equal(calls(), 2, 'the success counter never sees the failing reads')
+    assert.equal(fails, 2)
+    assert.deepEqual(await serve(captured), { ok: true, value: null })
   })
 
   test('clearing the seam restores the default fetcher over the real global fetch', async () => {

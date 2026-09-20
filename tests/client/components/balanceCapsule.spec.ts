@@ -1,15 +1,16 @@
-// BalanceCapsule (src/client/components/balanceCapsule.tsx): renders nothing
-// until a live figure lands (pending, absent, or failed all stay invisible),
-// shows the locale's currency with the account's first currency as fallback,
-// and carries the breakdown (total / topped-up / granted) in the harness
-// Tooltip's hover bubble. The route read is stubbed per test; the module's
-// TTL cache is reset between tests.
+// BalanceCapsule (src/client/components/balanceCapsule.tsx): the remembered
+// figure paints at once while a background read revalidates it, nothing
+// remembered (and an absent or failed route) renders nothing, the locale's
+// currency shows with the account's first currency as fallback, and the
+// breakdown (total / topped-up / granted) rides the harness Tooltip's hover
+// bubble. The route read is stubbed per test; memory and storage are reset
+// between tests.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
 import { makeBalanceCapsule } from '../../../src/client/components/balanceCapsule'
-import { resetPlatformBalance } from '../../../src/client/balance'
+import { PLATFORM_BALANCE_STORAGE_KEY, resetPlatformBalance } from '../../../src/client/balance'
 import { asClientCtx, TestClientCtx } from '../helpers/harness'
 import { flush, hover, makeKit, mount, query, queryAll, text, unhover } from '../helpers/kit'
 
@@ -27,8 +28,14 @@ function stubRoute(body: unknown): void {
   vi.stubGlobal('fetch', async () => ({ ok: true, json: async () => body }))
 }
 
+/** Leave the previous open's figure in storage, as that open would have. */
+function remember(balance: unknown): void {
+  globalThis.localStorage.setItem(PLATFORM_BALANCE_STORAGE_KEY, JSON.stringify(balance))
+}
+
 afterEach(() => {
   resetPlatformBalance()
+  globalThis.localStorage.clear()
   vi.unstubAllGlobals()
 })
 
@@ -47,6 +54,20 @@ describe('BalanceCapsule', () => {
     await flush()
     assert.equal(text(m2.container), '')
     await m2.unmount()
+
+    // A route that never answers leaves an unremembered capsule empty too.
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    vi.stubGlobal('fetch', async () => {
+      await gate
+      return { ok: true, json: async () => ({ ok: true, value: WIRE_BALANCE }) }
+    })
+    const pending = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
+    const m3 = await mount(h(pending, {}))
+    assert.equal(text(m3.container), '', 'nothing while the first read is pending')
+    await m3.unmount()
+    release()
+    await flush()
   })
 
   test('the en locale shows USD with the total and the breakdown tooltip', async () => {
@@ -91,6 +112,35 @@ describe('BalanceCapsule', () => {
     await m.unmount()
   })
 
+  test('the remembered figure paints first, then the revalidated one replaces it', async () => {
+    remember(WIRE_BALANCE)
+    const fresh = { isAvailable: true, balances: [{ currency: 'USD', total: 9.99, granted: 0.99, toppedUp: 9 }] }
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    vi.stubGlobal('fetch', async () => {
+      await gate
+      return { ok: true, json: async () => ({ ok: true, value: fresh }) }
+    })
+    const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
+    const m = await mount(h(Capsule, {}))
+    assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50', 'the remembered total shows at once')
+    release()
+    await flush()
+    assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$9.99', 'the live figure takes over')
+    await m.unmount()
+  })
+
+  test('a failed revalidation keeps the remembered figure instead of blanking the pill', async () => {
+    remember(WIRE_BALANCE)
+    stubRoute({ ok: false })
+    const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
+    const m = await mount(h(Capsule, {}))
+    assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50')
+    await flush()
+    assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50', 'the miss changes nothing')
+    await m.unmount()
+  })
+
   test('an account without the display currency falls back to its first entry, code-prefixed', async () => {
     stubRoute({
       ok: true,
@@ -101,21 +151,5 @@ describe('BalanceCapsule', () => {
     await flush()
     assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, 'EUR 5.00')
     await m.unmount()
-  })
-
-  test('an unmount before the read lands never updates state', async () => {
-    let release!: () => void
-    const gate = new Promise<void>((resolve) => { release = resolve })
-    vi.stubGlobal('fetch', async () => {
-      await gate
-      return { ok: true, json: async () => ({ ok: true, value: WIRE_BALANCE }) }
-    })
-    const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
-    const m = await mount(h(Capsule, {}))
-    assert.equal(text(m.container), '', 'nothing while the read is pending')
-    await m.unmount()
-    release()
-    await flush()
-    assert.ok(true)
   })
 })

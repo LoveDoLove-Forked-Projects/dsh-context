@@ -16,9 +16,10 @@
  * The transport is Connection's fetch-route registry (the same authenticated
  * `/api` fence host/detail.ts mounts), registered through a deferred inject
  * so load order never matters and a harness without the registry simply
- * never arms the route. Identical reads share one outbound fetch behind a
- * short TTL cache — the platform's balance moves far slower than the
- * dashboard opens.
+ * never arms the route. Identical reads share one outbound fetch while it is
+ * in flight, and nothing outlives it: the platform's balance moves with every
+ * billed request, so a remembered figure would disagree with the console page
+ * the capsule links to.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -35,10 +36,6 @@ const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY'
 
 /** The platform's public API root (llm-deepseek's PUBLIC_BASE_URL default). */
 const PUBLIC_BASE_URL = 'https://api.deepseek.com'
-
-/** A settled read serves identical reads for this long; failures decay faster. */
-const CACHE_TTL_MS = 5 * 60_000
-const CACHE_FAIL_TTL_MS = 60_000
 
 /** One platform read's whole budget — never worth blocking the route longer. */
 const FETCH_TIMEOUT_MS = 10_000
@@ -112,9 +109,12 @@ async function resolveFacts(ctx: Context): Promise<DeepSeekFacts | null> {
 
 /**
  * Narrow the platform's payload to the wire value (the boundary rigor every
- * parser owes untrusted input): each entry's currency and three amounts are
- * re-proved, an entry failing the shape drops whole, and a payload with no
- * valid entry is no balance at all.
+ * parser owes untrusted input): each entry's currency and parts are re-proved
+ * and the total is the two summed — the platform's own `total_balance` rounds
+ * independently of them, so it can land a cent away from what the breakdown
+ * beside it adds up to, and the viewer's arithmetic is the authority. An entry
+ * failing the shape drops whole, and a payload with no valid entry is no
+ * balance at all.
  */
 export function balanceOfPayload(value: unknown): PlatformBalance | null {
   const data = asRecord(value)
@@ -128,12 +128,11 @@ export function balanceOfPayload(value: unknown): PlatformBalance | null {
       const entry = asRecord(info)
       if (entry === null) continue
       const currency = entry.currency
-      const total = amountOf(entry.total_balance)
       const granted = amountOf(entry.granted_balance)
       const toppedUp = amountOf(entry.topped_up_balance)
       if (typeof currency !== 'string' || currency === ''
-        || total === null || granted === null || toppedUp === null) continue
-      balances.push({ currency, total, granted, toppedUp })
+        || granted === null || toppedUp === null) continue
+      balances.push({ currency, total: granted + toppedUp, granted, toppedUp })
     } catch {
       continue
     }
@@ -156,30 +155,23 @@ export function setBalanceFetcher(next: BalanceFetcher | null): void {
   fetcher = next ?? defaultFetcher
 }
 
-interface CacheSlot { key: string; at: number; value: PlatformBalance | null }
-
-let cache: CacheSlot | null = null
 let inFlight: Promise<PlatformBalance | null> | null = null
 
-/** Drop the cache and any in-flight read (test isolation). */
+/** Drop any in-flight read (test isolation). */
 export function resetBalance(): void {
-  cache = null
   inFlight = null
 }
 
 /**
- * One platform read for these facts, shared across identical concurrent
- * reads and remembered briefly: successes for CACHE_TTL_MS, failures for
- * CACHE_FAIL_TTL_MS (a blip must not pin the capsule away for the full
- * window). Every failure path — transport, timeout, non-ok status, malformed
- * payload — resolves `null`; the route never throws into the transport.
+ * One platform read for these facts, shared by the identical reads already in
+ * flight. Each read that finds none goes to the platform: the account's
+ * balance moves with every request the harness bills, so a remembered figure
+ * would disagree with the console page the capsule links to. The client's own
+ * open-time read is the rate limit. Every failure path — transport, timeout,
+ * non-ok status, malformed payload — resolves `null`; the route never throws
+ * into the transport.
  */
 async function readBalance(facts: DeepSeekFacts): Promise<PlatformBalance | null> {
-  const key = facts.baseUrl + '\u0000' + facts.apiKey
-  if (cache !== null && cache.key === key
-    && Date.now() - cache.at < (cache.value === null ? CACHE_FAIL_TTL_MS : CACHE_TTL_MS)) {
-    return cache.value
-  }
   if (inFlight !== null) return inFlight
   inFlight = (async () => {
     let value: PlatformBalance | null = null
@@ -192,7 +184,6 @@ async function readBalance(facts: DeepSeekFacts): Promise<PlatformBalance | null
     } catch {
       // Absent on purpose: any failure serves null — the capsule stays hidden.
     }
-    cache = { key, at: Date.now(), value }
     return value
   })()
   const settled = inFlight

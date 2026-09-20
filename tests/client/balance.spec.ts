@@ -1,12 +1,22 @@
 // The client balance reader (src/client/balance.ts): the delivered payload's
 // boundary proof (hostile entries drop, a payload with no valid entry is no
 // balance), the display-currency pick with the account's first currency as
-// fallback, and the fetch store's never-rejecting, TTL-and-in-flight-shared
-// read of the plugin route.
+// fallback, and the read that paints the remembered figure while one
+// background route read revalidates it — including every storage and
+// transport failure, which serve the remembered figure rather than a blank.
 
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, test, vi } from 'vitest'
-import { balanceEntryOf, fetchPlatformBalance, platformBalanceOf, resetPlatformBalance } from '../../src/client/balance'
+import {
+  balanceEntryOf,
+  PLATFORM_BALANCE_STORAGE_KEY,
+  platformBalanceOf,
+  readPlatformBalance,
+  resetPlatformBalance,
+  setPlatformBalanceStorage,
+  type StorageFace,
+} from '../../src/client/balance'
+import type { PlatformBalance } from '../../src/shared/types'
 
 const WIRE_BALANCE = {
   isAvailable: true,
@@ -14,6 +24,11 @@ const WIRE_BALANCE = {
     { currency: 'CNY', total: 110, granted: 10, toppedUp: 100 },
     { currency: 'USD', total: 1.5, granted: 0.5, toppedUp: 1 },
   ],
+}
+
+/** The CNY entry of a wire payload shaped like the route's. */
+function wire(total: number): { isAvailable: boolean; balances: { currency: string; total: number; granted: number; toppedUp: number }[] } {
+  return { isAvailable: true, balances: [{ currency: 'CNY', total, granted: 0, toppedUp: total }] }
 }
 
 function stubRoute(body: unknown | undefined, mode: 'ok' | 'reject' | 'status' = 'ok'): { calls: () => number } {
@@ -27,16 +42,73 @@ function stubRoute(body: unknown | undefined, mode: 'ok' | 'reject' | 'status' =
   return { calls: () => n }
 }
 
+/** A route answer that lands when released, so a caller can inspect the pending state. */
+function gatedRoute(): { release: () => void; calls: () => number } {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  let n = 0
+  vi.stubGlobal('fetch', async () => {
+    n++
+    await gate
+    return { ok: true, json: async () => ({ ok: true, value: WIRE_BALANCE }) }
+  })
+  return { release, calls: () => n }
+}
+
+/** A storage double over a plain map, so absence, garbage, and refusal are all reachable. */
+class FakeStorage implements StorageFace {
+  store = new Map<string, string>()
+  constructor(seed?: Record<string, string>) {
+    for (const [k, v] of Object.entries(seed ?? {})) this.store.set(k, v)
+  }
+  getItem(key: string): string | null {
+    return this.store.get(key) ?? null
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, value)
+  }
+  removeItem(key: string): void {
+    this.store.delete(key)
+  }
+}
+
+/** Drain the promise chains a pending route answer settles, then report. */
+async function drain(): Promise<void> {
+  for (let i = 0; i < 8; i++) await Promise.resolve()
+}
+
+/** Collect the figures a read's background refresh reports. */
+function collector(): { seen: PlatformBalance[]; onRefresh: (v: PlatformBalance) => void } {
+  const seen: PlatformBalance[] = []
+  return { seen, onRefresh: (v) => seen.push(v) }
+}
+
+/** A storage double pre-seeded with the remembered figure, as the previous open left it. */
+function seededStorage(): FakeStorage {
+  const fake = new FakeStorage({ [PLATFORM_BALANCE_STORAGE_KEY]: JSON.stringify(WIRE_BALANCE) })
+  setPlatformBalanceStorage(fake)
+  return fake
+}
+
+/** Clear the real storage the module falls back to; a refused getter has nothing to clear. */
+function clearRealStorage(): void {
+  try {
+    globalThis.localStorage.clear()
+  } catch {
+    // A swapped-in refused getter: the next test restores the real one.
+  }
+}
+
 beforeEach(() => {
   resetPlatformBalance()
-  vi.useFakeTimers({ toFake: ['Date'] })
-  vi.setSystemTime(1_000_000)
+  clearRealStorage()
 })
 
 afterEach(() => {
   resetPlatformBalance()
+  clearRealStorage()
   vi.unstubAllGlobals()
-  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('platformBalanceOf', () => {
@@ -104,19 +176,58 @@ describe('balanceEntryOf', () => {
   })
 })
 
-describe('fetchPlatformBalance', () => {
-  test('one route read narrows to the balance; identical reads share the TTL', async () => {
-    const { calls } = stubRoute({ ok: true, value: WIRE_BALANCE })
-    assert.deepEqual(await fetchPlatformBalance(), WIRE_BALANCE)
-    vi.setSystemTime(1_000_000 + 59_000)
-    assert.deepEqual(await fetchPlatformBalance(), WIRE_BALANCE)
-    assert.equal(calls(), 1, 'within the TTL the cached answer serves')
-    vi.setSystemTime(1_000_000 + 61_000)
-    await fetchPlatformBalance()
-    assert.equal(calls(), 2, 'past the TTL the route is read again')
+describe('readPlatformBalance', () => {
+  test('nothing remembered shows nothing while the first read is pending', async () => {
+    const { release } = gatedRoute()
+    const { seen, onRefresh } = collector()
+    assert.equal(readPlatformBalance(onRefresh), null, 'no remembered figure to paint')
+    release()
+    await drain()
+    assert.equal(seen.length, 1, 'the read still lands once answered')
   })
 
-  test('every absent answer resolves null without rejecting', async () => {
+  test('a landing figure reports through the refresh and is served from memory next time', async () => {
+    const { calls } = stubRoute({ ok: true, value: WIRE_BALANCE })
+    const first = collector()
+    assert.equal(readPlatformBalance(first.onRefresh), null, 'the first open has nothing to paint')
+    await drain()
+    assert.deepEqual(first.seen, [WIRE_BALANCE])
+    assert.equal(calls(), 1)
+
+    const second = collector()
+    assert.deepEqual(readPlatformBalance(second.onRefresh), WIRE_BALANCE, 'the memory figure paints at once')
+    await drain()
+    assert.deepEqual(second.seen, [WIRE_BALANCE])
+    assert.equal(calls(), 2, 'every open revalidates regardless of what it could paint')
+  })
+
+  test('the stored figure paints before the read lands, then the live one replaces it', async () => {
+    seededStorage()
+    const fresh = wire(99)
+    stubRoute({ ok: true, value: fresh })
+    const { seen, onRefresh } = collector()
+    assert.deepEqual(readPlatformBalance(onRefresh), WIRE_BALANCE, 'the stored figure shows at once')
+    await drain()
+    assert.deepEqual(seen, [fresh])
+    assert.deepEqual(readPlatformBalance(() => {}), fresh, 'memory now outranks storage')
+  })
+
+  test('an open while a read is in flight joins that read instead of starting one', async () => {
+    const { release, calls } = gatedRoute()
+    const a = collector()
+    const b = collector()
+    assert.equal(readPlatformBalance(a.onRefresh), null)
+    assert.equal(readPlatformBalance(b.onRefresh), null, 'nothing remembered until a read lands')
+    await Promise.resolve()
+    release()
+    await drain()
+    assert.deepEqual(a.seen, [WIRE_BALANCE], 'the open that started the read reports its figure')
+    assert.deepEqual(b.seen, [], 'the joining open takes the landing through memory rather than a callback of its own')
+    assert.equal(calls(), 1, 'one read serves both opens')
+    assert.deepEqual(readPlatformBalance(() => {}), WIRE_BALANCE, 'and the joined read is the memory figure afterwards')
+  })
+
+  test('every absent answer notifies nobody and keeps the remembered figure', async () => {
     for (const [label, body, mode] of [
       ['route absent (404)', undefined, 'status'],
       ['transport down', undefined, 'reject'],
@@ -125,25 +236,98 @@ describe('fetchPlatformBalance', () => {
       ['value not a record', { ok: true, value: 'nope' }, 'ok'],
     ] as [string, unknown, 'ok' | 'reject' | 'status'][]) {
       resetPlatformBalance()
+      seededStorage()
       stubRoute(body, mode)
-      assert.equal(await fetchPlatformBalance(), null, label)
+      const { seen, onRefresh } = collector()
+      assert.deepEqual(readPlatformBalance(onRefresh), WIRE_BALANCE, label)
+      await drain()
+      assert.equal(seen.length, 0, label)
+      assert.deepEqual(readPlatformBalance(() => {}), WIRE_BALANCE, label + ' — the figure survives the miss')
     }
   })
 
-  test('concurrent reads share the one in-flight route read', async () => {
-    let release!: () => void
-    const gate = new Promise<void>((resolve) => { release = resolve })
-    let calls = 0
-    vi.stubGlobal('fetch', async () => {
-      calls++
-      await gate
-      return { ok: true, json: async () => ({ ok: true, value: WIRE_BALANCE }) }
-    })
-    const first = fetchPlatformBalance()
-    const second = fetchPlatformBalance()
-    await Promise.resolve()
-    release()
-    assert.deepEqual(await Promise.all([first, second]), [WIRE_BALANCE, WIRE_BALANCE])
-    assert.equal(calls, 1)
+  test('garbage in storage is no remembered figure', async () => {
+    stubRoute({ ok: true, value: WIRE_BALANCE })
+    for (const raw of ['not json', 'null', '"CNY"', '{"isAvailable":true}', '{"balances":[{"currency":"CNY"}]}']) {
+      resetPlatformBalance()
+      setPlatformBalanceStorage(new FakeStorage({ [PLATFORM_BALANCE_STORAGE_KEY]: raw }))
+      const { onRefresh } = collector()
+      assert.equal(readPlatformBalance(onRefresh), null, raw)
+      await drain()
+      assert.deepEqual(readPlatformBalance(() => {}), WIRE_BALANCE)
+    }
+  })
+
+  test('unreadable storage costs the head start, never the read', async () => {
+    const throwing = new FakeStorage()
+    vi.spyOn(throwing, 'getItem').mockImplementation(() => { throw new Error('denied') })
+    setPlatformBalanceStorage(throwing)
+    stubRoute({ ok: true, value: WIRE_BALANCE })
+    const { seen, onRefresh } = collector()
+    assert.equal(readPlatformBalance(onRefresh), null, 'no remembered figure to paint')
+    await drain()
+    assert.deepEqual(seen, [WIRE_BALANCE])
+  })
+
+  test('unwritable storage never blocks the live figure', async () => {
+    const refusing = new FakeStorage()
+    vi.spyOn(refusing, 'setItem').mockImplementation(() => { throw new Error('quota') })
+    setPlatformBalanceStorage(refusing)
+    stubRoute({ ok: true, value: WIRE_BALANCE })
+    const { seen, onRefresh } = collector()
+    readPlatformBalance(onRefresh)
+    await drain()
+    assert.deepEqual(seen, [WIRE_BALANCE])
+  })
+
+  test('absent storage is the same as empty storage', async () => {
+    setPlatformBalanceStorage(undefined)
+    const real = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: undefined })
+    try {
+      stubRoute({ ok: true, value: WIRE_BALANCE })
+      const { seen, onRefresh } = collector()
+      assert.equal(readPlatformBalance(onRefresh), null)
+      await drain()
+      assert.deepEqual(seen, [WIRE_BALANCE], 'the read is unaffected')
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', real as PropertyDescriptor)
+    }
+  })
+
+  test('storage itself can be refused: no remembered figure, no crash', async () => {
+    setPlatformBalanceStorage(undefined)
+    const real = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('denied') } })
+    try {
+      stubRoute({ ok: true, value: WIRE_BALANCE })
+      const { seen, onRefresh } = collector()
+      assert.equal(readPlatformBalance(onRefresh), null)
+      await drain()
+      assert.deepEqual(seen, [WIRE_BALANCE], 'the read is unaffected')
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', real as PropertyDescriptor)
+    }
+  })
+
+  test('a reset drops the remembered figure, its storage, and the storage swap', async () => {
+    const fake = seededStorage()
+    stubRoute({ ok: true, value: WIRE_BALANCE })
+    readPlatformBalance(() => {})
+    await drain()
+    resetPlatformBalance()
+    assert.equal(fake.store.has(PLATFORM_BALANCE_STORAGE_KEY), false, 'storage is emptied')
+    const { onRefresh } = collector()
+    assert.equal(readPlatformBalance(onRefresh), null, 'real storage is re-detected, and it is empty too')
+  })
+
+  test('a reset over refused storage still clears the memory figure', async () => {
+    setPlatformBalanceStorage(null)
+    stubRoute({ ok: true, value: WIRE_BALANCE })
+    readPlatformBalance(() => {})
+    await drain()
+    assert.deepEqual(readPlatformBalance(() => {}), WIRE_BALANCE)
+    resetPlatformBalance()
+    assert.equal(readPlatformBalance(() => {}), null)
   })
 })

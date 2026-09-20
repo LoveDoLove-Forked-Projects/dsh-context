@@ -691,7 +691,9 @@ export interface HeaderEpochContent {
 export interface PlatformBalanceEntry {
   /** The ISO code the platform reported (`CNY` / `USD`). */
   currency: string
-  /** Total available funds: the granted and topped-up balances summed. */
+  /** Total available funds: `granted` + `toppedUp`. Derived here rather than read
+   * from the platform's own `total_balance`, which rounds independently of its
+   * parts and can land a cent away from what the breakdown beside it shows. */
   total: number
   /** The not-expired granted (gift) balance. */
   granted: number

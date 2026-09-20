@@ -2,18 +2,19 @@
  * BalanceCapsule — the DeepSeek open-platform balance pill in the Context
  * Dashboard's header (the plugin's one account-level figure, beside the
  * session-level ones). Clicking it opens the platform's usage console in a
- * new tab. Mounted only by the dashboard header; it reads the
- * plugin's balance route once per open through client/balance.ts and renders
- * NOTHING while the read is pending, absent, or failed — the pill exists
- * only when there is a live figure to show. The breakdown (total / topped-up
- * / granted) rides the harness Tooltip primitive — immediate on hover, where
- * a native `title` lags — in the entry's own currency; the entry follows the
- * active locale (zh → CNY) with the account's first currency as the fallback.
+ * new tab. Mounted only by the dashboard header; it paints the figure the
+ * previous open remembered while client/balance.ts revalidates it in the
+ * background, and renders NOTHING when nothing is remembered and the route
+ * answers nothing — the pill exists only when there is a figure to show. The
+ * breakdown (total / topped-up / granted) rides the harness Tooltip
+ * primitive — immediate on hover, where a native `title` lags — in the
+ * entry's own currency; the entry follows the active locale (zh → CNY) with
+ * the account's first currency as the fallback.
  */
 
-import { useEffect, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { balanceEntryOf, fetchPlatformBalance } from '../balance'
+import { balanceEntryOf, readPlatformBalance } from '../balance'
 import type { PlatformBalance } from '../../shared/types'
 import type { ClientCtx } from '../services'
 import type { ViewKit } from '../viewkit'
@@ -31,14 +32,9 @@ const USAGE_URL = 'https://platform.deepseek.com/usage'
 export function makeBalanceCapsule(ctx: ClientCtx, kit: ViewKit): () => ReactElement | null {
   const { t } = kit
   return function BalanceCapsule(): ReactElement | null {
-    const [balance, setBalance] = useState<PlatformBalance | null>(null)
-    useEffect(() => {
-      let on = true
-      // Fire-and-forget: fetchPlatformBalance never rejects, and the `on`
-      // flag drops the result of an unmount mid-read.
-      void fetchPlatformBalance().then((v) => { if (on) setBalance(v) })
-      return () => { on = false }
-    }, [])
+    // The remembered figure seeds the first paint (client/balance.ts) while the
+    // background read runs; a landing figure re-renders through the callback.
+    const [balance, setBalance] = useState<PlatformBalance | null>(() => readPlatformBalance(v =>{  setBalance(v); }))
     const locale = ctx.locale
     const active = typeof locale.getLocale === 'function' ? locale.getLocale().active : 'en'
     const entry = balanceEntryOf(balance, active === 'zh' ? 'cny' : 'usd')

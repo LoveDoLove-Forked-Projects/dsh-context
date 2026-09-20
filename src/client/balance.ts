@@ -1,14 +1,17 @@
 /**
  * The DeepSeek platform balance behind the Context Dashboard's header
- * capsule: one lazy read of the plugin's `/api/dsh-context/balance` fetch
- * route (host/balance.ts) per open, deduplicated in flight and remembered
- * briefly so toggling the panel never re-reads.
+ * capsule: the figure the previous open remembered (memory first, then
+ * storage) shown at once, plus one background read of the plugin's
+ * `/api/dsh-context/balance` fetch route (host/balance.ts) on every open, so
+ * the remembered total never survives a stale one for long.
  *
- * Every outcome that is not a live figure — the route absent (an older host
- * or a connection-less deployment), the platform not configured, a transport
- * failure, a malformed payload — resolves `null`, and the capsule renders
- * nothing: a balance viewer shows a real number or it shows nothing at all,
- * never a spinner or an error where a pill should be.
+ * A remembered figure is a stale-while-revalidate display choice, not an
+ * error state: the platform's balance moves far slower than the dashboard
+ * opens, and a stale figure that a background read corrects beats a blank
+ * pill on every visit. An open that finds nothing remembered — and a route
+ * that answers nothing while nothing is remembered — resolves `null`, and
+ * the capsule renders nothing: a balance viewer shows a real number or it
+ * shows nothing at all, never a spinner or an error where a pill should be.
  */
 
 import type { PlatformBalance, PlatformBalanceEntry } from '../shared/types'
@@ -19,8 +22,23 @@ import { asRecord } from './services'
 // POST under the harness's authenticated `/api` fence.
 const BALANCE_ROUTE = '/api/dsh-context/balance'
 
-/** How long a settled answer (including a `null`) serves identical reads. */
-const TTL_MS = 60_000
+/** Where the last live figure is remembered across opens, per browser. */
+const STORAGE_KEY = 'dsh-context:platform-balance'
+
+/** The slice of Web Storage this module consumes, so tests can swap it. */
+export interface StorageFace {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+  removeItem(key: string): void
+}
+
+/** Test seam: swap the storage backing the remembered figure; undefined re-detects. */
+export function setPlatformBalanceStorage(next: StorageFace | null | undefined): void {
+  storage = next
+}
+
+/** Test seam: the key the remembered figure lives under. */
+export const PLATFORM_BALANCE_STORAGE_KEY = STORAGE_KEY
 
 /** One platform amount ('110.00', or an already-numeric producer variant), or null. */
 function amountOf(value: unknown): number | null {
@@ -75,34 +93,94 @@ export function balanceEntryOf(
   return balance.balances.find(entry => entry.currency === want) ?? balance.balances[0]
 }
 
-let cached: { at: number; promise: Promise<PlatformBalance | null> } | null = null
+let cached: PlatformBalance | null = null
+/** The route read in flight, so a second open joins it instead of starting one. */
+let refreshing: Promise<void> | null = null
 
-/**
- * The capsule's read: one route POST, narrowed through
- * `platformBalanceOf`, deduplicated in flight, TTL-cached. Never rejects.
- */
-export function fetchPlatformBalance(): Promise<PlatformBalance | null> {
-  if (cached !== null && Date.now() - cached.at < TTL_MS) return cached.promise
-  const at = Date.now()
-  const promise = (async (): Promise<PlatformBalance | null> => {
-    try {
-      const response = await fetch(BALANCE_ROUTE, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-      })
-      if (!response.ok) return null
-      const r = asRecord(await response.json())
-      if (r === null || r.ok !== true || r.value === null || r.value === undefined) return null
-      return platformBalanceOf(r.value)
-    } catch {
-      return null
-    }
-  })()
-  cached = { at, promise }
-  return promise
+/** The storage this module reads and writes; swapped in tests. */
+let storage: StorageFace | null | undefined
+
+function storageFn(): StorageFace | null {
+  if (storage !== undefined) return storage
+  try {
+    // Runtime-guarded: the browser always has it, but a host may not, and the
+    // report type says it is present either way.
+    const found: unknown = globalThis.localStorage
+    storage = found === null || found === undefined ? null : found as StorageFace
+  } catch {
+    // Storage can throw on mere access (some privacy modes); the capsule then
+    // has no remembered figure — the same shape as a first-ever open.
+    storage = null
+  }
+  return storage
 }
 
-/** Test isolation: drop the cache. */
+/** The stored figure, or `null` when absent, unreadable, or no longer a valid balance. */
+function storedBalance(): PlatformBalance | null {
+  try {
+    const raw = storageFn()?.getItem(STORAGE_KEY)
+    return raw === null || raw === undefined ? null : platformBalanceOf(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+function rememberBalance(value: PlatformBalance | null): void {
+  try {
+    storageFn()?.setItem(STORAGE_KEY, JSON.stringify(value))
+  } catch {
+    // A refused write (quota, privacy mode) costs only the next open's head
+    // start; the live figure still renders.
+  }
+}
+
+/** One route POST, narrowed through `platformBalanceOf`. Never rejects. */
+async function readRoute(): Promise<PlatformBalance | null> {
+  try {
+    const response = await fetch(BALANCE_ROUTE, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
+    if (!response.ok) return null
+    const r = asRecord(await response.json())
+    if (r === null || r.ok !== true || r.value === null || r.value === undefined) return null
+    return platformBalanceOf(r.value)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * One route read per open, with `onRefresh` once it lands on a figure: the
+ * capsule paints the remembered total immediately and settles on the live
+ * one. `refreshing` is assigned before anything awaits, so an open arriving
+ * while a read is still in flight joins it rather than starting a second one;
+ * it paints the remembered figure and takes the in-flight read's landing for
+ * its own. A failed or absent read notifies nobody and keeps serving the
+ * remembered figure, so an offline open never trades a number for a blank
+ * pill; `null` (whether pending, absent, or failed) means nothing to show yet.
+ */
+export function readPlatformBalance(onRefresh: (value: PlatformBalance) => void): PlatformBalance | null {
+  if (refreshing === null) {
+    refreshing = (async () => {
+      const value = await readRoute()
+      if (value === null) return
+      cached = value
+      rememberBalance(value)
+      onRefresh(value)
+    })().finally(() => { refreshing = null })
+  }
+  return cached ?? storedBalance()
+}
+
+/** Test isolation: drop the cache, the storage contents, and the storage swap. */
 export function resetPlatformBalance(): void {
   cached = null
+  refreshing = null
+  try {
+    storageFn()?.removeItem(STORAGE_KEY)
+  } catch {
+    // Nothing to drop when storage is unreadable.
+  }
+  storage = undefined
 }
