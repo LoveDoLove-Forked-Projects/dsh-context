@@ -5,13 +5,14 @@
  * new tab. Mounted only by the dashboard header; it reads the
  * plugin's balance route once per open through client/balance.ts and renders
  * NOTHING while the read is pending, absent, or failed — the pill exists
- * only when there is a live figure to show. The tooltip carries the
- * breakdown (total / granted / topped-up) in the entry's own currency; the
- * entry follows the active locale (zh → CNY) with the account's first
- * currency as the fallback.
+ * only when there is a live figure to show. The breakdown (total / granted /
+ * topped-up) rides the harness Tooltip primitive — immediate on hover, where
+ * a native `title` lags — in the entry's own currency; the entry follows the
+ * active locale (zh → CNY) with the account's first currency as the fallback.
  */
 
 import { useEffect, useState, type ReactElement } from 'react'
+import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { balanceEntryOf, fetchPlatformBalance } from '../balance'
 import type { PlatformBalance } from '../../shared/types'
 import type { ClientCtx } from '../services'
@@ -49,10 +50,12 @@ export function makeBalanceCapsule(ctx: ClientCtx, kit: ViewKit): () => ReactEle
       t('balance.tip.toppedUp') + ': ' + money(entry.toppedUp),
     ].join('\n')
     return (
-      <a className="lc-ov-balance" title={tip} href={USAGE_URL} target="_blank" rel="noreferrer">
-        <span className="lc-ov-balance-label">{t('balance.title')}</span>
-        <span className="lc-ov-balance-value">{money(entry.total)}</span>
-      </a>
+      <Tooltip label={tip} side="bottom">
+        <a className="lc-ov-balance" aria-label={tip} href={USAGE_URL} target="_blank" rel="noreferrer">
+          <span className="lc-ov-balance-label">{t('balance.title')}</span>
+          <span className="lc-ov-balance-value">{money(entry.total)}</span>
+        </a>
+      </Tooltip>
     )
   }
 }

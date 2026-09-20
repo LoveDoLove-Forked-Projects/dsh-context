@@ -1,8 +1,8 @@
 // BalanceCapsule (src/client/components/balanceCapsule.tsx): renders nothing
 // until a live figure lands (pending, absent, or failed all stay invisible),
 // shows the locale's currency with the account's first currency as fallback,
-// and carries the breakdown in the tooltip. The route read is stubbed per
-// test; the module's TTL cache is reset between tests.
+// and carries the breakdown in the harness Tooltip's hover bubble. The route
+// read is stubbed per test; the module's TTL cache is reset between tests.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -10,7 +10,7 @@ import { afterEach, describe, test, vi } from 'vitest'
 import { makeBalanceCapsule } from '../../../src/client/components/balanceCapsule'
 import { resetPlatformBalance } from '../../../src/client/balance'
 import { asClientCtx, TestClientCtx } from '../helpers/harness'
-import { flush, makeKit, mount, query, text } from '../helpers/kit'
+import { flush, hover, makeKit, mount, query, queryAll, text, unhover } from '../helpers/kit'
 
 const kit = makeKit()
 
@@ -60,10 +60,15 @@ describe('BalanceCapsule', () => {
     assert.equal(pill?.getAttribute('rel'), 'noreferrer')
     assert.equal(query(m.container, '.lc-ov-balance-label')?.textContent, 'DeepSeek balance')
     assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50')
-    const tip = pill?.getAttribute('title') ?? ''
-    assert.ok(tip.includes('Total balance: $12.50'), tip)
-    assert.ok(tip.includes('Granted balance: $2.50'), tip)
-    assert.ok(tip.includes('Topped-up balance: $10.00'), tip)
+    // The breakdown lives in the harness Tooltip's hover bubble, not a native `title`.
+    assert.equal(pill?.getAttribute('title'), null)
+    await hover(pill)
+    assert.equal(
+      query(m.container, '[role="tooltip"]').textContent,
+      'Total balance: $12.50\nGranted balance: $2.50\nTopped-up balance: $10.00',
+    )
+    await unhover(pill)
+    assert.equal(queryAll(m.container, '[role="tooltip"]').length, 0, 'the bubble drops when the pointer leaves')
     await m.unmount()
   })
 
@@ -76,10 +81,11 @@ describe('BalanceCapsule', () => {
     await flush()
     assert.equal(query(m.container, '.lc-ov-balance-label')?.textContent, 'DeepSeek 余额')
     assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '¥110.00')
-    const tip = query(m.container, '.lc-ov-balance')?.getAttribute('title') ?? ''
-    assert.ok(tip.includes('总余额: ¥110.00'), tip)
-    assert.ok(tip.includes('赠送余额: ¥10.00'), tip)
-    assert.ok(tip.includes('充值余额: ¥100.00'), tip)
+    await hover(query(m.container, '.lc-ov-balance'))
+    assert.equal(
+      query(m.container, '[role="tooltip"]').textContent,
+      '总余额: ¥110.00\n赠送余额: ¥10.00\n充值余额: ¥100.00',
+    )
     await m.unmount()
   })
 
