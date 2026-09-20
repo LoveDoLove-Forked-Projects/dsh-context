@@ -42,7 +42,7 @@ export interface OverviewPanelProps {
   useWorkspaces?: unknown
 }
 
-const RANGES: readonly OverviewRange[] = ['7d', '30d', 'all']
+const RANGES: readonly OverviewRange[] = ['24h', '7d', '30d', 'all']
 const SORTS: readonly OverviewSort[] = ['recent', 'tokens', 'context']
 
 export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: OverviewPanelProps) => ReactElement | null {
