@@ -6,10 +6,11 @@
  * previous open remembered while client/balance.ts revalidates it in the
  * background, and renders NOTHING when nothing is remembered and the route
  * answers nothing — the pill exists only when there is a figure to show. The
- * breakdown (total / topped-up / granted) rides the harness Tooltip
- * primitive — immediate on hover, where a native `title` lags — in the
- * entry's own currency; the entry follows the active locale (zh → CNY) with
- * the account's first currency as the fallback.
+ * non-zero parts of the breakdown (topped-up / granted) ride the harness
+ * Tooltip primitive — immediate on hover, where a native `title` lags — in
+ * the entry's own currency (the pill itself carries the total); the entry
+ * follows the active locale (zh → CNY) with the account's first currency as
+ * the fallback.
  */
 
 import { useState, type ReactElement } from 'react'
@@ -34,24 +35,33 @@ export function makeBalanceCapsule(ctx: ClientCtx, kit: ViewKit): () => ReactEle
   return function BalanceCapsule(): ReactElement | null {
     // The remembered figure seeds the first paint (client/balance.ts) while the
     // background read runs; a landing figure re-renders through the callback.
-    const [balance, setBalance] = useState<PlatformBalance | null>(() => readPlatformBalance(v =>{  setBalance(v); }))
+    const [balance, setBalance] = useState<PlatformBalance | null>(() => readPlatformBalance((v) =>{  setBalance(v) }))
     const locale = ctx.locale
     const active = typeof locale.getLocale === 'function' ? locale.getLocale().active : 'en'
     const entry = balanceEntryOf(balance, active === 'zh' ? 'cny' : 'usd')
     if (entry === null) return null
     const money = (amount: number): string => symbolOf(entry.currency) + amount.toFixed(2)
-    const tip = [
-      t('balance.tip.total') + ': ' + money(entry.total),
-      t('balance.tip.toppedUp') + ': ' + money(entry.toppedUp),
-      t('balance.tip.granted') + ': ' + money(entry.granted),
-    ].join('\n')
-    return (
-      <Tooltip label={tip} side="bottom">
-        <a className="lc-ov-balance" aria-label={tip} href={USAGE_URL} target="_blank" rel="noreferrer">
-          <span className="lc-ov-balance-label">{t('balance.title')}</span>
-          <span className="lc-ov-balance-value">{money(entry.total)}</span>
-        </a>
-      </Tooltip>
+    // The pill itself carries the total; the tooltip lists only the non-zero
+    // parts of the breakdown, and an all-zero account has nothing to break
+    // down — the pill then rides bare.
+    const tipLines = [
+      ...(entry.toppedUp > 0 ? [t('balance.tip.toppedUp') + ': ' + money(entry.toppedUp)] : []),
+      ...(entry.granted > 0 ? [t('balance.tip.granted') + ': ' + money(entry.granted)] : []),
+    ]
+    const pill = (
+      <a
+        className="lc-ov-balance"
+        aria-label={tipLines.length > 0 ? tipLines.join('\n') : undefined}
+        href={USAGE_URL}
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span className="lc-ov-balance-label">{t('balance.title')}</span>
+        <span className="lc-ov-balance-value">{money(entry.total)}</span>
+      </a>
     )
+    return tipLines.length > 0
+      ? <Tooltip label={tipLines.join('\n')} side="bottom">{pill}</Tooltip>
+      : pill
   }
 }

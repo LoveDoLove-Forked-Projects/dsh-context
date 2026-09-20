@@ -2,9 +2,9 @@
 // figure paints at once while a background read revalidates it, nothing
 // remembered (and an absent or failed route) renders nothing, the locale's
 // currency shows with the account's first currency as fallback, and the
-// breakdown (total / topped-up / granted) rides the harness Tooltip's hover
-// bubble. The route read is stubbed per test; memory and storage are reset
-// between tests.
+// non-zero parts of the breakdown (topped-up / granted; the pill itself
+// carries the total) ride the harness Tooltip's hover bubble. The route read
+// is stubbed per test; memory and storage are reset between tests.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -83,16 +83,43 @@ describe('BalanceCapsule', () => {
     assert.equal(query(m.container, '.lc-ov-balance-label')?.textContent, 'DeepSeek balance')
     assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50')
     // The breakdown lives in the harness Tooltip's hover bubble (no native
-    // `title`): the topped-up line leads the granted one.
+    // `title`): the pill already carries the total, so only the non-zero
+    // parts ride the bubble — the topped-up line leads the granted one.
     assert.equal(pill?.getAttribute('title'), null)
     await hover(pill)
     assert.equal(
       query(m.container, '[role="tooltip"]').textContent,
-      'Total balance: $12.50\nTopped-up balance: $10.00\nGranted balance: $2.50',
+      'Topped-up balance: $10.00\nGranted balance: $2.50',
     )
     await unhover(pill)
     assert.equal(queryAll(m.container, '[role="tooltip"]').length, 0, 'the bubble drops when the pointer leaves')
     await m.unmount()
+  })
+
+  test('zero sub-items drop from the tooltip; an all-zero account rides bare', async () => {
+    stubRoute({
+      ok: true,
+      value: { isAvailable: true, balances: [{ currency: 'USD', total: 9, granted: 0, toppedUp: 9 }] },
+    })
+    const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
+    const m = await mount(h(Capsule, {}))
+    await flush()
+    const pill = query(m.container, '.lc-ov-balance')
+    await hover(pill)
+    assert.equal(query(m.container, '[role="tooltip"]').textContent, 'Topped-up balance: $9.00', 'the zero granted line is gone')
+    await m.unmount()
+
+    stubRoute({
+      ok: true,
+      value: { isAvailable: false, balances: [{ currency: 'USD', total: 0, granted: 0, toppedUp: 0 }] },
+    })
+    const bare = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
+    const m2 = await mount(h(bare, {}))
+    await flush()
+    assert.equal(query(m2.container, '.lc-ov-balance-value')?.textContent, '$0.00', 'the pill still shows the figure')
+    await hover(query(m2.container, '.lc-ov-balance'))
+    assert.equal(queryAll(m2.container, '[role="tooltip"]').length, 0, 'nothing to break down — no bubble')
+    await m2.unmount()
   })
 
   test('the zh locale shows CNY with localized breakdown labels', async () => {
@@ -107,7 +134,7 @@ describe('BalanceCapsule', () => {
     await hover(query(m.container, '.lc-ov-balance'))
     assert.equal(
       query(m.container, '[role="tooltip"]').textContent,
-      '总余额: ¥110.00\n充值余额: ¥100.00\n赠送余额: ¥10.00',
+      '充值余额: ¥100.00\n赠送余额: ¥10.00',
     )
     await m.unmount()
   })
