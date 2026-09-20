@@ -1,7 +1,8 @@
 /**
  * BalanceCapsule — the DeepSeek open-platform balance pill in the Context
  * Dashboard's header (the plugin's one account-level figure, beside the
- * session-level ones). Mounted only by the dashboard header; it reads the
+ * session-level ones). Clicking it opens the platform's usage console in a
+ * new tab. Mounted only by the dashboard header; it reads the
  * plugin's balance route once per open through client/balance.ts and renders
  * NOTHING while the read is pending, absent, or failed — the pill exists
  * only when there is a live figure to show. The tooltip carries the
@@ -22,6 +23,9 @@ function symbolOf(currency: string): string {
   if (currency === 'USD') return '$'
   return currency + ' '
 }
+
+/** The platform console page behind the capsule's click — usage and top-ups. */
+const USAGE_URL = 'https://platform.deepseek.com/usage'
 
 export function makeBalanceCapsule(ctx: ClientCtx, kit: ViewKit): () => ReactElement | null {
   const { t } = kit
@@ -45,10 +49,10 @@ export function makeBalanceCapsule(ctx: ClientCtx, kit: ViewKit): () => ReactEle
       t('balance.tip.toppedUp') + ': ' + money(entry.toppedUp),
     ].join('\n')
     return (
-      <span className="lc-ov-balance" title={tip}>
+      <a className="lc-ov-balance" title={tip} href={USAGE_URL} target="_blank" rel="noreferrer">
         <span className="lc-ov-balance-label">{t('balance.title')}</span>
         <span className="lc-ov-balance-value">{money(entry.total)}</span>
-      </span>
+      </a>
     )
   }
 }

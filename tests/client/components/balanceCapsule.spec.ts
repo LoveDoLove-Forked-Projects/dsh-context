@@ -53,9 +53,14 @@ describe('BalanceCapsule', () => {
     const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
     const m = await mount(h(Capsule, {}))
     await flush()
+    const pill = query(m.container, '.lc-ov-balance')
+    assert.equal(pill?.tagName, 'A')
+    assert.equal(pill?.getAttribute('href'), 'https://platform.deepseek.com/usage')
+    assert.equal(pill?.getAttribute('target'), '_blank')
+    assert.equal(pill?.getAttribute('rel'), 'noreferrer')
     assert.equal(query(m.container, '.lc-ov-balance-label')?.textContent, 'DeepSeek balance')
     assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50')
-    const tip = query(m.container, '.lc-ov-balance')?.getAttribute('title') ?? ''
+    const tip = pill?.getAttribute('title') ?? ''
     assert.ok(tip.includes('Total balance: $12.50'), tip)
     assert.ok(tip.includes('Granted balance: $2.50'), tip)
     assert.ok(tip.includes('Topped-up balance: $10.00'), tip)
