@@ -16,7 +16,7 @@
  */
 
 /** The supported dsh tags, in lockstep with the BASELINES entries below. */
-export type BaselineId = 'v0.1.2-rc.1' | 'v0.1.3-alpha.2' | 'v0.1.5-rc.1' | 'v0.1.7-alpha.1'
+export type BaselineId = 'v0.1.2-rc.1' | 'v0.1.3-alpha.2' | 'v0.1.5-rc.1' | 'v0.1.7-alpha.2'
 
 /** The harness web half's client faces, as far as the compat probes consume them. */
 export interface ClientSeam {
@@ -303,10 +303,10 @@ export const BASELINES: readonly Baseline[] = [
     // the Plugins page's keyed `plugins.bundle.config` slot there, keeping the
     // old registration for the V0–V3 lines (each slot exists on exactly one
     // side, so the deferred injects pick their generation and never pend).
-    id: 'v0.1.7-alpha.1',
-    tag: 'dsh-v0.1.7-alpha.1',
-    cordis: '4.0.3',
-    session: '0.1.7-alpha.1',
+    id: 'v0.1.7-alpha.2',
+    tag: 'dsh-v0.1.7-alpha.2',
+    cordis: '4.0.4',
+    session: '0.1.7-alpha.2',
     foldEventTypes: [
       'request/header', 'request/context', 'step/start', 'step/end',
       'user/message', 'tool/call', 'tool/result', 'assistant/message', 'assistant/attempt',

@@ -2,7 +2,7 @@
 
 dsh-context declares per-release compatibility with `@deepseek-ai/dsh` in its package manifest (`dsh.compatibility.dshReleases`). This page records what is actually verified for each declared release, and how.
 
-Last verified: **2026-09-22** (plugin `dsh-context@0.54.3` source tree, dsh `0.1.7-alpha.1`).
+Last verified: **2026-09-22** (plugin `dsh-context@0.54.4` source tree, dsh `0.1.7-alpha.2`).
 
 ## Supported dsh releases
 
@@ -11,7 +11,7 @@ Last verified: **2026-09-22** (plugin `dsh-context@0.54.3` source tree, dsh `0.1
 | `0.1.2-rc.1` | V0 | compatible | ✅ baseline `v0.1.2-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-05) |
 | `0.1.3-alpha.2` | V2 | compatible | ✅ baseline `v0.1.3-alpha.2` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-09) |
 | `0.1.5-rc.1` | V3 | compatible | ✅ baseline `v0.1.5-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-10) |
-| `0.1.7-alpha.1` | V4 | compatible | ✅ baseline `v0.1.7-alpha.1` | — (not yet performed manually) |
+| `0.1.7-alpha.2` | V4 | compatible | ✅ baseline `v0.1.7-alpha.2` | — (not yet performed manually) |
 
 The automated seam matrix runs for every row on every `pnpm test`. The disposable-profile column is a manual, per-release check: each release's CLI was installed from npm into a temporary `DSH_HOME` (the real `~/.dsh` is never touched) — `0.1.2-rc.1` on 2026-09-05, `0.1.3-alpha.2` on 2026-09-09, and `0.1.5-rc.1` on 2026-09-10, against the official npm registry (a stale mirror can 404 the harness's own dependency closure before the plugin is even considered).
 
