@@ -97,8 +97,20 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
       assert.equal(report.poisonedSnapshotThrows, true)
     })
 
-    test('settings: the tag\'s namespace enforcement accepts the plugin literal', () => {
-      const pattern = staging.namespacePatternOf(baseline)
+    test('settings: the tag\'s namespace surface matches the plugin\'s feature-detected faces', () => {
+      const settings = baseline.settings
+      // The register face the host half calls (and feature-detects): present
+      // through V3, gone on the V4+ Config-form generations.
+      assert.equal(
+        staging.dshHasString(baseline.tag, 'register(', settings.serviceFile),
+        settings.register,
+        'the settings service register face',
+      )
+      // Where the generation enforces a namespace pattern it must accept the
+      // plugin literal; where it does not (the pattern source is gone), the
+      // register probe above already pins the plugin's inert path.
+      if (settings.patternFile === undefined) return
+      const pattern = staging.namespacePatternOf(baseline, settings.patternFile)
       assert.ok(pattern !== null, 'the tag source carries NAMESPACE_PATTERN')
       assert.equal(pattern.test('dsh-context'), true)
     })
@@ -109,9 +121,24 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
       })
     }
 
-    test('client: the app frame carries the inline sidebar track (modal dock seam, dockMeasure.ts)', () => {
+    test('client: the plugin settings slot matches the generation (retired on V4+)', () => {
+      // The keyed slot the browser half's preferences card registers on:
+      // declared by the Settings Plugins section through V3, retired by the
+      // Plugins-page move on V4+. Asserted BOTH ways (like the sidebar seam)
+      // so a moved seam cannot read as "unsupported here" — on a V4+ line the
+      // card simply never registers (its settingsScope service is gone too).
       assert.equal(
-        staging.dshHasString(baseline.tag, '${cols.sidebar}px minmax(0, 1fr)', 'packages/client/ui-layout/src/client/AppFrame.tsx'),
+        staging.dshHasString(baseline.tag, 'settings.plugin.item', 'packages/client/ui-settings-plugins/src/**'),
+        baseline.settings.register,
+      )
+    })
+
+    test('client: the app frame carries the inline sidebar-leading grid track (modal dock seam, dockMeasure.ts)', () => {
+      // dockMeasure reads the LEADING `Npx` track off the frame's inline
+      // gridTemplateColumns; `px minmax(` pins a sidebar-first multi-track
+      // template without pinning the newer generations' center/right spellings.
+      assert.equal(
+        staging.dshHasString(baseline.tag, 'px minmax(', 'packages/client/ui-layout/src/client/AppFrame.tsx'),
         true,
       )
     })
@@ -161,6 +188,14 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
 
     test('client: MarkdownText chrome prop', () => {
       assert.equal(staging.dshHasString(baseline.tag, baseline.client.markdownChrome, 'packages/client/ui-primitives/src/markdown/MarkdownText.tsx'), true)
+    })
+
+    test('client: the icon seams resolve on this generation (primitives.ts)', () => {
+      for (const [modern, legacy] of staging.ICON_SEAMS) {
+        const present = staging.dshHasString(baseline.tag, modern, 'packages/client/ui-primitives/src/**')
+          || staging.dshHasString(baseline.tag, legacy, 'packages/client/ui-primitives/src/**')
+        assert.equal(present, true, `icon seam: ${modern} | ${legacy}`)
+      }
     })
 
     test('host: the fold\'s event vocabulary for this generation exists in the durable log', async () => {

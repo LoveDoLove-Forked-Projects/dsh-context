@@ -2,7 +2,7 @@
 
 dsh-context declares per-release compatibility with `@deepseek-ai/dsh` in its package manifest (`dsh.compatibility.dshReleases`). This page records what is actually verified for each declared release, and how.
 
-Last verified: **2026-09-10** (plugin `dsh-context@0.48.0` source tree).
+Last verified: **2026-09-22** (plugin `dsh-context@0.54.3` source tree, dsh `0.1.7-alpha.1`).
 
 ## Supported dsh releases
 
@@ -11,6 +11,7 @@ Last verified: **2026-09-10** (plugin `dsh-context@0.48.0` source tree).
 | `0.1.2-rc.1` | V0 | compatible | ✅ baseline `v0.1.2-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-05) |
 | `0.1.3-alpha.2` | V2 | compatible | ✅ baseline `v0.1.3-alpha.2` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-09) |
 | `0.1.5-rc.1` | V3 | compatible | ✅ baseline `v0.1.5-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-10) |
+| `0.1.7-alpha.1` | V4 | compatible | ✅ baseline `v0.1.7-alpha.1` | — (not yet performed manually) |
 
 The automated seam matrix runs for every row on every `pnpm test`. The disposable-profile column is a manual, per-release check: each release's CLI was installed from npm into a temporary `DSH_HOME` (the real `~/.dsh` is never touched) — `0.1.2-rc.1` on 2026-09-05, `0.1.3-alpha.2` on 2026-09-09, and `0.1.5-rc.1` on 2026-09-10, against the official npm registry (a stale mirror can 404 the harness's own dependency closure before the plugin is even considered).
 
@@ -28,16 +29,25 @@ The mirror reflects whichever installation last booted a CLI profile, which need
 
 ## Session-log generations
 
-The supported range spans three durable-log generations, and the plugin folds all of them from one shape-driven code path (`src/host/logShapes.ts`):
+The supported range spans four durable-log generations, and the plugin folds all of them from one shape-driven code path (`src/host/logShapes.ts`):
 
-| Seam | V0 (`0.1.2-rc.x`) | V2 (`0.1.3-alpha.x`) | V3 (`0.1.5-alpha.x+`) |
-| --- | --- | --- | --- |
-| System prompt | `request/header.header.system` | same as V0 | `system/message` surface node |
-| First token | `assistant/chunk` events | embedded `assistant/message.data.stream` (also `assistant/attempt.data.stream`) | same as V2 |
-| Replacement endpoints | `{ start, end }` | same as V0 | `{ startSeq, endSeq }` |
-| Nested PTC dispatch | `tool/code-dispatch` | same as V0 | `tool/ptc-dispatch` |
+| Seam | V0 (`0.1.2-rc.x`) | V2 (`0.1.3-alpha.x`) | V3 (`0.1.5-alpha.x+`) | V4 (`0.1.6/0.1.7+`) |
+| --- | --- | --- | --- | --- |
+| System prompt | `request/header.header.system` | same as V0 | `system/message` surface node | same as V3 |
+| First token | `assistant/chunk` events | embedded `assistant/message.data.stream` (also `assistant/attempt.data.stream`) | same as V2 | same as V2 |
+| Replacement endpoints | `{ start, end }` | same as V0 | `{ startSeq, endSeq }` | same as V3 |
+| Nested PTC dispatch | `tool/code-dispatch` | same as V0 | `tool/ptc-dispatch` | same as V3 |
+| Tool result | `tool-result` wrapper block, `role: 'user'` | same as V0 | same as V0 | `role: 'tool'`, lifted `message.toolCallId`/`message.isError`, direct content (no wrapper block) |
+
+V4 also adds durable event families the fold does not switch on: `developer/message` (a surface message type with no first-party producer yet), `workspace/changes` (a deliverables log record), and `image/offload` (the compaction image-offload decision, whose message rewrites ride the harness's message-projection layer). Unknown event types return the fold state unchanged, so these are inert; the one known delta is below.
 
 The fold never branches on a detected harness version: a log carries exactly one generation, and the spellings are mutually exclusive. The version probe is best-effort — it reports the module tree the embedding shell resolves plugin imports to, which a packaged client may redirect — so it decides which units register and nothing more.
+
+### Known V4 deltas
+
+- **Tool-result error mark**: V4 made the event-level `data.error` identity optional while lifting `isError` onto the message, so the fold reads the flag from BOTH spellings (`src/host/fold.ts`); a V4 result carrying only `message.isError` still flags its surface node and file-op row.
+- **Image offload accounting (deferred)**: when a route rejects with `IMAGE_OFFLOAD_REQUIRED`, the harness offloads images out of the context through a message projection. The plugin's fold reads raw durable events, so an offloaded message keeps its pre-offload image count and price until compaction removes it — an over-count on a rare recovery path, not a crash. Revisit alongside the harness's own token-meter treatment if it shows up in practice.
+- **User preferences (deferred)**: the V4 line retired the `settings.register` host face and the `settings.plugin.item` browser slot — plugin configuration moved to the Plugins page, derived from each loader entry's own Config schema. The plugin feature-detects the register face (inert on V4+) and its preferences fall back to the schema defaults there; migrating the preferences onto the Config-schema surface (schemastery `volatile` fields + the Plugins page's `plugins.bundle.config` slot + the client `configForms` binding) is the planned follow-up.
 
 ## Web client seams
 

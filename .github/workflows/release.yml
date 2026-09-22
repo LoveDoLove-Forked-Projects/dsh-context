@@ -56,7 +56,8 @@ jobs:
           git fetch --depth 1 -q origin \
             refs/tags/dsh-v0.1.2-rc.1:refs/tags/dsh-v0.1.2-rc.1 \
             refs/tags/dsh-v0.1.3-alpha.2:refs/tags/dsh-v0.1.3-alpha.2 \
-            refs/tags/dsh-v0.1.5-rc.1:refs/tags/dsh-v0.1.5-rc.1
+            refs/tags/dsh-v0.1.5-rc.1:refs/tags/dsh-v0.1.5-rc.1 \
+            refs/tags/dsh-v0.1.7-alpha.1:refs/tags/dsh-v0.1.7-alpha.1
 
       - name: Test
         run: DSH_REPO="$PWD/.tmp/dsh-repo" pnpm test
