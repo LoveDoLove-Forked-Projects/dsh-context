@@ -67,7 +67,7 @@ describe('the file-op log — call/result pairing', () => {
     assert.equal(state.callNames.c1, undefined, 'the pending entry consumed at the result')
   })
 
-  test('the error flag reads the envelope error object or the block isError', () => {
+  test('the error flag reads the envelope error object, the block isError, or the V4 message isError', () => {
     const { state } = driveTimeline([
       toolCall(1, { callId: 'c1', name: 'read', arguments: JSON.stringify({ file_path: 'a.ts' }) }),
       toolResult(2, { callId: 'c1', content: [{ type: 'text', text: 'no' }], error: true }),
@@ -80,8 +80,11 @@ describe('the file-op log — call/result pairing', () => {
           message: { content: [{ type: 'tool-result', toolCallId: 'c2', isError: true, content: [] }], source: { kind: 'tool', callId: 'c2' } },
         },
       } as unknown as TimelineEvent,
+      toolCall(5, { callId: 'c3', name: 'read', arguments: JSON.stringify({ file_path: 'c.ts' }) }),
+      // The V4 spelling: the mark lifted onto the message, no envelope error.
+      toolResult(6, { callId: 'c3', content: [{ type: 'text', text: 'v4' }], error: true, v4: true }),
     ])
-    assert.deepEqual(state.fileOps.map(o => o.err), [true, true])
+    assert.deepEqual(state.fileOps.map(o => o.err), [true, true, true])
   })
 
   test('a call whose raw arguments are not a string still pairs by name (ops degrade to nothing)', () => {

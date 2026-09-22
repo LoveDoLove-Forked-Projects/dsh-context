@@ -437,6 +437,13 @@ interface MessageLike {
   content?: ContentBlock[]
   source?: MessageSource
   error?: boolean
+  /**
+   * The V4 tool-result error mark (`tool/result.message.isError`): V3 carried
+   * it inside the `tool-result` content wrapper block, V4 lifted it onto the
+   * message and made the event-level `data.error` identity optional — so the
+   * flag is read from BOTH spellings.
+   */
+  isError?: unknown
 }
 
 /**
@@ -551,7 +558,7 @@ function applySurface(
       }
       st.callNames = kept
     }
-    if (data?.error) node.err = true
+    if (data?.error || message?.isError === true) node.err = true
   } else if (source?.kind === 'skill-invocation') {
     node.skill = typeof source.name === 'string' ? source.name : '?'
   } else if (source?.kind === 'plugin') {
@@ -1103,7 +1110,7 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
             tool: pendingEntry.name,
             argsRaw: pendingEntry.argsRaw,
             meta: data?.meta,
-            err: Boolean(data?.error) || firstBlock?.isError === true,
+            err: Boolean(data?.error) || toolMsg?.isError === true || firstBlock?.isError === true,
           })
           pushFileOps(s, ops)
         }
