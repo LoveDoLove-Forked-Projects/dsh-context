@@ -9,7 +9,8 @@
 */
 
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDown } from '../primitives'
 import { consumeCardExpand } from '../settingsJump'
 import type { SettingsField, SettingsState } from '../settings'
 import type { ViewKit } from '../viewkit'
@@ -51,7 +52,7 @@ function PrefRow(props: PrefRowProps): ReactElement {
             onClick={() => { setOpen(v => !v) }}
           >
             {active}
-            <IconChevronDownOutline14 />
+            <IconChevronDown />
           </button>
         )}
       />
@@ -89,7 +90,7 @@ export function makeSettingsCard(kit: ViewKit): (props: SettingsCardProps) => Re
             <span className="lc-settings-name">{t('settings.title')}</span>
             <span className="lc-settings-desc">{t('settings.desc')}</span>
           </span>
-          <IconChevronDownOutline14 className="lc-settings-chevron" />
+          <IconChevronDown className="lc-settings-chevron" />
         </button>
         {open
           ? (
