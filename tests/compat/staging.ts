@@ -262,9 +262,11 @@ export function bundleRequires(): string[] {
 
 /**
  * The slot registrations the client half mounts on EVERY baseline (identical
- * spellings in each generation's sources). The settings card slot is asserted
- * separately, per generation — the matrix spec pins it to the baseline's
- * `settings.register` face (retired on V4+).
+ * spellings in each generation's sources). The preferences card seat and the
+ * settings transport are asserted separately, per generation — the matrix
+ * spec pins them to the baseline's `settings` seam (`settings.plugin.item` +
+ * `settingsScope` through V3, the Plugins page's `plugins.bundle.config` +
+ * `configForms` from the Config-form generation on).
  */
 export const SLOT_SEAMS = [
   'conversation.view',

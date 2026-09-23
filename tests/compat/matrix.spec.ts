@@ -121,15 +121,24 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
       })
     }
 
-    test('client: the plugin settings slot matches the generation (retired on V4+)', () => {
-      // The keyed slot the browser half's preferences card registers on:
-      // declared by the Settings Plugins section through V3, retired by the
-      // Plugins-page move on V4+. Asserted BOTH ways (like the sidebar seam)
-      // so a moved seam cannot read as "unsupported here" — on a V4+ line the
-      // card simply never registers (its settingsScope service is gone too).
+    test('client: the preferences card seat and transport match the generation', () => {
+      // The keyed slot the browser half's card registers on and the settings
+      // transport it rides: `settings.plugin.item` + `settingsScope` through
+      // V3, the Plugins page's `plugins.bundle.config` + `configForms` from
+      // the Config-form generation on. Asserted BOTH ways (like the sidebar
+      // seam) so a moved seam cannot read as "unsupported here" — a slot the
+      // generation does not declare simply never receives the registration.
+      const settings = baseline.settings
       assert.equal(
-        staging.dshHasString(baseline.tag, 'settings.plugin.item', 'packages/client/ui-settings-plugins/src/**'),
-        baseline.settings.register,
+        settings.cardSlotFiles.some(pattern =>
+          staging.dshHasString(baseline.tag, `'${settings.cardSlot}'`, pattern)),
+        true,
+        `the card slot "${settings.cardSlot}" is declared on this generation`,
+      )
+      assert.equal(
+        staging.dshHasString(baseline.tag, `'${settings.transport}'`, settings.transportFile),
+        settings.transportPresent,
+        `the settings transport "${settings.transport}"`,
       )
     })
 

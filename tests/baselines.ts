@@ -128,9 +128,12 @@ export interface Baseline {
    * The tag's settings-namespace surface. Through V3 the settings service
    * carries the `register(ns, schema)` face the plugin's host half calls
    * (feature-detected), optionally behind a namespace pattern that must
-   * accept the plugin literal. V4+ derives configuration forms from each
-   * loader entry's own Config schema instead — the register face is gone and
-   * the plugin must stay inert there.
+   * accept the plugin literal, the browser half binds the `settingsScope`
+   * service and registers its card on the `settings.plugin.item` slot. V4+
+   * derives configuration forms from each loader entry's own Config schema —
+   * the register face is gone (the plugin stays inert there) and the browser
+   * half rides the `configForms` service and the Plugins page's keyed
+   * `plugins.bundle.config` seat instead.
    */
   settings: {
     /** The settings service source carrying (or missing) the register face. */
@@ -139,6 +142,15 @@ export interface Baseline {
     register: boolean
     /** The NAMESPACE_PATTERN source, where the generation enforces one. */
     patternFile?: string
+    /** The browser slot the preferences card registers on this generation. */
+    cardSlot: string
+    /** The sources declaring (or missing) the card slot. */
+    cardSlotFiles: readonly string[]
+    /** The browser settings-transport service this generation composes. */
+    transport: 'settingsScope' | 'configForms'
+    /** The transport's declaring source, plus whether it exists. */
+    transportFile: string
+    transportPresent: boolean
   }
 }
 
@@ -177,6 +189,11 @@ export const BASELINES: readonly Baseline[] = [
       serviceFile: 'packages/settings/settings/src/index.ts',
       register: true,
       patternFile: 'packages/settings/settings/src/index.ts',
+      cardSlot: 'settings.plugin.item',
+      cardSlotFiles: ['packages/client/ui-settings-plugins/src/**'],
+      transport: 'settingsScope',
+      transportFile: 'packages/client/ui-settings/src/client/settings-scope.ts',
+      transportPresent: true,
     },
     stepGuard: {
       loopFile: 'packages/core/agent-loop/src/agent.ts',
@@ -221,6 +238,11 @@ export const BASELINES: readonly Baseline[] = [
       serviceFile: 'packages/settings/settings/src/index.ts',
       register: true,
       patternFile: 'packages/settings/settings/src/index.ts',
+      cardSlot: 'settings.plugin.item',
+      cardSlotFiles: ['packages/client/ui-settings-plugins/src/**'],
+      transport: 'settingsScope',
+      transportFile: 'packages/client/ui-settings/src/client/settings-scope.ts',
+      transportPresent: true,
     },
     stepGuard: {
       loopFile: 'packages/core/agent-loop/src/agent.ts',
@@ -289,6 +311,11 @@ export const BASELINES: readonly Baseline[] = [
       serviceFile: 'packages/settings/settings/src/index.ts',
       register: true,
       patternFile: 'packages/settings/settings/src/index.ts',
+      cardSlot: 'settings.plugin.item',
+      cardSlotFiles: ['packages/client/ui-settings-plugins/src/**'],
+      transport: 'settingsScope',
+      transportFile: 'packages/client/ui-settings/src/client/settings-scope.ts',
+      transportPresent: true,
     },
     stepGuard: {
       loopFile: 'packages/core/agent-loop/src/agent.ts',
@@ -355,6 +382,11 @@ export const BASELINES: readonly Baseline[] = [
     settings: {
       serviceFile: 'packages/settings/settings/src/index.ts',
       register: false,
+      cardSlot: 'plugins.bundle.config',
+      cardSlotFiles: ['packages/client/ui-plugin-manager/src/**'],
+      transport: 'configForms',
+      transportFile: 'packages/client/ui-settings/src/client/config-form.ts',
+      transportPresent: true,
     },
     stepGuard: {
       loopFile: 'packages/core/agent-loop/src/agent.ts',
