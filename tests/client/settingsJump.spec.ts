@@ -172,3 +172,53 @@ describe('openPluginSettings', () => {
     assert.equal(consumeCardExpand(1000 + 5000), false, 'stale past the window')
   })
 })
+
+describe('openPluginSettings: the Config-form generation (Plugins main panel)', () => {
+  afterEach(() => {
+    document.body.textContent = ''
+    consumeCardExpand()
+  })
+
+  /** A sidebar-style Plugins panel entry (shipped aria-label). */
+  function panelEntry(doc: Document, label: string): HTMLButtonElement {
+    const b = doc.createElement('button')
+    b.setAttribute('aria-label', label)
+    doc.body.appendChild(b)
+    return b
+  }
+
+  test('clicks the Plugins panel entry and skips the settings-dialog choreography', () => {
+    const panel = panelEntry(document, '插件')
+    const pClicks = clicks(panel)
+    const t = trigger(document, 'false')
+    const tClicks = clicks(t)
+    const { runs, schedule } = syncSchedule()
+
+    openPluginSettings(document, schedule)
+
+    assert.equal(pClicks.count(), 1, 'the panel entry is the whole jump on this chrome')
+    assert.equal(tClicks.count(), 0, 'no settings-dialog legs')
+    assert.equal(runs.length, 0)
+    assert.equal(consumeCardExpand(), false, 'no expand request: the Plugins-page card has no disclosure')
+  })
+
+  test('the en-labeled panel entry matches too', () => {
+    const panel = panelEntry(document, 'Plugins')
+    const pClicks = clicks(panel)
+
+    openPluginSettings(document, syncSchedule().schedule)
+
+    assert.equal(pClicks.count(), 1)
+  })
+
+  test('lookalike aria-labels are ignored (exact match only)', () => {
+    const lookalike = panelEntry(document, 'My Plugins')
+    const lClicks = clicks(lookalike)
+    const { runs, schedule } = syncSchedule()
+
+    openPluginSettings(document, schedule)
+
+    assert.equal(lClicks.count(), 0)
+    assert.equal(runs.length, 0, 'no dialog trigger either: silent no-op')
+  })
+})

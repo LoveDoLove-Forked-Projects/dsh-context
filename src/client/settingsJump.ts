@@ -1,16 +1,21 @@
 /**
- * Best-effort jump to this plugin's settings page (Settings → Plugins →
- * Plugin configuration). The harness settings panel keeps its open state
- * inside the shell component — no plugin-facing open face exists — so the
- * jump drives the real chrome: click the sidebar's settings trigger, then
- * the Plugins section nav row, both found by their shipped attributes and
- * labels. EVERY step is individually guarded: a shell that doesn't match
- * (older host, different layout, missing sidebar) degrades the whole jump
- * to a silent no-op — this path must never throw into the caller's render.
- *
+ * Best-effort jump to this plugin's preferences. Two generations of chrome:
+ *   - dsh 0.1.7+ (Config-form generation): the preferences live on the
+ *     bundle's page of the Plugins main panel — the jump clicks the panel's
+ *     sidebar entry, found by its shipped aria-label. The page's internal
+ *     view state has no external face, so landing on the Plugins card list
+ *     (one click from the bundle's page) is the best a jump can do.
+ *   - older lines: Settings → Plugins → Plugin configuration — the settings
+ *     panel keeps its open state inside the shell component (no plugin-facing
+ *     open face exists), so the jump drives the real chrome: click the
+ *     sidebar's settings trigger, then the Plugins section nav row, both
+ *     found by their shipped attributes and labels.
  * The last leg — the card itself — is ours: the module also carries a
- * short-lived in-bundle expand request that the plugin's settings card
- * consumes on mount, so the jump lands on the configuration already open.
+ * short-lived in-bundle expand request that the settings-section card
+ * consumes on mount, so that jump lands on the configuration already open.
+ * EVERY step is individually guarded: a shell that doesn't match (different
+ * layout, missing sidebar) degrades the whole jump to a silent no-op — this
+ * path must never throw into the caller's render.
  */
 
 let requestedAt = 0
@@ -27,12 +32,20 @@ export function consumeCardExpand(now: number = Date.now(), maxAgeMs = 5000): bo
   return fresh
 }
 
-/** The Plugins settings section's shipped nav labels (en/zh locales). */
-const SECTION_LABELS = new Set(['Plugins', '插件'])
+/**
+ * The shipped Plugins label in both locales — the main-panel entry's
+ * aria-label and the settings section's nav row text are the same word.
+ */
+const PLUGIN_LABELS = new Set(['Plugins', '插件'])
 
 /** Buttons the jump may operate on, in document order. */
 function buttonsOf(doc: Document): HTMLButtonElement[] {
   return [...doc.querySelectorAll<HTMLButtonElement>('button')]
+}
+
+/** The Plugins main-panel entry, matched by its shipped aria-label. */
+function findPanelEntry(doc: Document): HTMLButtonElement | undefined {
+  return buttonsOf(doc).find(b => PLUGIN_LABELS.has(b.getAttribute('aria-label') ?? ''))
 }
 
 /** The sidebar's settings triggers: dialog semantics plus an expanded flag. */
@@ -41,9 +54,9 @@ function findTriggers(doc: Document): HTMLButtonElement[] {
     .filter(b => b.getAttribute('aria-haspopup') === 'dialog' && b.hasAttribute('aria-expanded'))
 }
 
-/** The Plugins section's nav row, matched by its shipped label. */
+/** The Plugins section's nav row, matched by its shipped label text. */
 function findSectionRow(doc: Document): HTMLButtonElement | undefined {
-  return buttonsOf(doc).find(b => SECTION_LABELS.has(b.textContent.trim()))
+  return buttonsOf(doc).find(b => PLUGIN_LABELS.has(b.textContent.trim()))
 }
 
 export function openPluginSettings(
@@ -51,6 +64,13 @@ export function openPluginSettings(
   schedule: (run: () => void, ms: number) => void = (run, ms) => { window.setTimeout(run, ms) },
 ): void {
   try {
+    // Config-form generation first: the panel entry is one click and every
+    // locale ships it; a match ends the jump with no follow-up legs to guard.
+    const panel = findPanelEntry(doc)
+    if (panel !== undefined) {
+      panel.click()
+      return
+    }
     const triggers = findTriggers(doc)
     const open = triggers.find(b => b.getAttribute('aria-expanded') === 'true')
     // No dialog trigger at all: this shell has no settings panel — no-op.
