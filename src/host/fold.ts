@@ -34,8 +34,8 @@ import {
 } from './pricing'
 import type { ContentBlock, MessageSource } from './pricing'
 import { deriveEventMessage } from '@deepseek-ai/dsh-session'
-import { decodeKindOfBlock, decodeSpansOfStream, firstTokenTimeOfStream, isTokenChunk, replaceRangeOf } from './logShapes'
-import type { DecodeKind } from './logShapes'
+import { decodeKindOfBlock, decodeTallyOfStream, firstTokenTimeOfStream, isTokenChunk, replaceRangeOf } from './logShapes'
+import type { DecodeCounts, DecodeKind } from './logShapes'
 import { opBearingTool, opsOfCall, parseCallArgs, rawArgsNeeded } from '../shared/fileOps'
 
 /**
@@ -178,13 +178,21 @@ export interface TimelineState {
    * durations, never to unbounded state. Same arm/remove lifecycle as
    * `pendingShadowedSeqs`.
    *
-   * `decode` and `block` carry the generation split (reasoning / answer text /
-   * tool arguments — see TimingTotals): a V0 log's `assistant/chunk`
-   * `block-start` markers open `block` and close the previous one into
-   * `decode`; a V2+ log carries no such events, so `decode` stays absent and
-   * `assistant/message` reads the spans off its embedded stream instead.
+   * `decode`, `blocks` and `block` carry the generation split (reasoning /
+   * answer text / tool arguments — see TimingTotals): a V0 log's
+   * `assistant/chunk` `block-start` markers open `block`, close the previous
+   * one into `decode`, and count the opened bucket into `blocks` (the card's
+   * per-slice tally); a V2+ log carries no such events, so `decode` stays
+   * absent and `assistant/message` reads the spans and counts off its embedded
+   * stream instead.
    */
-  stepStart?: { time: number; firstToken?: number; decode?: Record<DecodeKind, number>; block?: { kind: DecodeKind; since: number } }
+  stepStart?: {
+    time: number
+    firstToken?: number
+    decode?: Record<DecodeKind, number>
+    blocks?: DecodeCounts
+    block?: { kind: DecodeKind; since: number }
+  }
   /**
    * Tool callId → the call's name, start instant, and raw arguments, armed by
    * `tool/call` and DELETED when its `tool/result` folds in (one result per
@@ -773,17 +781,24 @@ function ensureTiming(st: TimelineState): TimingTotals {
   return st.timing
 }
 
+/** The TimingTotals fields each decode bucket's span and count land in. */
+const DECODE_FIELDS: Record<DecodeKind, { ms: 'reasoningMs' | 'textMs' | 'toolArgMs'; n: 'reasoningBlocks' | 'textBlocks' | 'toolArgBlocks' }> = {
+  reasoning: { ms: 'reasoningMs', n: 'reasoningBlocks' },
+  text: { ms: 'textMs', n: 'textBlocks' },
+  toolarg: { ms: 'toolArgMs', n: 'toolArgBlocks' },
+}
+
 /**
- * Fold one block's decode span into the totals' generation split (see
- * TimingTotals). A zero span stays ABSENT — the field then carries the
- * "no time was decoded in this bucket" fact without adding dead properties to
- * every pre-split-shaped state, and the card reads absence as 0.
+ * Fold one block's decode span and count into the totals' generation split
+ * (see TimingTotals). A zero span or count stays ABSENT — the field then
+ * carries the "nothing was decoded/counted in this bucket" fact without adding
+ * dead properties to every pre-split-shaped state, and the card reads absence
+ * as 0.
  */
-function addDecode(timing: TimingTotals, kind: DecodeKind, ms: number): void {
-  if (!(ms > 0)) return
-  if (kind === 'reasoning') timing.reasoningMs = (timing.reasoningMs ?? 0) + ms
-  else if (kind === 'text') timing.textMs = (timing.textMs ?? 0) + ms
-  else timing.toolArgMs = (timing.toolArgMs ?? 0) + ms
+function addDecode(timing: TimingTotals, kind: DecodeKind, ms: number, blocks: number): void {
+  const field = DECODE_FIELDS[kind]
+  if (ms > 0) timing[field.ms] = (timing[field.ms] ?? 0) + ms
+  if (blocks > 0) timing[field.n] = (timing[field.n] ?? 0) + blocks
 }
 
 /**
@@ -1026,12 +1041,17 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
           const s = ensure([])
           const decode = { ...(start.decode ?? { reasoning: 0, text: 0, toolarg: 0 }) }
           if (start.block !== undefined) decode[start.block.kind] += durOf(start.block.since, event.time)
+          // A known-kind marker is one counted decode block (the card's
+          // per-slice tally); the unknown one counted nothing.
+          const blocks = { ...(start.blocks ?? { reasoning: 0, text: 0, toolarg: 0 }) }
+          if (kind !== undefined) blocks[kind] += 1
           // The next block is ABSENT (not undefined-valued) when unknown — the
           // plain-JSON persisted-state precondition (see TimelineState).
           s.stepStart = {
             time: start.time,
             ...(start.firstToken !== undefined ? { firstToken: start.firstToken } : {}),
             decode,
+            blocks,
             ...(kind !== undefined ? { block: { kind, since: event.time } } : {}),
           }
           break
@@ -1294,11 +1314,11 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
               timing.speedTokens = (timing.speedTokens ?? 0) + output
             }
             // Generation split: a V0 log's chunk stream accumulated the block
-            // spans in the slot (its last block closes HERE, at the message);
-            // a V2+ log has no chunk events, so the spans come off the embedded
-            // stream. Either way the three buckets tile the generation window
-            // and only the settlement tail stays unattributed. The split is
-            // priced ONLY when the window was: an unstamped call's model time
+            // spans and counts in the slot (its last block closes HERE, at the
+            // message); a V2+ log has no chunk events, so both come off the
+            // embedded stream. Either way the three buckets tile the generation
+            // window and only the settlement tail stays unattributed. The split
+            // is priced ONLY when the window was: an unstamped call's model time
             // is unattributed wholesale, so its spans must not reappear as
             // generation time the caller never charged.
             if (stepStart.decode !== undefined) {
@@ -1306,10 +1326,10 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
               if (stepStart.block !== undefined) {
                 decode[stepStart.block.kind] += durOf(stepStart.block.since, event.time)
               }
-              for (const kind of DECODE_KINDS) addDecode(timing, kind, decode[kind])
+              for (const kind of DECODE_KINDS) addDecode(timing, kind, decode[kind], stepStart.blocks?.[kind] ?? 0)
             } else {
-              const spans = decodeSpansOfStream(data?.stream, event.time)
-              for (const kind of DECODE_KINDS) addDecode(timing, kind, spans[kind])
+              const tally = decodeTallyOfStream(data?.stream, event.time)
+              for (const kind of DECODE_KINDS) addDecode(timing, kind, tally.spans[kind], tally.blocks[kind])
             }
           }
         }
