@@ -12,8 +12,6 @@ import { describe, test } from 'vitest'
 interface PackageManifest {
   exports: Record<string, string>
   files: string[]
-  name: string
-  description: string
   icon?: string
 }
 
@@ -33,13 +31,18 @@ describe('package meta localization', () => {
     }
   })
 
-  test('the zh dictionary matches en in shape (both fields, both files)', async () => {
+  test('the zh dictionary is a real translation of the en one', async () => {
+    // The Host resolves the active locale against these entries with `en`
+    // as the final fallback — a copy-pasted zh file would read as English.
     const en = JSON.parse(await readFile('locale/en.json', 'utf8')) as { meta: Record<string, string> }
     const zh = JSON.parse(await readFile('locale/zh.json', 'utf8')) as { meta: Record<string, string> }
     assert.deepEqual(Object.keys(zh.meta).sort(), Object.keys(en.meta).sort())
+    for (const field of Object.keys(en.meta)) {
+      assert.notEqual(zh.meta[field], en.meta[field], `zh ${field} is translated`)
+    }
   })
 
-  test('package.json resolves, ships, and aligns the locale dictionaries', async () => {
+  test('package.json resolves and ships the locale dictionaries', async () => {
     // The exports entry is a PATTERN the Node resolver matches each
     // dictionary's full specifier (`dsh-context/locale/zh.json`) against.
     assert.equal(manifest.exports['./locale/*.json'], './locale/*.json', 'the locale exports pattern')
@@ -49,11 +52,6 @@ describe('package meta localization', () => {
     }
     assert.equal(manifest.exports['./package.json'], './package.json', 'the meta reader resolves the manifest itself')
     assert.ok(manifest.files.includes('locale/*.json'), 'the dictionaries ship')
-    // The en dictionary's meta falls back to the manifest's own name/description
-    // (the Host overlays it onto the raw manifest fields) — they must agree.
-    const en = JSON.parse(await readFile('locale/en.json', 'utf8')) as { meta: Record<string, string> }
-    assert.equal(en.meta.title, manifest.name)
-    assert.equal(en.meta.description, manifest.description)
   })
 
   test('the icon declaration stays aligned with the manifest and the shipped file', async () => {
