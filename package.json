@@ -109,7 +109,7 @@
     "@deepseek-ai/dsh-session-projection": "0.1.2-rc.1",
     "@deepseek-ai/dsh-settings": "0.1.2-rc.1",
     "@deepseek-ai/dsh-util-workspace-path": "0.1.5-rc.1",
-    "@deepseek-ai/schemastery": "^3.18.2",
+    "@deepseek-ai/schemastery": "^3.18.4",
     "@opencode-ai/models": "^0.0.72",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/node": "4.3.3",
