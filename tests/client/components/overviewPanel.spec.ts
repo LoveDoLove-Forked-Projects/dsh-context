@@ -218,6 +218,26 @@ describe('OverviewPanel', () => {
     await m.unmount()
   })
 
+  test('the metric toggle re-prices the heatmap between steps and sessions', async () => {
+    const ctx = makeCtx()
+    const { m } = await openPanel(ctx)
+    const todayCellClass = (): string | undefined =>
+      queryAll<HTMLButtonElement>(m.container, 'button.lc-heat-cell')
+        .find(c => c.getAttribute('aria-label')?.startsWith(TODAY))?.className
+    // Steps (the default): today's pair of steps IS the window's steps peak.
+    assert.ok(todayCellClass()?.includes('lc-heat-4'), 'steps mode (default): today holds the steps peak')
+    const metricButtons = queryAll<HTMLButtonElement>(m.container, '.lc-heat-ctl .lc-gran-btn')
+    assert.deepEqual(metricButtons.map(b => b.textContent), ['Sessions', 'Steps'])
+    assert.ok(metricButtons[1].className.includes('lc-gran-on'), 'steps starts selected')
+    await click(metricButtons[0])
+    const after = queryAll<HTMLButtonElement>(m.container, '.lc-heat-ctl .lc-gran-btn')
+    assert.ok(after[0].className.includes('lc-gran-on'), 'the click selects sessions')
+    assert.ok(!after[1].className.includes('lc-gran-on'))
+    // Sessions: today had one of the window's two active sessions.
+    assert.ok(todayCellClass()?.includes('lc-heat-2'), 'sessions mode re-prices today down its own scale')
+    await m.unmount()
+  })
+
   test('search and sort steer the grid', async () => {
     const ctx = makeCtx()
     const { m } = await openPanel(ctx, {

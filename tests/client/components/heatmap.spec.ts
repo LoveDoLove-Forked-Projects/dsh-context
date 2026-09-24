@@ -57,23 +57,27 @@ describe('Heatmap', () => {
       '2026-09-16': { tokens: 100, requests: 4, sessions: 2 },
       '2026-09-15': { tokens: 50, requests: 2, sessions: 1 },
       '2026-09-14': { tokens: 25, requests: 1, sessions: 1 },
+      '2026-09-10': { tokens: 30, requests: 0, sessions: 1 },
       '2026-09-09': { tokens: 75, requests: 3, sessions: 3 },
       '2026-09-08': { tokens: 1, requests: 1, sessions: 1 },
       '2026-09-07': { tokens: 0, requests: 2, sessions: 1 },
     }
     const m = await mount(h(Heatmap, { days, today: TODAY, weeks: 2 }))
     const buttons = queryAll<HTMLButtonElement>(m.container, 'button.lc-heat-cell')
-    // The zero-token day counts as activity (requests > 0) and draws level 0.
-    assert.equal(buttons.length, 6)
+    assert.equal(buttons.length, 7)
     const byKey = new Map(buttons.map(b => [b.getAttribute('aria-label')?.split('\n')[0], b]))
     assert.ok(byKey.get('2026-09-16')?.className.includes('lc-heat-4'), 'the maximum day is deepest')
     assert.ok(byKey.get('2026-09-15')?.className.includes('lc-heat-2'))
     assert.ok(byKey.get('2026-09-14')?.className.includes('lc-heat-1'))
+    assert.ok(byKey.get('2026-09-10')?.className.includes('lc-heat-0'), 'a day billed without a settled step stays gray')
     assert.ok(byKey.get('2026-09-09')?.className.includes('lc-heat-3'))
     assert.ok(byKey.get('2026-09-08')?.className.includes('lc-heat-1'), 'a crumb is never invisible')
-    assert.ok(byKey.get('2026-09-07')?.className.includes('lc-heat-0'))
-    // The tooltip is two lines: the date, then the day's active sessions.
-    assert.equal(byKey.get('2026-09-16')?.getAttribute('aria-label'), '2026-09-16\n2 active sessions')
+    // The zero-token day counts as activity (requests > 0); depths ride the
+    // steps metric, so its pair of steps draws half the peak.
+    assert.ok(byKey.get('2026-09-07')?.className.includes('lc-heat-2'))
+    // The tooltip is three lines: the date, the day's active sessions, its steps.
+    assert.equal(byKey.get('2026-09-16')?.getAttribute('aria-label'), '2026-09-16\n2 active sessions\n4 steps')
+    assert.equal(byKey.get('2026-09-10')?.getAttribute('aria-label'), '2026-09-10\n1 active sessions\n0 steps')
     // Inert cells: data-less days and future days draw as plain spans.
     const spans = queryAll(m.container, 'span.lc-heat-cell')
     assert.ok(spans.length > 0)
@@ -119,6 +123,18 @@ describe('Heatmap', () => {
     await m.unmount()
   })
 
+  test('the sessions metric depths on each day’s distinct sessions, independently of steps', async () => {
+    const days = {
+      '2026-09-16': { tokens: 100, requests: 4, sessions: 2 },
+      '2026-09-09': { tokens: 75, requests: 1, sessions: 3 },
+    }
+    const m = await mount(h(Heatmap, { days, today: TODAY, weeks: 2, metric: 'sessions' }))
+    const byKey = new Map(queryAll<HTMLButtonElement>(m.container, 'button.lc-heat-cell').map(b => [b.getAttribute('aria-label')?.split('\n')[0], b]))
+    assert.ok(byKey.get('2026-09-16')?.className.includes('lc-heat-3'), 'two of the three-session peak draws level 3')
+    assert.ok(byKey.get('2026-09-09')?.className.includes('lc-heat-4'), 'the sessions peak depths level 4 that its thin steps never would')
+    await m.unmount()
+  })
+
   test('cells tip through the harness Tooltip: the bubble mounts on hover and drops on leave', async () => {
     const m = await mount(h(Heatmap, {
       days: { '2026-09-16': { tokens: 10, requests: 1, sessions: 3 } },
@@ -127,7 +143,7 @@ describe('Heatmap', () => {
     }))
     const cell = query<HTMLButtonElement>(m.container, 'button.lc-heat-cell')
     await hover(cell)
-    assert.equal(query(m.container, '[role="tooltip"]').textContent, '2026-09-16\n3 active sessions')
+    assert.equal(query(m.container, '[role="tooltip"]').textContent, '2026-09-16\n3 active sessions\n1 steps')
     await unhover(cell)
     assert.equal(queryAll(m.container, '[role="tooltip"]').length, 0, 'the bubble drops when the pointer leaves')
     // An empty day tips too — the bare date, one line.
