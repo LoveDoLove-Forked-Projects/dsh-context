@@ -76,10 +76,11 @@
 /*
  * The activity heatmap: fixed-size square cells (8 week columns ≈ a 200px
  * block) centered in the card, so the card's height follows the 7 cell rows
- * instead of the cells stretching to the card's width — the compact
- * GitHub-widget read. Sunday-first, four depth steps, a month label over
- * the column where each month begins.
+ * plus the legend line instead of the cells stretching to the card's width —
+ * the compact GitHub-widget read. Sunday-first, four depth steps, a month
+ * label over the column where each month begins.
  */
+.lc-heat-wrap { display: flex; flex-direction: column; flex: 1; }
 .lc-heat { display: flex; gap: 4px; flex: 1; align-items: center; justify-content: center; }
 /* Each column and the weekday gutter reserve the same 13px line above their
    cells — the month labels' line — so the centered cell rows stay aligned. */
@@ -106,6 +107,11 @@ button.lc-heat-cell:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--col
 .lc-heat-4 { background: color-mix(in srgb, var(--color-blue-500) 92%, transparent); }
 /* The pinned day (the grid filter's source) keeps a solid ring in both themes. */
 .lc-heat-on { box-shadow: 0 0 0 1.5px var(--color-blue-500); }
+/* GitHub's Less→More key: right-aligned under the grid; the swatches reuse
+   the grid's own depth classes, so the key can never drift from the cells it
+   explains. Labels share the month label's secondary type. */
+.lc-heat-legend { display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding-top: 6px; }
+.lc-heat-key { font-size: 9px; color: var(--dsw-alias-label-secondary); }
 
 /* ---- the session list head: title, count, day chip, search, sort ---- */
 .lc-ov-list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }

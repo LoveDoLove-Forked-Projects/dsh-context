@@ -93,15 +93,30 @@ describe('Heatmap', () => {
     const m = await mount(h(Heatmap, { days, today: TODAY }))
     assert.deepEqual(queryAll(m.container, '.lc-heat-mon').map(s => s.textContent), ['Aug', 'Sep'])
     await m.unmount()
-    // A window without any month's first day draws no labels at all.
+    // A mid-month window never crosses a month's first day, yet the opening
+    // column still names its own month; later columns stay unlabeled.
     const m2 = await mount(h(Heatmap, { days, today: TODAY, weeks: 2 }))
-    assert.deepEqual(queryAll(m2.container, '.lc-heat-mon').map(s => s.textContent), [])
+    assert.deepEqual(queryAll(m2.container, '.lc-heat-mon').map(s => s.textContent), ['Sep'])
     await m2.unmount()
-    // A column that opens on the 1st carries the label itself (2026-02-01
-    // was a Sunday).
-    const m3 = await mount(h(Heatmap, { days: { '2026-02-03': { tokens: 1, requests: 1, sessions: 1 } }, today: '2026-02-03', weeks: 1 }))
-    assert.deepEqual(queryAll(m3.container, '.lc-heat-mon').map(s => s.textContent), ['Feb'])
+    // A later column that opens on the 1st carries the label itself (its
+    // whole week stays in the new month; 2026-02-01 was a Sunday).
+    const m3 = await mount(h(Heatmap, { days: { '2026-02-03': { tokens: 1, requests: 1, sessions: 1 } }, today: '2026-02-03', weeks: 2 }))
+    assert.deepEqual(queryAll(m3.container, '.lc-heat-mon').map(s => s.textContent), ['Jan', 'Feb'])
     await m3.unmount()
+  })
+
+  test('a Less→More key lays out the five depth steps under the grid', async () => {
+    const m = await mount(h(Heatmap, { days: { '2026-09-16': { tokens: 10, requests: 1, sessions: 1 } }, today: TODAY, weeks: 2 }))
+    const legend = query(m.container, '.lc-heat-legend')
+    assert.deepEqual(queryAll(legend, '.lc-heat-cell').map(s => s.className), [
+      'lc-heat-cell lc-heat-0',
+      'lc-heat-cell lc-heat-1',
+      'lc-heat-cell lc-heat-2',
+      'lc-heat-cell lc-heat-3',
+      'lc-heat-cell lc-heat-4',
+    ])
+    assert.deepEqual(queryAll(legend, '.lc-heat-key').map(s => s.textContent), ['Less', 'More'])
+    await m.unmount()
   })
 
   test('cells tip through the harness Tooltip: the bubble mounts on hover and drops on leave', async () => {

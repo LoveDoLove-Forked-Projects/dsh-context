@@ -1,7 +1,8 @@
 /**
  * The Context Dashboard's activity heatmap: a GitHub-style contribution grid
- * (weeks as columns, Sunday-first weekdays as rows, a month label over the
- * column where each month begins) over the merged daily
+ * (weeks as columns, Sunday-first weekdays as rows, a month label over each
+ * column where a month begins — the window's opening column always labeled —
+ * and a Less→More key for the depth steps) over the merged daily
  * ledger (overview.ts). Cell depth is the day's billed-token share of the
  * window's maximum, in four steps; a day with data is a button whose click
  * pins the session list to that day (click again to release). Cells tip
@@ -102,49 +103,61 @@ export function makeHeatmap(kit: ViewKit): (props: HeatmapProps) => ReactElement
     // the row it names, and no row arithmetic can shift it.
     const weekdayLabels: Record<number, string> = { 1: t('ov.heat.wd.1'), 3: t('ov.heat.wd.3'), 5: t('ov.heat.wd.5') }
     return (
-      <div className="lc-heat" role="group" aria-label={t('ov.heat.title')}>
-        <div className="lc-heat-wds" aria-hidden="true">
-          {[0, 1, 2, 3, 4, 5, 6].map(row => (
-            <span key={row} className="lc-heat-wd">{weekdayLabels[row] ?? ''}</span>
-          ))}
-        </div>
-        <div className="lc-heat-cols">
-          {columns.map((column, wi) => {
-            // A column is labeled when a month BEGINS inside it: the month
-            // changes between its Sunday and Saturday, or its Sunday IS the
-            // 1st. The label names the Saturday's month — the new month in
-            // both cases. Months that began before the window stay unlabeled.
-            const opens = column[0].key.slice(0, 7) !== column[6].key.slice(0, 7) || column[0].key.slice(8, 10) === '01'
-            return (
-              <div key={wi} className="lc-heat-col">
-                {opens && <span className="lc-heat-mon" aria-hidden="true">{t('ov.heat.mon.' + column[6].key.slice(5, 7))}</span>}
-                {column.map((cell) => {
-                  if (cell.future) return <span key={cell.key} className="lc-heat-cell lc-heat-future" aria-hidden="true" />
-                  const level = cell.entry === undefined ? 0 : levelOf(cell.entry.tokens, max)
-                  if (cell.entry === undefined) {
+      <div className="lc-heat-wrap">
+        <div className="lc-heat" role="group" aria-label={t('ov.heat.title')}>
+          <div className="lc-heat-wds" aria-hidden="true">
+            {[0, 1, 2, 3, 4, 5, 6].map(row => (
+              <span key={row} className="lc-heat-wd">{weekdayLabels[row] ?? ''}</span>
+            ))}
+          </div>
+          <div className="lc-heat-cols">
+            {columns.map((column, wi) => {
+              // A column is labeled when a month BEGINS inside it: the month
+              // changes between its Sunday and Saturday, or its Sunday IS the
+              // 1st. The label names the Saturday's month — the new month in
+              // both cases. The window's first column is always labeled, so a
+              // month already running at the window's edge is named too.
+              const opens = wi === 0 || column[0].key.slice(0, 7) !== column[6].key.slice(0, 7) || column[0].key.slice(8, 10) === '01'
+              return (
+                <div key={wi} className="lc-heat-col">
+                  {opens && <span className="lc-heat-mon" aria-hidden="true">{t('ov.heat.mon.' + column[6].key.slice(5, 7))}</span>}
+                  {column.map((cell) => {
+                    if (cell.future) return <span key={cell.key} className="lc-heat-cell lc-heat-future" aria-hidden="true" />
+                    const level = cell.entry === undefined ? 0 : levelOf(cell.entry.tokens, max)
+                    if (cell.entry === undefined) {
+                      return (
+                        <Tooltip key={cell.key} label={cell.key} side="top">
+                          <span className="lc-heat-cell lc-heat-0" />
+                        </Tooltip>
+                      )
+                    }
+                    const picked = props.selected === cell.key
+                    const label = `${cell.key}\n${t('ov.heat.sessions', { n: cell.entry.sessions })}`
                     return (
-                      <Tooltip key={cell.key} label={cell.key} side="top">
-                        <span className="lc-heat-cell lc-heat-0" />
+                      <Tooltip key={cell.key} label={label} side="top">
+                        <button
+                          type="button"
+                          className={`lc-heat-cell lc-heat-${String(level)}${picked ? ' lc-heat-on' : ''}`}
+                          aria-label={label}
+                          aria-pressed={picked}
+                          onClick={() => { if (props.onSelect !== undefined) props.onSelect(picked ? null : cell.key) }}
+                        />
                       </Tooltip>
                     )
-                  }
-                  const picked = props.selected === cell.key
-                  const label = `${cell.key}\n${t('ov.heat.sessions', { n: cell.entry.sessions })}`
-                  return (
-                    <Tooltip key={cell.key} label={label} side="top">
-                      <button
-                        type="button"
-                        className={`lc-heat-cell lc-heat-${String(level)}${picked ? ' lc-heat-on' : ''}`}
-                        aria-label={label}
-                        aria-pressed={picked}
-                        onClick={() => { if (props.onSelect !== undefined) props.onSelect(picked ? null : cell.key) }}
-                      />
-                    </Tooltip>
-                  )
-                })}
-              </div>
-            )
-          })}
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+        {/* GitHub's Less→More key: the swatches reuse the grid's own depth
+            classes, so the key can never drift from the cells it explains. */}
+        <div className="lc-heat-legend" aria-hidden="true">
+          <span className="lc-heat-key">{t('ov.heat.less')}</span>
+          {[0, 1, 2, 3, 4].map(level => (
+            <span key={level} className={`lc-heat-cell lc-heat-${String(level)}`} />
+          ))}
+          <span className="lc-heat-key">{t('ov.heat.more')}</span>
         </div>
       </div>
     )
