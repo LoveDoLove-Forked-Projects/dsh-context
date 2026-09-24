@@ -59,6 +59,7 @@ Click **Context Dashboard / 上下文仪表盘** at the bottom-left of the sideb
 | --- | --- |
 | **KPI band** | How much am I using — sessions, billed tokens, estimated cost, and cache-hit rate over the picked range (7d / 30d / all). |
 | **Activity heatmap** | When do I actually work — the last 8 weeks of daily billed tokens; click a day to filter the sessions that were active on it. |
+| **Settings entry** | One row under the heatmap — the same guarded jump to this plugin's preferences as the Context tab's Plugin Info card. |
 | **Context Composition** | Where the context windows went, summed over the range's sessions. |
 | **Session cards** | Each session's profile: composition ring, billed tokens, turns, cost, and its workspace-group / project breadcrumb — sorted by recency, tokens, or context size, searchable, grouped by workspace. A card click opens the session. |
 
