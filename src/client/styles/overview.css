@@ -77,7 +77,7 @@
  * The activity heatmap: fixed-size square cells (8 week columns ≈ a 200px
  * block) centered in the card, so the card's height follows the 7 cell rows
  * instead of the cells stretching to the card's width — the compact
- * GitHub-widget read. Monday-first, four depth steps, a month label over
+ * GitHub-widget read. Sunday-first, four depth steps, a month label over
  * the column where each month begins.
  */
 .lc-heat { display: flex; gap: 4px; flex: 1; align-items: center; justify-content: center; }

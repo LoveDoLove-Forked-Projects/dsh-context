@@ -1,6 +1,6 @@
 /**
  * The Context Dashboard's activity heatmap: a GitHub-style contribution grid
- * (weeks as columns, Monday-first weekdays as rows, a month label over the
+ * (weeks as columns, Sunday-first weekdays as rows, a month label over the
  * column where each month begins) over the merged daily
  * ledger (overview.ts). Cell depth is the day's billed-token share of the
  * window's maximum, in four steps; a day with data is a button whose click
@@ -14,7 +14,7 @@
 
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ReactElement } from 'react'
-import { dayKeyOf, mondayOfWeek, shiftDayKey } from '../../shared/days'
+import { dayKeyOf, shiftDayKey, sundayOfWeek } from '../../shared/days'
 import { type DayTotals } from '../overview'
 import type { ViewKit } from '../viewkit'
 
@@ -40,24 +40,25 @@ interface HeatCell {
 
 /**
  * Lay out the grid: `weeks` columns ending at today's week, each seven
- * Monday-first cells. Returns null when `today` (or its week math) fails —
- * a corrupt injected key degrades the card to its empty note.
+ * Sunday-first cells (row 0 = Sunday). Returns null when `today` (or its
+ * week math) fails — a corrupt injected key degrades the card to its empty
+ * note.
  */
 export function gridOf(today: string, weeks: number): HeatCell[][] | null {
-  const lastMonday = mondayOfWeek(today)
-  if (lastMonday === null || weeks < 1) return null
-  const firstMonday = shiftDayKey(lastMonday, -7 * (weeks - 1))
-  if (firstMonday === null) return null
+  const lastSunday = sundayOfWeek(today)
+  if (lastSunday === null || weeks < 1) return null
+  const firstSunday = shiftDayKey(lastSunday, -7 * (weeks - 1))
+  if (firstSunday === null) return null
   const columns: HeatCell[][] = []
   for (let w = 0; w < weeks; w++) {
-    const monday = shiftDayKey(firstMonday, 7 * w)
-    /* v8 ignore next -- monday is bounded by firstMonday and lastMonday (both
+    const sunday = shiftDayKey(firstSunday, 7 * w)
+    /* v8 ignore next -- sunday is bounded by firstSunday and lastSunday (both
      * proven valid), so it can never leave the representable range; kept as a
      * guard so a future shiftDayKey change cannot leak a null into the grid. */
-    if (monday === null) return null
+    if (sunday === null) return null
     const column: HeatCell[] = []
     for (let d = 0; d < 7; d++) {
-      const key = shiftDayKey(monday, d)
+      const key = shiftDayKey(sunday, d)
       if (key === null) return null
       column.push({ key, future: key > today, entry: undefined })
     }
@@ -97,21 +98,21 @@ export function makeHeatmap(kit: ViewKit): (props: HeatmapProps) => ReactElement
       }
     }
     if (!any) return <div className="lc-empty">{t('ov.heat.empty')}</div>
-    const weekdayLabels = [t('ov.heat.wd.1'), t('ov.heat.wd.3'), t('ov.heat.wd.5')]
+    // Keyed BY the Sunday-first row index (0=Sun..6=Sat) — the label sits on
+    // the row it names, and no row arithmetic can shift it.
+    const weekdayLabels: Record<number, string> = { 1: t('ov.heat.wd.1'), 3: t('ov.heat.wd.3'), 5: t('ov.heat.wd.5') }
     return (
       <div className="lc-heat" role="group" aria-label={t('ov.heat.title')}>
         <div className="lc-heat-wds" aria-hidden="true">
           {[0, 1, 2, 3, 4, 5, 6].map(row => (
-            <span key={row} className="lc-heat-wd">
-              {row === 1 ? weekdayLabels[0] : row === 3 ? weekdayLabels[1] : row === 5 ? weekdayLabels[2] : ''}
-            </span>
+            <span key={row} className="lc-heat-wd">{weekdayLabels[row] ?? ''}</span>
           ))}
         </div>
         <div className="lc-heat-cols">
           {columns.map((column, wi) => {
             // A column is labeled when a month BEGINS inside it: the month
-            // changes between its Monday and Sunday, or its Monday IS the
-            // 1st. The label names the Sunday's month — the new month in
+            // changes between its Sunday and Saturday, or its Sunday IS the
+            // 1st. The label names the Saturday's month — the new month in
             // both cases. Months that began before the window stay unlabeled.
             const opens = column[0].key.slice(0, 7) !== column[6].key.slice(0, 7) || column[0].key.slice(8, 10) === '01'
             return (

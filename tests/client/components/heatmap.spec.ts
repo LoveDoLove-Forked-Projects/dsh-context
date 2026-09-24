@@ -11,28 +11,28 @@ import { click, hover, makeKit, mount, query, queryAll, text, unhover } from '..
 const kit = makeKit()
 const Heatmap = makeHeatmap(kit)
 
-// 2026-09-16 was a Wednesday of the week starting Monday 2026-09-14.
+// 2026-09-16 was a Wednesday of the week starting Sunday 2026-09-13.
 const TODAY = '2026-09-16'
 
 describe('gridOf', () => {
-  test('lays out weeks of Monday-first columns ending at today’s week', () => {
+  test('lays out weeks of Sunday-first columns ending at today’s week', () => {
     const grid = gridOf(TODAY, 2)
     assert.ok(grid !== null)
     assert.equal(grid.length, 2)
-    assert.equal(grid[0][0].key, '2026-09-07', 'the first column opens one week earlier')
-    assert.equal(grid[1][0].key, '2026-09-14', 'the last column is today’s Monday')
-    assert.equal(grid[1][2].key, TODAY)
-    assert.equal(grid[1][2].future, false)
-    assert.equal(grid[1][3].future, true, 'days after today render as future placeholders')
-    assert.equal(grid[1][6].key, '2026-09-20')
+    assert.equal(grid[0][0].key, '2026-09-06', 'the first column opens one week earlier')
+    assert.equal(grid[1][0].key, '2026-09-13', 'the last column is today’s Sunday')
+    assert.equal(grid[1][3].key, TODAY)
+    assert.equal(grid[1][3].future, false)
+    assert.equal(grid[1][4].future, true, 'days after today render as future placeholders')
+    assert.equal(grid[1][6].key, '2026-09-19')
   })
 
   test('degraded inputs read null (the card then shows its empty note)', () => {
     assert.equal(gridOf('', 2), null)
     assert.equal(gridOf('garbage', 2), null)
     assert.equal(gridOf(TODAY, 0), null, 'no columns to draw')
-    assert.equal(gridOf(TODAY, 3000), null, 'a window reaching before the epoch has no first Monday')
-    // 9999-12-31 was a Friday of the week starting Monday 9999-12-27: the
+    assert.equal(gridOf(TODAY, 3000), null, 'a window reaching before the epoch has no first Sunday')
+    // 9999-12-31 was a Friday of the week starting Sunday 9999-12-26: the
     // week's tail days leave the four-digit year, so no grid can hold it.
     assert.equal(gridOf('9999-12-31', 2), null, 'the final week of the representable range overflows')
   })
@@ -78,7 +78,8 @@ describe('Heatmap', () => {
     const spans = queryAll(m.container, 'span.lc-heat-cell')
     assert.ok(spans.length > 0)
     assert.ok(spans.some(s => s.className.includes('lc-heat-future')), 'future placeholders present')
-    // Weekday labels: Mon/Wed/Fri rows carry letters, the rest blank.
+    // Weekday labels sit on the rows they name (Sunday-first: row 1 = Mon):
+    // Mon/Wed/Fri carry letters, the rest blank.
     const wds = queryAll(m.container, '.lc-heat-wd')
     assert.deepEqual(wds.map(w => w.textContent), ['', 'M', '', 'W', '', 'F', ''])
     await m.unmount()
@@ -86,9 +87,9 @@ describe('Heatmap', () => {
 
   test('month labels mark the columns where a month begins', async () => {
     const days = { '2026-09-16': { tokens: 10, requests: 1, sessions: 1 } }
-    // The default 8-week window runs Monday 2026-07-27 → 2026-09-14: July
-    // began outside it, August begins in the Jul 27 column (Sat Aug 1) and
-    // September in the Aug 31 column (Tue Sep 1).
+    // The default 8-week window runs Sunday 2026-07-26 → 2026-09-13: July
+    // began outside it, August begins in the Jul 26 column (Sat Aug 1) and
+    // September in the Aug 30 column (Tue Sep 1).
     const m = await mount(h(Heatmap, { days, today: TODAY }))
     assert.deepEqual(queryAll(m.container, '.lc-heat-mon').map(s => s.textContent), ['Aug', 'Sep'])
     await m.unmount()
@@ -96,9 +97,10 @@ describe('Heatmap', () => {
     const m2 = await mount(h(Heatmap, { days, today: TODAY, weeks: 2 }))
     assert.deepEqual(queryAll(m2.container, '.lc-heat-mon').map(s => s.textContent), [])
     await m2.unmount()
-    // A column that opens on the 1st carries the label itself.
-    const m3 = await mount(h(Heatmap, { days: { '2026-06-03': { tokens: 1, requests: 1, sessions: 1 } }, today: '2026-06-03', weeks: 1 }))
-    assert.deepEqual(queryAll(m3.container, '.lc-heat-mon').map(s => s.textContent), ['Jun'])
+    // A column that opens on the 1st carries the label itself (2026-02-01
+    // was a Sunday).
+    const m3 = await mount(h(Heatmap, { days: { '2026-02-03': { tokens: 1, requests: 1, sessions: 1 } }, today: '2026-02-03', weeks: 1 }))
+    assert.deepEqual(queryAll(m3.container, '.lc-heat-mon').map(s => s.textContent), ['Feb'])
     await m3.unmount()
   })
 
