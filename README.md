@@ -16,6 +16,14 @@
 
 ## Install / Update
 
+### Install on DeekSeek Harness web or desktop
+
+Fill `dsh-context` in the **Add plugin** wizard's search box, and click **Install**:
+
+![Add_plugin_wizard](https://raw.githubusercontent.com/bowenliang123/dsh-context/main/docs/add-plugin-wizard.png)
+
+### Install with `dsh` cli
+
 Install [`dsh-context`](https://www.npmjs.com/package/dsh-context) plugin from [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh):
 
 ```sh
