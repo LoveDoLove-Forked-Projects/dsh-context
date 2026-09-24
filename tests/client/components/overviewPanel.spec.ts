@@ -345,7 +345,7 @@ describe('OverviewPanel', () => {
       const ctx = makeCtx()
       const { m } = await openPanel(ctx)
       const row = query<HTMLButtonElement>(m.container, '.lc-ov-settings')
-      assert.equal(row.textContent, 'SettingsOpen preferences')
+      assert.equal(row.textContent, 'SettingsOpen plugin settings')
       await click(row)
       assert.equal(overviewStore.getSnapshot(), false, 'the panel closed so the jump lands visible')
       assert.equal(m.container.textContent, '', 'the panel unmounted')
@@ -425,7 +425,7 @@ describe('OverviewPanel', () => {
     await flush()
     assert.ok(text(m.container).includes('上下文洞察'))
     assert.ok(text(m.container).includes('活跃会话'))
-    assert.ok(text(m.container).includes('打开偏好设置'), 'the settings row rides the zh dictionary too')
+    assert.ok(text(m.container).includes('打开插件设置'), 'the settings row rides the zh dictionary too')
     await flush() // the price book lands
     const values = queryAll(m.container, '.lc-stat-value').map(el => el.textContent)
     assert.ok(values[2].startsWith('¥'), 'CNY under the zh locale')
