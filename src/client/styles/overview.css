@@ -81,10 +81,10 @@
  * label over the column where each month begins.
  */
 .lc-heat-wrap { display: flex; flex-direction: column; flex: 1; }
-.lc-heat { display: flex; gap: 4px; flex: 1; align-items: center; justify-content: center; }
-/* Each column and the weekday gutter reserve the same 13px line above their
+.lc-heat { display: flex; gap: 8px; flex: 1; align-items: center; justify-content: center; }
+/* Each column and the weekday gutter reserve the same 18px line above their
    cells — the month labels' line — so the centered cell rows stay aligned. */
-.lc-heat-wds, .lc-heat-col { padding-top: 13px; }
+.lc-heat-wds, .lc-heat-col { padding-top: 18px; }
 .lc-heat-wds { display: flex; flex-direction: column; gap: 3px; }
 /* The gutter self-sizes to its widest label (星期一 vs Mon differ), the spans
    stretch to share it; nowrap keeps a full name on one line. */
@@ -92,11 +92,11 @@
 .lc-heat-cols { display: flex; gap: 3px; }
 /* relative anchors the label; absolute keeps its width off the 20px column
    (a wider in-flow label would widen just the labeled columns and skew the
-   grid). top:0 rides the column's own 13px padding band, clear of the cells.
+   grid). top:0 rides the column's own 18px padding band, clear of the cells.
    Labels only sit at month opens, ≥4 columns apart, so the nowrap overflow
    past a 20px column never meets the next label. */
 .lc-heat-col { position: relative; display: flex; flex-direction: column; gap: 3px; }
-.lc-heat-mon { position: absolute; top: 0; left: 0; font-size: 9px; line-height: 13px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+.lc-heat-mon { position: absolute; top: 0; left: 0; font-size: 9px; line-height: 18px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
 .lc-heat-cell { width: 20px; height: 20px; box-sizing: border-box; border: 0; border-radius: 20%; padding: 0; background: var(--dsw-alias-bg-layer-2); cursor: default; }
 button.lc-heat-cell { cursor: pointer; }
 button.lc-heat-cell:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-blue-500) 70%, transparent); }
