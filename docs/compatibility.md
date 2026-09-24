@@ -2,7 +2,7 @@
 
 dsh-context declares per-release compatibility with `@deepseek-ai/dsh` in its package manifest (`dsh.compatibility.dshReleases`). This page records what is actually verified for each declared release, and how.
 
-Last verified: **2026-09-23** (plugin `dsh-context@0.55.0` source tree, dsh `0.1.7-alpha.2`).
+Last verified: **2026-09-24** (plugin `dsh-context@0.55.0` source tree, dsh `0.1.7-rc.1`).
 
 ## Supported dsh releases
 
@@ -11,11 +11,15 @@ Last verified: **2026-09-23** (plugin `dsh-context@0.55.0` source tree, dsh `0.1
 | `0.1.2-rc.1` | V0 | compatible | ✅ baseline `v0.1.2-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-05) |
 | `0.1.3-alpha.2` | V2 | compatible | ✅ baseline `v0.1.3-alpha.2` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-09) |
 | `0.1.5-rc.1` | V3 | compatible | ✅ baseline `v0.1.5-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-10) |
-| `0.1.7-alpha.2` | V4 | compatible | ✅ baseline `v0.1.7-alpha.2` | — (not yet performed manually) |
+| `0.1.7-rc.1` | V4 | compatible | ✅ baseline `v0.1.7-rc.1` | — (not yet performed manually) |
 
 The automated seam matrix runs for every row on every `pnpm test`. The disposable-profile column is a manual, per-release check: each release's CLI was installed from npm into a temporary `DSH_HOME` (the real `~/.dsh` is never touched) — `0.1.2-rc.1` on 2026-09-05, `0.1.3-alpha.2` on 2026-09-09, and `0.1.5-rc.1` on 2026-09-10, against the official npm registry (a stale mirror can 404 the harness's own dependency closure before the plugin is even considered).
 
-Releases older than `0.1.2-rc.1` — the `0.1.1` line and the `0.1.2-alpha.*` previews — were supported and verified through `dsh-context@0.41.x` and are no longer in the support matrix.
+Releases older than `0.1.2-rc.1` — the `0.1.1` line and the `0.1.2-alpha.*` previews — were supported and verified through `dsh-context@0.41.x` and are no longer in the support matrix. The `0.1.7-alpha.*` previews are likewise out: they carried the V4 generation into the matrix through `0.1.7-alpha.2`, and the supported V4 line is now `0.1.7-rc.1`.
+
+## Harness-side compatibility admission (0.1.7-rc.1+)
+
+From `0.1.7-rc.1` the harness enforces a plugin's own `peerDependencies` at startup and install: a bundle whose `@deepseek-ai/dsh*` peer ranges do not satisfy the running version (semver, `includePrerelease: true`) is skipped at composition, refused at install, and only loads with an exact-version exemption (`dsh plugin allow-version`). This plugin's dsh peers are all `>=0.1.2-rc.1`, which every supported release — including every prerelease line — satisfies, so the plugin composes normally with no exemption.
 
 ## Baseline gate
 
