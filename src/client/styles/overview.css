@@ -27,11 +27,14 @@
    so queries against it track the card's own sizing basis (the card is
    min(1120px, 100vw - 32px)) without making the card unable to query itself. */
 .lc-ov-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.45)); display: flex; align-items: center; justify-content: center; container: lc-ov / inline-size; }
-/* The card is a flex column capped at its max-height: the body fills the
-   rest and each column scrolls its own overflow, so browsing sessions never
-   scrolls the insight column out of view. On the folded width the card
-   scrolls whole (see the container query at the body). */
-.lc-ov-card { display: flex; flex-direction: column; width: min(1120px, calc(100vw - 32px)); max-height: min(86vh, 900px); overflow: hidden; box-sizing: border-box; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; box-shadow: var(--dsw-shadow-lv3, 0 12px 32px rgba(0, 0, 0, 0.4)); padding: 16px 18px 18px; color: var(--dsw-alias-label-primary); font-size: 13px; }
+/* The card is a flex column at a FIXED height: the viewport minus a 40px
+   band top and bottom (the width keeps its 16px side frame), so the panel's
+   footprint never wobbles with the content. The backdrop is a definite-
+   height flex box, so the percentage resolves without viewport units. The
+   body fills the rest and each column scrolls its own overflow, so browsing
+   sessions never scrolls the insight column out of view. On the folded
+   width the card scrolls whole (see the container query at the body). */
+.lc-ov-card { display: flex; flex-direction: column; width: min(1120px, calc(100vw - 32px)); height: calc(100% - 80px); overflow: hidden; box-sizing: border-box; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; box-shadow: var(--dsw-shadow-lv3, 0 12px 32px rgba(0, 0, 0, 0.4)); padding: 16px 18px 18px; color: var(--dsw-alias-label-primary); font-size: 13px; }
 .lc-ov-head { flex: none; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .lc-ov-head-icon { flex: none; }
 .lc-ov-title { font-weight: 600; font-size: 15px; white-space: nowrap; }
