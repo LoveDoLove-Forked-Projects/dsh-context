@@ -2,7 +2,8 @@
  * The Context Insights panel: the sidebar-foot entry button (stacked above
  * Settings by the harness's own foot layout) and the frame-wide overlay
  * panel it opens — a 3:7 body of insight column (KPI 2×3 block over the
- * activity heatmap) beside the session column (search, chips, card grid).
+ * activity heatmap, then the preferences entry row) beside the session
+ * column (search, chips, card grid).
  * The backdrop is the `lc-ov` query container (it spans the viewport, and
  * the card sizes off the viewport too), so the column fold keys off the
  * viewport width; on the folded width the card itself scrolls in normal
@@ -75,6 +76,14 @@
 /* The heat card absorbs the insight column's leftover height (the grid
    centers inside it) but never shrinks below its own grid. */
 .lc-ov-heat-card { flex: 1 0 auto; display: flex; flex-direction: column; }
+/* The preferences entry: one row under the activity card, framed like the
+   column's other cards (the session-card hover: border darkens, layer-2
+   fill); the hint pulls to the right edge and ellipsizes under width
+   pressure so the label always reads. */
+.lc-ov-settings { flex: none; display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 12px; color: var(--dsw-alias-label-secondary); cursor: pointer; transition: border-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), background-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+.lc-ov-settings:hover { border-color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.lc-ov-settings-label { flex: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lc-ov-settings-hint { flex: 1 1 auto; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /*
  * The activity heatmap: fixed-size square cells (8 week columns ≈ a 200px
