@@ -180,7 +180,7 @@ In-chart and in-card toggles stay per-view and never overwrite the stored prefer
 ## Good to know
 
 - **Estimates vs actuals** — category figures use dsh's own fixed-density heuristic (the same one as its built-in token meter); the pinned trend details show provider-reported actuals next to them, and the Token card pairs its ≈-estimated composition shares with the provider-exact billed total.
-- **Compatibility** — works on `@deepseek-ai/dsh` **0.1.2-rc1+**, across the V0 (0.1.2-rc.x), V2 (0.1.3-alpha.x), V3 (0.1.5-alpha.x+), and V4 (0.1.6/0.1.7+) session-log generations. The per-release matrix and how it is verified: [docs/compatibility.md](docs/compatibility.md).
+- **Compatibility** — works on `@deepseek-ai/dsh` **0.1.5-rc.1+** (the `0.1.5` line from rc.1, the `0.1.7` line from rc.2), across the V3 (`0.1.5-alpha.x+`) and V4 (`0.1.6/0.1.7+`) session-log generations, from one shape-driven code path. The per-release matrix and how it is verified: [docs/compatibility.md](docs/compatibility.md).
 - **I18n** — UI in English and 简体中文.
 
 ## Like it?
