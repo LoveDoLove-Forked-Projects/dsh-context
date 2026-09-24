@@ -86,7 +86,9 @@
    cells — the month labels' line — so the centered cell rows stay aligned. */
 .lc-heat-wds, .lc-heat-col { padding-top: 13px; }
 .lc-heat-wds { display: flex; flex-direction: column; gap: 3px; }
-.lc-heat-wd { flex: none; width: 10px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--dsw-alias-label-secondary); text-align: center; }
+/* The gutter self-sizes to its widest label (星期一 vs Mon differ), the spans
+   stretch to share it; nowrap keeps a full name on one line. */
+.lc-heat-wd { flex: none; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--dsw-alias-label-secondary); text-align: center; white-space: nowrap; }
 .lc-heat-cols { display: flex; gap: 3px; }
 /* relative anchors the label; absolute keeps its width off the 20px column
    (a wider in-flow label would widen just the labeled columns and skew the

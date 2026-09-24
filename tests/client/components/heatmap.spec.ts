@@ -79,9 +79,9 @@ describe('Heatmap', () => {
     assert.ok(spans.length > 0)
     assert.ok(spans.some(s => s.className.includes('lc-heat-future')), 'future placeholders present')
     // Weekday labels sit on the rows they name (Sunday-first: row 1 = Mon):
-    // Mon/Wed/Fri carry letters, the rest blank.
+    // Mon/Wed/Fri carry their names, the rest blank.
     const wds = queryAll(m.container, '.lc-heat-wd')
-    assert.deepEqual(wds.map(w => w.textContent), ['', 'M', '', 'W', '', 'F', ''])
+    assert.deepEqual(wds.map(w => w.textContent), ['', 'Mon', '', 'Wed', '', 'Fri', ''])
     await m.unmount()
   })
 
