@@ -122,7 +122,10 @@ function apply(ctx: ClientCtx): void {
   const ContextModal = makeContextModal(ctx, kit, settings)
   ctx.slots.inject('conversation.input.overlay', () => {
     return ctx.slots.register(
-      { name: 'conversation.input.overlay', id: 'context-modal', order: 10, locale: NS,
+      { name: 'conversation.input.overlay',
+        id: 'context-modal',
+        order: 10,
+        locale: NS,
         inject: (sessionId = '') => ({ hooks: { contextModal: modalStoreOf(sessionId) } }) },
       props => h(ContextModal, props),
     )

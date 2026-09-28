@@ -145,7 +145,10 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         key: slice.key, color: slice.color, value: share(modelRings[index]),
       }))
       const toolSlice: Slice = {
-        key: 'tools', color: COLOR.tools, label: t('timing.tools'), ms: timing.toolsMs,
+        key: 'tools',
+        color: COLOR.tools,
+        label: t('timing.tools'),
+        ms: timing.toolsMs,
         times: t('timing.toolTimes', { n: fmt(timing.toolCalls) }),
       }
       const otherSlice: Slice = { key: 'other', color: COLOR.other, label: t('timing.other'), ms: other }
@@ -155,7 +158,10 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         { key: 'other', color: COLOR.other, value: share(other) },
       ]
       const toRow = (slice: Slice): SliceRow => ({
-        key: slice.key, color: slice.color, label: slice.label, dim: slice.ms === 0,
+        key: slice.key,
+        color: slice.color,
+        label: slice.label,
+        dim: slice.ms === 0,
         pct: fmtShare(slice.ms, wall),
         count: countOf(slice.ms, slice.times),
       })

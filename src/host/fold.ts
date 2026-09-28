@@ -1028,7 +1028,9 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         const source = msg?.source
         if (isInjection(source)) {
           const rec: ContextEventRecord = {
-            seq: event.seq, time: event.time, kind: 'inject',
+            seq: event.seq,
+            time: event.time,
+            kind: 'inject',
             // Re-proved: the harness validates a source's `kind` but not its
             // `form`, so a hostile form must degrade to the default instead of
             // failing the record's strict wire/state schemas on every delivery
@@ -1153,7 +1155,8 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         bumpDetailRev(s)
         const total = s.systemTokens + s.toolsTokens + s.sums.user + s.sums.inject + s.sums.skill + s.sums.assistant + s.sums.tool
         const record: RequestRecord = {
-          time: event.time, seq: event.seq,
+          time: event.time,
+          seq: event.seq,
           system: s.systemTokens,
           tools: s.toolsTokens,
           user: s.sums.user,
@@ -1294,7 +1297,9 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
           s.pendingShadowEventSeq = event.seq
         }
         s.events.push({
-          seq: event.seq, time: event.time, kind: event.type === 'compaction/summary' ? 'compaction' : 'prune',
+          seq: event.seq,
+          time: event.time,
+          kind: event.type === 'compaction/summary' ? 'compaction' : 'prune',
           tokens: data && typeof data.shadowedTokenCount === 'number' ? data.shadowedTokenCount : 0,
           ...(event.type === 'compaction/summary' && data && Array.isArray(data.shadowedSeqs)
             ? { count: data.shadowedSeqs.length }
