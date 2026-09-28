@@ -178,6 +178,18 @@ export function applyActivity(state: ActivityState, event: SessionEvent): Activi
     delete next.stepStart
     return next
   }
+  if (event.type === 'session/end-seed') {
+    // The tagged fork/seed boundary (the cost-semantics decision in
+    // fold.ts): settlements before it are the inherited parent-log prefix —
+    // spend the session it forked from already booked — so the ledger
+    // resets and a seeded session's days count post-seed activity only
+    // (issue #94). The untagged resume marker returns the state unchanged.
+    // `stepStart` dies with the cut: a slot armed by the inherited tail
+    // must not attribute the child's first settlement to a parent-day.
+    const data = event.data as { inherited?: unknown } | null | undefined
+    if (data?.inherited !== true) return state
+    return { days: {} }
+  }
   if (event.type !== 'assistant/message') return state
   // Attribute the settlement to the open step's initiation instant, falling
   // back to the settlement's own instant (the pending slot stays armed — the
@@ -222,11 +234,11 @@ export function applyActivity(state: ActivityState, event: SessionEvent): Activi
 /**
  * The daily-activity projection unit, registered alongside the timeline and
  * headers units (host/index.ts); the overview reads it through the session
- * list's projection column. `stateVersion` 2: the ledger gained the per-day
- * pricing records (and the fold the route/step-start tracking behind them),
- * so on upgrade every cached row reads version-stale — the dashboard's
- * warm-up cold-refolds it from the durable log, rebuilding the fees for the
- * whole corpus exactly.
+ * list's projection column. `stateVersion` 3: the fold resets the ledger at
+ * the tagged fork/seed boundary, so a seeded session's days count post-seed
+ * activity only (issue #94) — cached rows for seeded forks read
+ * version-stale on upgrade and the dashboard's warm-up cold-refolds them
+ * from the durable log, which drops the inherited prefix they booked.
  */
 export function createContextActivityDefinition(): ProjectionDefinition<'contextActivity', ActivityState> {
   return {
@@ -246,6 +258,6 @@ export function createContextActivityDefinition(): ProjectionDefinition<'context
         days: Object.fromEntries(Object.entries(state.days).map(([k, v]) => [k, { ...v }])),
       }),
     },
-    stateVersion: 2,
+    stateVersion: 3,
   }
 }

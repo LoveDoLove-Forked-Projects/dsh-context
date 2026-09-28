@@ -27,7 +27,7 @@ describe('contextActivity unit: shape', () => {
   test('the definition carries the contract fields', () => {
     const def = createContextActivityDefinition()
     assert.equal(def.key, 'contextActivity')
-    assert.equal(def.stateVersion, 2, 'the ledger with per-day pricing records is the second shape')
+    assert.equal(def.stateVersion, 3, 'the seed-boundary ledger reset is the third shape')
     assert.deepEqual(def.init(), { days: {} })
   })
 
@@ -59,6 +59,29 @@ describe('applyActivity: event filtering', () => {
     assert.ok(applyActivity(state, assistantMessage(1e30, { inputTokens: 1 })) === state, 'out-of-range time')
     assert.ok(applyActivity(state, assistantMessage(-2 * 86_400_000, { inputTokens: 1 })) === state, 'pre-epoch time')
     assert.deepEqual(state, { days: {} })
+  })
+
+  test('a tagged fork/seed marker resets the ledger; the untagged resume marker keeps it', () => {
+    // A seeded fork's inherited prefix: one settlement the parent session
+    // already booked, plus the step slot its open tail left armed (issue #94).
+    let state = applyActivity({ days: {} }, assistantMessage(at(0), { inputTokens: 10 }))
+    state = applyActivity(state, { type: 'step/start', seq: 2, time: at(0), data: {} } as never)
+    const seeded = state
+    assert.ok(seeded.stepStart !== undefined)
+
+    for (const data of [undefined, null, {}, { inherited: 'yes' }]) {
+      assert.ok(
+        applyActivity(seeded, { type: 'session/end-seed', seq: 3, time: at(0), data } as never) === seeded,
+        `data ${JSON.stringify(data)} must not reset`,
+      )
+    }
+    assert.deepEqual(seeded.days, { '2026-01-01': { tokens: 10, requests: 1 } })
+
+    const cut = applyActivity(seeded, { type: 'session/end-seed', seq: 3, time: at(0), data: { inherited: true } } as never)
+    assert.deepEqual(cut, { days: {} }, 'the inherited ledger and the armed step slot die at the cut')
+
+    const after = applyActivity(cut, assistantMessage(at(1), { inputTokens: 3 }))
+    assert.deepEqual(after.days, { '2026-01-02': { tokens: 3, requests: 1 } })
   })
 })
 

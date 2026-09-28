@@ -412,7 +412,14 @@ export function createContextTimelineDefinition(config: Config, slim: () => bool
     // decode accumulators, which every reader treats as "not served,
     // refold". Bumping would invalidate every in-generation row and orphan
     // the key for idle sessions (the #37 regression) for no correctness gain.
-    stateVersion: 21,
+    // 22: the fold zeroes the session-cost totals at the tagged fork/seed
+    // boundary (`session/end-seed` carrying `inherited: true`): a seeded
+    // session's cost now counts post-seed spend only — the parent-history
+    // prefix its seed replayed verbatim, settlements included, was already
+    // priced by the session it forked from (issue #94). Cached rows for
+    // seeded forks refold from the log; untagged resume markers reset
+    // nothing, so ordinary rows refold to the same totals.
+    stateVersion: 22,
   }
   return definition
 }

@@ -1254,6 +1254,25 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         applySurface(s, event, event.type, data, asstMsg)
         break
       }
+      case 'session/end-seed': {
+        // The fork/seed boundary the session core stamps at creation: events
+        // before a TAGGED marker (`inherited: true`) are the parent-log
+        // prefix a seeded child replays verbatim, usage settlements included
+        // — spend the session it forked from already priced. Zeroing the
+        // cost totals here makes a seeded session's own cost (and its
+        // parent's Subagent Cost fold) count post-seed spend only (issue
+        // #94). The UNTAGGED marker is the ordinary resume/replay boundary
+        // every session carries: it must leave the state reference
+        // untouched, or every resume would wipe the session's history.
+        // Nested seeds re-mark at their own cut, so the surviving total is
+        // always the session's own spend since ITS seed. `{}`, not
+        // `undefined` — an undefined-valued property fails the plain-JSON
+        // cache precondition (see TimelineState).
+        if (data?.inherited !== true) break
+        const s = ensure([])
+        s.cost = {}
+        break
+      }
       case 'plan/mode': {
       // Plan mode adds a guidance section to every model request while
       // active — a real context-composition change, so it earns an event.
