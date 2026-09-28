@@ -1275,8 +1275,8 @@ describe('ContextBrowser message categories', () => {
     const headers: ContextHeaders = { headers: [{ seq: 1, time: 1, systemTokens: 3, tools: [{ name: 'bash', tokens: 5 }, { name: 'write', tokens: 3 }] }] }
     const m = await mountBrowser({ headers })
     await click(catRow(m, 'assistant'))
-    // The stamped breadcrumb 'bash › write' (seq 61) renders one clickable segment per name.
-    const crumbRow = elemRows(m).find(r => text(r).includes('bash › write')) as HTMLElement
+    // The stamped breadcrumb (seq 61) renders one clickable capsule per distinct call name.
+    const crumbRow = elemRows(m).find(r => text(r).includes('done all')) as HTMLElement
     const links = queryAll(crumbRow, '.lc-br-tag-link')
     assert.deepEqual(links.map(l => text(l)), ['bash', 'write'])
     await click(links[0])
@@ -1305,6 +1305,27 @@ describe('ContextBrowser message categories', () => {
     await m.unmount()
   })
 
+  test('repeated call names fold into ×N capsules in first-appearance order', async () => {
+    const headers: ContextHeaders = { headers: [{ seq: 1, time: 1, systemTokens: 3, tools: [{ name: 'bash', tokens: 5 }, { name: 'write', tokens: 3 }] }] }
+    const data = tl({
+      current: { system: 0, tools: 0, user: 0, inject: 0, skill: 0, assistant: 8, tool: 0, total: 8 },
+      nodes: [node({ seq: 2, cat: 'assistant', tokens: 8, calls: ['bash', 'write', 'bash', 'bash'] })],
+    })
+    const m = await mount(h(Browser, props({ data, headers })))
+    await click(catRow(m, 'assistant'))
+    // 'bash › write › bash › bash' groups into two capsules: the repeat multiplier keeps the first-appearance order.
+    const row = elemRows(m)[0]
+    const links = queryAll(row, '.lc-br-tag-link')
+    assert.deepEqual(links.map(l => text(l)), ['bash ×3', 'write'])
+    // The folded capsule still reveals the named tool's schema.
+    await click(links[0])
+    const open = queryAll(m.container, '.lc-br-elem-on')
+    assert.equal(open.length, 1)
+    assert.ok(text(open[0]).includes('bash'))
+    assert.equal(queryAll(m.container, '.lc-br-content').length, 1, 'the row toggle never fires')
+    await m.unmount()
+  })
+
   test('user images render a placeholder when no loader is wired', async () => {
     const m = await mountBrowser({ loadImage: undefined })
     await click(catRow(m, 'user'))
@@ -1318,18 +1339,19 @@ describe('ContextBrowser message categories', () => {
     await click(catRow(m, 'assistant'))
     const rows = elemRows(m)
     const rowOf = (preview: string) => rows.find(r => text(r).includes(preview)) as HTMLElement
-    assert.ok(text(rowOf('done all')).includes('bash › write'), 'call breadcrumb tag')
-    assert.ok(text(rowOf('a.ts')).includes('write'), 'block summary previews a textless turn')
+    const capsOf = (row: HTMLElement) => queryAll(row, '.lc-br-tag').map(c => text(c))
+    assert.deepEqual(capsOf(rowOf('done all')), ['bash', 'write'], 'call breadcrumb: one capsule per distinct call')
+    assert.ok(capsOf(rowOf('a.ts')).includes('write'), 'block summary previews a textless turn')
     const tags = rows.map(r => {
-      const tag = r.querySelector<HTMLElement>('.lc-br-tag')
+      const caps = capsOf(r)
       const preview = text(query(r, '.lc-br-preview'))
-      return `${tag === null ? '∅' : text(tag)}|${preview}`
+      return `${caps.length === 0 ? '∅' : caps.join(',')}$|${preview}`
     })
-    assert.ok(tags.includes('read|(empty reply)'), 'no self-summarizing call → empty marker')
-    assert.ok(tags.includes('edit|b.ts'), 'a textless turn tags the joined call name and previews its summary')
-    assert.ok(tags.includes('bash › broken › noargs|full cascade'), 'a reply with both text and calls tags the join-recovered breadcrumb')
-    assert.ok(tags.includes('∅|(empty reply)'), 'no join, no calls → empty marker')
-    assert.ok(tags.includes('∅|Calls '), 'empty call list previews as a bare Calls label (nodeText)')
+    assert.ok(tags.includes('read$|(empty reply)'), 'no self-summarizing call → empty marker')
+    assert.ok(tags.includes('edit$|b.ts'), 'a textless turn tags the joined call name and previews its summary')
+    assert.ok(tags.includes('bash,broken,noargs$|full cascade'), 'a mixed reply tags one capsule per join-recovered call, in order')
+    assert.ok(tags.includes('∅$|(empty reply)'), 'no join, no calls → empty marker')
+    assert.ok(tags.includes('∅$|Calls '), 'empty call list previews as a bare Calls label (nodeText)')
 
     await click(rowOf('full cascade'))
     const content = query(m.container, '.lc-br-content')

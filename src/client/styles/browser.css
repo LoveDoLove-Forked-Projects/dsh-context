@@ -54,9 +54,12 @@
 .lc-br-err-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--dsw-alias-state-error-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent); }
 /* Shrinkable under width pressure (min-width: 0) so a long tool/call tag ellipsizes instead of forcing the row past the card edge. */
 .lc-br-tag { min-width: 0; font-size: 11px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 4px; padding: 0 6px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Clickable tool-name segment inside a row tag (the row button owns the toggle; the segment click stops propagation).
-   The ±2px padding/margin swap keeps the hover face hugging the name without shifting the row's layout. */
-.lc-br-tag-link { cursor: pointer; padding: 0 2px; margin: 0 -2px; border-radius: 3px; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), background-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+/* The row's tag slot: one or more fact capsules in a shrinkable group — a tool breadcrumb renders one capsule per
+   distinct call name (repeats fold into a ×N multiplier), the group ellipsizes like the single capsule it replaces. */
+.lc-br-tags { min-width: 0; display: inline-flex; align-items: center; gap: 4px; }
+/* Clickable tool-name capsule (the row button owns the toggle; the capsule click stops propagation). Hover lifts
+   the whole capsule: primary label on the shared interactive hover face. */
+.lc-br-tag-link { cursor: pointer; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), background-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
 .lc-br-tag-link:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
 /* Registering-plugin chip on tool-schema rows: package/server names scan on a
    brand-tinted pill (the badge tint idiom), in the same face and size as the

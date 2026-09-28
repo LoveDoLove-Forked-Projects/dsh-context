@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement, type ReactNode } from 'react'
 import { UNKNOWN_TOOL_SOURCE, type Category, type ContextHeaders, type ContextTimeline, type HeaderTool, type RequestRecord, type SurfaceNode } from '../../shared/types'
 import { assemble } from '../assemble'
 import type { Assembled } from '../assemble'
@@ -927,7 +927,7 @@ export function makeContextBrowser(
           <button type="button" className="lc-br-elem-row hover:bg-(--dsw-alias-interactive-bg-hover)" onClick={() => { toggleElem(key) }}>
             <span className={'lc-br-chev' + (open ? ' lc-br-chev-on' : '')} />
             {err ? <span className="lc-br-err-dot" title={t('node.failed')} /> : null}
-            {tag !== null ? <span className="lc-br-tag">{tag}</span> : null}
+            {tag !== null ? <span className="lc-br-tags">{tag}</span> : null}
             <span className="lc-br-preview">{preview}</span>
             {trailing !== null ? trailing : null}
             {time !== undefined ? <span className="lc-br-time">{fmtTime(time)}</span> : null}
@@ -938,20 +938,21 @@ export function makeContextBrowser(
       )
     }
 
-    // A tool-named tag renders each name as a clickable segment (a breadcrumb 'bash › write' names one tool per
-    // segment); every other tag stays inert text. The segment click stops propagation — the row button owns the
-    // toggle, and a bubbling toggle would overwrite the reveal's open element.
+    // The row's tag slot: inert tags render as one capsule; tool-named tags render one CLICKABLE capsule per
+    // distinct call name, in first-appearance order, repeats folded into a ×N multiplier ('bash ×3'). The capsule
+    // click stops propagation — the row button owns the toggle, and a bubbling toggle would overwrite the reveal.
     const rowTagNode = (tag: string | null, names: readonly string[] | null): ReactNode => {
-      if (tag === null || names === null) return tag
-      return names.map((name, i) => (
-        <Fragment key={name + String(i)}>
-          {i > 0 ? ' › ' : null}
-          <span
-            className="lc-br-tag-link"
-            title={t('browser.schemaTip')}
-            onClick={(e) => { e.stopPropagation(); revealSchema(name) }}
-          >{name}</span>
-        </Fragment>
+      if (tag === null) return null
+      if (names === null) return <span className="lc-br-tag">{tag}</span>
+      const counts = new Map<string, number>()
+      for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1)
+      return [...counts.entries()].map(([name, count]) => (
+        <span
+          key={name}
+          className="lc-br-tag lc-br-tag-link"
+          title={t('browser.schemaTip')}
+          onClick={(e) => { e.stopPropagation(); revealSchema(name) }}
+        >{count > 1 ? name + ' ×' + String(count) : name}</span>
       ))
     }
 
@@ -1107,7 +1108,8 @@ export function makeContextBrowser(
             ?? callSummaryOf(conv) ?? preview
         } else if (n.cat === 'assistant') {
           // The fold stamps `calls` only on TEXT-LESS replies; a reply carrying both text and calls recovers its breadcrumb through the
-          // conversation join — the same recovery the step brief applies. Call targets join as a breadcrumb (`bash › write`); the preview
+          // conversation join — the same recovery the step brief applies. The call names join into the tag's scan
+          // text (the filter scans what the rows say) and render as one capsule per distinct name; the preview
           // carries the reply text, else the first call's own summary for a text-less turn.
           const names = Array.isArray(n.calls) && n.calls.length > 0 ? n.calls : callNamesOf(conv)
           if (names.length > 0) {
