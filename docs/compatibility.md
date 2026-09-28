@@ -31,7 +31,7 @@ The mirror reflects whichever installation last booted a CLI profile, which need
 
 ## Session-log generations
 
-The supported range spans two durable-log generations, and the plugin folds both from one shape-driven code path (`src/host/logShapes.ts`):
+The supported range spans two durable-log generations, and the plugin folds both from one shape-driven code path: the spellings meet only in `src/host/logShapes.ts` (`firstTokenTimeOfStream`, `replaceRangeOf`, `isTokenChunk`), and `applyTimeline` runs a single code path over all of them:
 
 | Seam | V3 (`0.1.5-rc.1+`) | V4 (`0.1.6/0.1.7+`) |
 | --- | --- | --- |
@@ -56,9 +56,23 @@ The fold never branches on a detected harness version. The version probe is best
   - Deliberate relaxations against the replaced zod schema: schemastery objects merge unknown keys through instead of failing the load, and only whole-value edits are rejected by range/step checks (bounds remain `min 1, step 1`).
   - Preference values persisted on the V3 line live in the settings document (`settings.yaml` section `dsh-context`); the V4 harness's own legacy import moves that section into the profile entry of the same name on first boot, so existing values carry into the new surface.
 
+## Parsing resilience [IMPORTANT!]
+
+The plugin lives off data it does not own: the durable session log (event shapes vary across dsh versions, producers, and hand-edited replays), the conversation snapshot behind a client join, projection payloads on the wire, history RPC pages, and persisted stores. All of it is untrusted input at every layer, and two failure classes are designed out: parsing that blanks the page (the error card), and anything that leaves the page stuck on "loading".
+
+- **One bad record never takes down a view.** A malformed node, event, tool entry, or file op degrades to zero rows for that item — the card, the tab, and the session keep working.
+- **Host-side projection folds are TOTAL.** The harness projection registry drives `apply` straight off the session/event bus with no error boundary of its own: one throwing fold stalls that unit's cells and its `session/projection` push feed, and the browser waits on "loading" forever. Unknown event types return the state unchanged; per-event processing is isolated so a malformed event is dropped whole (all-or-nothing, no partial state); and no `undefined`-valued property is ever materialized into persisted state — the plain-JSON precondition makes one such property fail EVERY projection-cache write for the session, breaking sessions in unrelated, far-away places.
+- **Client-side parsing degrades visibly.** Delivered projection payloads are sanitized at the boundary (the `timelineOf` pattern: collections re-proved, scalars zeroed, whole-value absence stays `null` → loading screen); per-item work in any fold over join/log data is isolated (per-item guards, or a bounded catch where a hostile object may throw on property access); every async fetch resolves to data or a visible retryable state, never an unhandled rejection that leaves a spinner.
+- **Every field is re-proved at runtime.** Structural narrowing over blind casts; optional chaining over non-null assertions; elements that fail the shape are skipped instead of throwing.
+- **Every parser carries hostile fixtures next to its happy path**: wrong types, null/missing fields, null or primitive elements inside arrays, unpaired references, and objects that throw on property access. The repository's 100% per-file coverage bar applies to every guard branch — an untested guard is an unverified promise.
+
+## Low-level parity
+
+The plugin's low-level logic mirrors the newest supported dsh implementation: token estimation re-fits `dsh-token-meter`'s `estimateSystemMessage` (`estimateSystemTokens` / `estimateSystemContent`), and the first-token rule matches `dsh-llm`'s `assistantStreamFirstTokenTime`. When a supported line moves these implementations, the plugin's copies are updated to the newest one — the fold's statistics are differentially verified against the harness's own projection values on real logs (see "What each check means").
+
 ## Web client seams
 
-The browser half rides generation-specific seats, each reached through an optional seam so a deployment without the service simply goes without the capability. Both supported lines ship the right Sidebar and the keyed `main` conversation panel; the plugin contributes to whichever face the running line serves:
+The browser half rides generation-specific seats, each reached through an optional seam so a deployment without the service simply goes without the capability. Capabilities only newer lines serve are reached through a deferred `ctx.inject` — never a hard module `inject` — so an older harness composes fully with the capability absent (no pending fiber, no throw): the service shape is re-proved before use, the registration is guarded, and the module is declared in `dsh.client.inject`. Both supported lines ship the right Sidebar and the keyed `main` conversation panel; the plugin contributes to whichever face the running line serves:
 
 | Seam | V3 (`0.1.5-rc.1`) | V4 (`0.1.7-rc.2`) |
 | --- | --- | --- |
@@ -77,7 +91,7 @@ The Context Dashboard's DeepSeek balance capsule is an all-optional stack, so it
 
 ## What each check means
 
-- **Automated seam matrix** — part of this repository's `pnpm test` (the `compat` vitest project). For every baseline tag it stages the harness's REAL sources at that tag, boots the plugin's built host entry into that tag's actual `SessionProjectionRegistry` on the cordis release the line vendors, and probes the tag's client seams (slots, finalized-nodes seat, image loader, history face/envelope, markdown chrome, platform module table, that generation's durable-event vocabulary, the right Sidebar tab seam, its guide-entry contract and its resource-navigation face, the session-jump seam, the preferences card seat and settings transport). Definitions live in `tests/baselines.ts`; the release workflow fetches the pinned baseline tags before testing. Preferences seats and transports are asserted BOTH ways: each slot exists on exactly one supported generation, so the plugin's deferred registrations pick their side and never pend.
+- **Automated seam matrix** — part of this repository's `pnpm test` (the `compat` vitest project). For every baseline tag it stages the harness's REAL sources at that tag, boots the plugin's built host entry into that tag's actual `SessionProjectionRegistry` on the cordis release the line vendors, and probes the tag's client seams (slots, finalized-nodes seat, image loader, history face/envelope, markdown chrome, platform module table, that generation's durable-event vocabulary, the right Sidebar tab seam, its guide-entry contract and its resource-navigation face, the session-jump seam, the preferences card seat and settings transport). Definitions live in `tests/baselines.ts` — the one source of truth for the supported baselines and their per-version seam faces; the release workflow fetches the pinned baseline tags before testing. Preferences seats and transports are asserted BOTH ways: each slot exists on exactly one supported generation, so the plugin's deferred registrations pick their side and never pend. To add a future dsh release: add one `Baseline` entry (tag, vendored cordis, faces) to `tests/baselines.ts` and its tag to the release workflow's fetch step, then run `pnpm test` and re-fit whichever seam a failing probe names. The `compat` project boots the BUILT plugin (`pnpm run build` first) against the ACTUAL harness sources at each baseline tag and needs a dsh checkout (env `DSH_REPO`, default `~/dev/deepseek-harness`).
 - **Statistics against the harness's own folds** — the plugin's figures were verified differentially against the harness's OWN projection values (`sessionStats`, `contextBreakdown`, `contextPressure`, `tokenUsage`) over real session logs: system/tools/message tokens, per-request counts, turns/steps, TTFT, generation, tool time, and every billed cost bucket match exactly.
 - **Disposable-profile install / uninstall** — for each release, that exact `dsh` CLI version was installed from npm into a temporary `DSH_HOME` (the real `~/.dsh` is never touched), then:
   1. `dsh plugin --profile <disposable> add dsh-context` — install OK;
