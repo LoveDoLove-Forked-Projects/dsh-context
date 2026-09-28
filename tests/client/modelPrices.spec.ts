@@ -78,7 +78,7 @@ describe('pricesBookOf', () => {
 
   test('a non-string npm is not a vendor flag', () => {
     const book = pricesBookOf({ odd: { npm: 7, models: { m: { cost: { input: 1, output: 2 } } } } })
-    assert.deepEqual([...book?.index.byModel.get('m') ?? []], [{ pid: 'odd', rate: { hit: 1, miss: 1, write: 1, out: 2 }, primary: false }])
+    assert.deepEqual([...book?.index.byModel.get('m') ?? []], [{ pid: 'odd', mid: 'm', rate: { hit: 1, miss: 1, write: 1, out: 2 }, primary: false }])
   })
 
   test('a payload that is not a record prices null; an empty one prices an empty book', () => {

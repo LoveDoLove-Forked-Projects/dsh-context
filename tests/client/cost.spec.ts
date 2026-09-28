@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { estimateSessionCost, formatCost, formatPriceRate, mergeCostUsage, peakOf, priceIndexOf, priceOf, toCurrency } from '../../src/client/cost'
+import { estimateSessionCost, formatCost, formatPriceRate, mergeCostUsage, priceFaceOf, priceIndexOf, priceOf, toCurrency } from '../../src/client/cost'
 import type { ModelBook, ModelPrices } from '../../src/client/cost'
 import type { CostBucketTotals } from '../../src/shared/types'
 
@@ -369,12 +369,17 @@ describe('mergeCostUsage', () => {
   })
 })
 
-describe('peakOf', () => {
-  test('doubles every rate component onto the official peak list', () => {
-    // The book's deepseek figures ARE the official off-peak rates; doubled
-    // they must reproduce the official peak list (api-docs.deepseek.com):
-    // flash peak per 1M — hit $0.006, miss $0.3, output $1.2.
-    assert.deepEqual(peakOf(FLASH), { hit: 0.006, miss: 0.3, write: 0.3, out: 1.2 })
+describe('priceFaceOf', () => {
+  test('names the registry face every resolution path lands on', () => {
+    // Direct branch: the dsh provider's rename maps onto the registry id.
+    assert.deepEqual(priceFaceOf(BOOK_B, 'deepseek-official', 'deepseek-v4-flash'), { pid: 'deepseek', mid: 'deepseek-v4-flash', rate: FLASH })
+    assert.deepEqual(priceFaceOf(BOOK_B, 'kimi-coding', 'k3'), { pid: 'moonshotai', mid: 'kimi-k3', rate: K3 }, 'the suffix path names the full registry spelling')
+    // First-party seam: a deepseek- id prices from DeepSeek's own branch.
+    assert.deepEqual(priceFaceOf(BOOK_B, 'future-gateway', 'deepseek-v4-pro'), { pid: 'deepseek', mid: 'deepseek-v4-pro', rate: PRO })
+    // Model-side tiers: the winning candidate's own face.
+    assert.deepEqual(priceFaceOf(BOOK_B, 'any-gateway', 'kimi-k2.7-code'), { pid: 'moonshotai', mid: 'kimi-k2.7-code', rate: KIMI })
+    assert.equal(priceFaceOf(BOOK_B, '', 'mystery'), null)
+    assert.equal(priceFaceOf(null, 'deepseek-official', 'deepseek-v4-flash'), null)
   })
 })
 
@@ -396,18 +401,10 @@ describe('formatCost', () => {
 })
 
 describe('formatPriceRate', () => {
-  test('trims trailing zeros from a fixed-notation figure', () => {
-    assert.equal(formatPriceRate(3.0, 'cny'), '¥3')
-    assert.equal(formatPriceRate(4.5, 'cny'), '¥4.5')
-  })
-
-  test('trims trailing zeros from a precision-notation figure', () => {
-    assert.equal(formatPriceRate(0.007, 'usd'), '$0.007')
-    assert.equal(formatPriceRate(0.1, 'usd'), '$0.1')
-  })
-
-  test('strips the dot left behind when every decimal was a zero', () => {
-    assert.equal(formatPriceRate(9.0, 'cny'), '¥9')
-    assert.equal(formatPriceRate(1.5, 'cny'), '¥1.5')
+  test('always renders two decimals in the currency symbol', () => {
+    assert.equal(formatPriceRate(3, 'cny'), '¥3.00')
+    assert.equal(formatPriceRate(4.5, 'cny'), '¥4.50')
+    assert.equal(formatPriceRate(0.007, 'usd'), '$0.01')
+    assert.equal(formatPriceRate(0.1, 'usd'), '$0.10')
   })
 })

@@ -25,7 +25,11 @@
    end; the title row's own wrap carries it below the title under pressure. */
 .lc-timing-tps { flex: none; margin-left: auto; padding: 1px 8px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; cursor: default; }
 .lc-stat-tip-row { display: block; margin-top: 2px; }
-.lc-stat-tip-model { color: var(--dsw-alias-label-primary); }
+/* One billed model's block: the four bucket rates as label/price rows, the
+   listing line beneath naming the registry face the rates resolved from. */
+.lc-stat-tip-band { display: flex; justify-content: space-between; gap: 2rem; }
+.lc-stat-tip-band i { font-style: normal; }
+.lc-stat-tip-by { display: block; margin-top: 3px; color: var(--dsw-alias-label-secondary); }
 .lc-card-sub { font-weight: 400; color: var(--dsw-alias-label-secondary); font-size: 12px; margin-left: auto; }
 .lc-overview-num { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
 .lc-overview-num > b { font-size: 20px; }

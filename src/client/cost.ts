@@ -47,9 +47,10 @@ export type ModelPrices = Record<string, Record<string, PriceTriple>>
  * One cross-provider resolution candidate: the carrying provider (models.dev
  * id) with its rates, and whether it is the model's own vendor — a provider
  * whose AI-SDK package is named after itself (`@ai-sdk/anthropic` →
- * `anthropic`); mirrors and gateways ride generic or foreign packages.
+ * `anthropic`); mirrors and gateways ride generic or foreign packages. `mid`
+ * is the registry's own model id spelling (the tooltip's listing face).
  */
-export interface PriceCandidate { pid: string; rate: PriceTriple; primary: boolean }
+export interface PriceCandidate { pid: string; mid: string; rate: PriceTriple; primary: boolean }
 
 /**
  * Model-side resolution index over the book: lowercased model id (exact ids
@@ -62,6 +63,13 @@ export interface PriceIndex { byModel: Map<string, PriceCandidate[]> }
 
 /** The delivered book plus the index built over it (one `pricesBookOf` result). */
 export interface ModelBook { prices: ModelPrices; index: PriceIndex }
+
+/**
+ * One billed model's price: the USD rates and the registry face — the
+ * models.dev provider id and branch model id spelling — they resolved from
+ * (the listing source the stats board's tooltip prints).
+ */
+export interface PriceFace { pid: string; mid: string; rate: PriceTriple }
 
 /** A USD amount in the display currency (CNY divides the fixed rate). */
 export function toCurrency(usd: number, currency: CostCurrency): number {
@@ -109,7 +117,7 @@ export function priceIndexOf(prices: ModelPrices, npmOf: Record<string, string |
       const rate = rateOfEntry(branch[mid])
       if (rate === null) continue
       const lower = mid.toLowerCase()
-      const cand: PriceCandidate = { pid, rate, primary }
+      const cand: PriceCandidate = { pid, mid, rate, primary }
       push(lower, cand)
       const parts = lower.split('-')
       for (let i = 1; i < parts.length; i++) push(parts.slice(i).join('-'), cand)
@@ -119,48 +127,48 @@ export function priceIndexOf(prices: ModelPrices, npmOf: Record<string, string |
 }
 
 /**
- * The rate shared by a candidate group, or null: the largest equal-rate
- * group wins, a tie refuses. Agreeing mirrors are noise; disagreeing ones
- * price nothing rather than guess.
+ * The candidate carrying the rate shared by a candidate group, or null: the
+ * largest equal-rate group wins, a tie refuses. Agreeing mirrors are noise;
+ * disagreeing ones price nothing rather than guess.
  */
-function majorityRate(cands: PriceCandidate[]): PriceTriple | null {
-  const groups: { rate: PriceTriple; n: number }[] = []
+function majorityCandidate(cands: PriceCandidate[]): PriceCandidate | null {
+  const groups: { cand: PriceCandidate; n: number }[] = []
   for (const c of cands) {
-    const g = groups.find(g => sameRate(g.rate, c.rate))
-    if (g === undefined) groups.push({ rate: c.rate, n: 1 })
+    const g = groups.find(g => sameRate(g.cand.rate, c.rate))
+    if (g === undefined) groups.push({ cand: c, n: 1 })
     else g.n++
   }
   groups.sort((a, b) => b.n - a.n)
-  return groups.length > 1 && groups[0].n === groups[1].n ? null : groups[0].rate
+  return groups.length > 1 && groups[0].n === groups[1].n ? null : groups[0].cand
 }
 
 /**
- * Pick one candidate group's rate: the model's own vendor (unique or
- * unanimous), then a provider the model id itself names (`deepseek-v4-flash`
- * under `deepseek`), then a lone carrier. Everything else prices null.
+ * Pick one candidate: the model's own vendor (unique or unanimous), then a
+ * provider the model id itself names (`deepseek-v4-flash` under `deepseek`),
+ * then a lone carrier. Everything else prices null.
  */
-function resolveCandidates(lower: string, cands: PriceCandidate[], org: string | null): PriceTriple | null {
+function resolveCandidates(lower: string, cands: PriceCandidate[], org: string | null): PriceCandidate | null {
   if (org !== null) {
     // `vendor/model` catalogs (together- and vercel-style route ids): the
     // org segment names the vendor — exactly, or as the registry id behind
     // a variant org (`deepseek-ai` → `deepseek`, `zai-org` → `zai`).
     const named = cands.filter(c => c.pid === org || org.startsWith(c.pid + '-') || (org.length >= 4 && org.startsWith(c.pid)))
     if (named.length > 0) {
-      const rate = majorityRate(named)
-      if (rate !== null) return rate
+      const cand = majorityCandidate(named)
+      if (cand !== null) return cand
     }
   }
   const primaries = cands.filter(c => c.primary)
   if (primaries.length > 0) {
-    const rate = majorityRate(primaries)
-    if (rate !== null) return rate
+    const cand = majorityCandidate(primaries)
+    if (cand !== null) return cand
   }
   const prefixed = cands.filter(c => lower.startsWith(c.pid + '-') || lower.startsWith(c.pid + '/'))
   if (prefixed.length > 0) {
-    const rate = majorityRate(prefixed)
-    if (rate !== null) return rate
+    const cand = majorityCandidate(prefixed)
+    if (cand !== null) return cand
   }
-  return cands.length === 1 ? cands[0].rate : null
+  return cands.length === 1 ? cands[0] : null
 }
 
 /**
@@ -168,27 +176,17 @@ function resolveCandidates(lower: string, cands: PriceCandidate[], org: string |
  * (an org-prefixed dialect whose exact spelling no registry provider lists).
  * Null when every tier refuses.
  */
-function resolveRate(index: PriceIndex, model: string): PriceTriple | null {
+function resolveRate(index: PriceIndex, model: string): PriceCandidate | null {
   const lower = model.toLowerCase()
   const slash = lower.lastIndexOf('/')
   const org = slash > 0 ? lower.slice(0, slash) : null
   for (const key of slash > 0 ? [lower, lower.slice(slash + 1)] : [lower]) {
     const cands = index.byModel.get(key)
     if (cands === undefined) continue
-    const rate = resolveCandidates(key, cands, org)
-    if (rate !== null) return rate
+    const cand = resolveCandidates(key, cands, org)
+    if (cand !== null) return cand
   }
   return null
-}
-
-/** One rate triple at the doubled peak rate (the tooltip's `peak | off` pair). */
-export function peakOf(rate: PriceTriple): PriceTriple {
-  return {
-    hit: rate.hit * PEAK_FACTOR,
-    miss: rate.miss * PEAK_FACTOR,
-    write: rate.write * PEAK_FACTOR,
-    out: rate.out * PEAK_FACTOR,
-  }
 }
 
 /** One book branch (a provider's models), as far as runtime can prove it. */
@@ -198,53 +196,69 @@ function branchOf(book: ModelPrices, id: string): Record<string, PriceTriple> | 
 }
 
 /**
- * One branch's model id → rates, as far as runtime can prove it: exact own
- * key first (the book is untrusted wire data), then case-insensitively, then
- * by id SUFFIX — dsh spells some models short (`k3`) where the registry
- * namespaces them (`kimi-k3`). Several suffix candidates (e.g. `k3` vs a
- * hypothetical `other-k3`) are ambiguous and price nothing.
+ * One branch's lookup hit — the registry's own model id and its rates, as
+ * far as runtime can prove it: exact own key first (the book is untrusted
+ * wire data), then case-insensitively, then by id SUFFIX — dsh spells some
+ * models short (`k3`) where the registry namespaces them (`kimi-k3`).
+ * Several suffix candidates (e.g. `k3` vs a hypothetical `other-k3`) are
+ * ambiguous and price nothing.
  */
-function lookup(models: Record<string, PriceTriple>, model: string): PriceTriple | null {
-  if (Object.hasOwn(models, model)) return models[model]
+function lookupFace(models: Record<string, PriceTriple>, model: string): { mid: string; rate: PriceTriple } | null {
+  if (Object.hasOwn(models, model)) return { mid: model, rate: models[model] }
   const m = model.toLowerCase()
-  let found: PriceTriple | null = null
+  let found: { mid: string; rate: PriceTriple } | null = null
   let seen: string | null = null
   for (const id in models) {
     const lower = id.toLowerCase()
     if (lower !== m && !lower.endsWith('-' + m)) continue
     if (seen !== null && seen !== lower) return null
     seen = lower
-    found = models[id]
+    found = { mid: id, rate: models[id] }
   }
   return found
 }
 
 /**
- * The book's rates for one folded (provider, model) bucket, or null when
- * the book cannot price it: the dsh provider id resolves through
- * modelsDevProviderOf (unmapped ids pass through) and prices by model id —
- * exact, case-insensitive, or suffix. A provider the book does not carry
- * falls back to the model-side resolution index, which names the vendor
- * from data (org segment, own-vendor SDK, id prefix, lone carrier) — never
- * from a per-model hardcode. The one vendor-level seam: a `deepseek-` model
- * id prices from DeepSeek's own registry branch first — its listing is the
- * first-party price book (cache rates included), while the model-side tiers
- * can hand the same id to a self-named hosting provider whose flat listing
- * bills cache hits as plain input (azure's `deepseek-v4-pro`, issue #93) —
- * the same specialness the peak/off-peak split already grants DeepSeek.
+ * One billed model's price: the USD rates plus the registry face — the
+ * models.dev provider id and branch model id spelling — they resolved from
+ * (what the stats board prints as the listing source).
+ *
+ * Resolution: the dsh provider id goes through modelsDevProviderOf (unmapped
+ * ids pass through) and prices by model id — exact, case-insensitive, or
+ * suffix. A provider the book does not carry falls back to the model-side
+ * resolution index, which names the vendor from data (org segment, own-vendor
+ * SDK, id prefix, lone carrier) — never from a per-model hardcode. The one
+ * vendor-level seam: a `deepseek-` model id prices from DeepSeek's own
+ * registry branch first — its listing is the first-party price book (cache
+ * rates included), while the model-side tiers can hand the same id to a
+ * self-named hosting provider whose flat listing bills cache hits as plain
+ * input (azure's `deepseek-v4-pro`, issue #93) — the same specialness the
+ * peak/off-peak split already grants DeepSeek.
  */
-export function priceOf(book: ModelBook | null | undefined, provider: string, model: string): PriceTriple | null {
+export function priceFaceOf(book: ModelBook | null | undefined, provider: string, model: string): PriceFace | null {
   if (book === null || book === undefined) return null
-  const direct = branchOf(book.prices, modelsDevProviderOf(provider))
-  if (direct !== null) return lookup(direct, model)
+  const registryPid = modelsDevProviderOf(provider)
+  const direct = branchOf(book.prices, registryPid)
+  // A carried provider's own branch is final — an unknown model there prices
+  // null (no cross-provider guess).
+  if (direct !== null) {
+    const found = lookupFace(direct, model)
+    return found === null ? null : { pid: registryPid, mid: found.mid, rate: found.rate }
+  }
   if (model.toLowerCase().startsWith('deepseek-')) {
     const firstParty = branchOf(book.prices, 'deepseek')
     if (firstParty !== null) {
-      const official = lookup(firstParty, model)
-      if (official !== null) return official
+      const official = lookupFace(firstParty, model)
+      if (official !== null) return { pid: 'deepseek', mid: official.mid, rate: official.rate }
     }
   }
-  return resolveRate(book.index, model)
+  const cand = resolveRate(book.index, model)
+  return cand === null ? null : { pid: cand.pid, mid: cand.mid, rate: cand.rate }
+}
+
+/** The book's rates for one folded (provider, model) bucket ({@link priceFaceOf} without the face). */
+export function priceOf(book: ModelBook | null | undefined, provider: string, model: string): PriceTriple | null {
+  return priceFaceOf(book, provider, model)?.rate ?? null
 }
 
 /**
@@ -342,7 +356,7 @@ export function formatCost(amount: number, currency: CostCurrency): string {
   return symbol + (amount >= 1 ? amount.toFixed(2) : amount.toPrecision(2))
 }
 
-/** Price-list figure: the same money format as formatCost, trailing zeros trimmed (¥3.00 → ¥3, $0.0070 → $0.007). */
+/** Price-list figure: always two decimals (the tooltip's `¥ XX.XX` rate format). */
 export function formatPriceRate(amount: number, currency: CostCurrency): string {
-  return formatCost(amount, currency).replace(/0+$/, '').replace(/\.$/, '')
+  return (currency === 'cny' ? '¥' : '$') + amount.toFixed(2)
 }
