@@ -8,7 +8,7 @@ import type { DnaItem } from '../dna'
 import type { ContentFetcher, ConversationNodeLike, HeaderFetcher } from '../services'
 import type { ContextSettings, DefaultToolSort } from '../settings'
 import type { ViewKit } from '../viewkit'
-import { blockSummaryOf, callSummaryOf, parseCallArgs } from '../callSummary'
+import { blockSummaryOf, callNamesOf, callSummaryOf, parseCallArgs } from '../callSummary'
 import type { DetailState } from '../timelineSource'
 import { makeDetailNote } from './detailNote'
 import { makeNodeText } from './nodes'
@@ -1047,16 +1047,20 @@ export function makeContextBrowser(
           preview = (n.skill === undefined && id !== '' ? id : null)
             ?? (n.text !== undefined && n.text !== '' ? n.text : null)
             ?? callSummaryOf(conv) ?? preview
-        } else if (n.cat === 'assistant' && Array.isArray(n.calls) && n.calls.length > 0) {
-          // Call targets join as a breadcrumb (`bash › write`); the preview carries the reply text, else the first call's own summary for a
-          // text-less turn.
-          tag = n.calls.join(' › ')
-          preview = (n.text !== undefined && n.text !== '' ? n.text : null)
-            ?? blockSummaryOf(conv)
-            ?? t('node.empty')
-        } else if (n.cat === 'assistant' && (n.text === undefined || n.text === '')) {
-          // A text-less turn can still preview a self-summarizing call from the join even when the node carries no call list.
-          preview = blockSummaryOf(conv) ?? preview
+        } else if (n.cat === 'assistant') {
+          // The fold stamps `calls` only on TEXT-LESS replies; a reply carrying both text and calls recovers its breadcrumb through the
+          // conversation join — the same recovery the step brief applies. Call targets join as a breadcrumb (`bash › write`); the preview
+          // carries the reply text, else the first call's own summary for a text-less turn.
+          const names = Array.isArray(n.calls) && n.calls.length > 0 ? n.calls : callNamesOf(conv)
+          if (names.length > 0) {
+            tag = names.join(' › ')
+            preview = (n.text !== undefined && n.text !== '' ? n.text : null)
+              ?? blockSummaryOf(conv)
+              ?? t('node.empty')
+          } else if (n.text === undefined || n.text === '') {
+            // A text-less turn can still preview a self-summarizing call from the join even when the node carries no call list.
+            preview = blockSummaryOf(conv) ?? preview
+          }
         } else if (n.cat === 'user') {
           // User messages with image uploads gain an Image chip on the collapsed row (detected via the conversation join, like the expanded
           // body); expanded, the grid shows anyway.
@@ -1066,12 +1070,12 @@ export function makeContextBrowser(
           if (imgCount > 0 && openElem !== `n${n.seq}`) {
             tag = t('attach.image') + (imgCount > 1 ? ' ×' + String(imgCount) : '')
           }
-        } else if (n.cat === 'inject') {
+        } else {
+          // The last category ('inject'): the form label tags the row; the
+          // source identity (when stamped) is more scannable than the raw
+          // content, which stays one expand away.
           tag = t('form.' + (n.form || 'context'))
           if (id !== '') {
-            // The source identity the events card names (plugin id, reconciled
-            // instruction files, durable kind) — more scannable than the raw
-            // content, which stays one expand away.
             preview = id
           } else if (n.text !== undefined && n.text !== '') {
             preview = n.form === 'snapshot' ? t('node.snapshot') + n.text : n.text

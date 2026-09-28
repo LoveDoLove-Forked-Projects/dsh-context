@@ -1211,11 +1211,12 @@ describe('ContextBrowser message categories', () => {
     await typeToolSearch(m, '')
     assert.equal(elemRows(m).length, 8)
 
-    // The call-breadcrumb tag matches too (an assistant row's 'bash › write').
+    // The call-breadcrumb tag matches too — both the fold's stamp ('bash › write')
+    // and the join-recovered breadcrumb on a mixed text+calls reply.
     await click(catRow(m, 'assistant'))
     assert.equal(query<HTMLInputElement>(m.container, '.lc-br-tool-search').value, '', 'another category opens unfiltered')
     await typeToolSearch(m, 'bash')
-    assert.deepEqual(previews(), ['done all'])
+    assert.deepEqual(previews(), ['full cascade', 'done all'])
     await m.unmount()
   })
 
@@ -1291,7 +1292,8 @@ describe('ContextBrowser message categories', () => {
       return `${tag === null ? '∅' : text(tag)}|${preview}`
     })
     assert.ok(tags.includes('read|(empty reply)'), 'no self-summarizing call → empty marker')
-    assert.ok(tags.includes('∅|b.ts'), 'textless turn previews the joined call summary')
+    assert.ok(tags.includes('edit|b.ts'), 'a textless turn tags the joined call name and previews its summary')
+    assert.ok(tags.includes('bash › broken › noargs|full cascade'), 'a reply with both text and calls tags the join-recovered breadcrumb')
     assert.ok(tags.includes('∅|(empty reply)'), 'no join, no calls → empty marker')
     assert.ok(tags.includes('∅|Calls '), 'empty call list previews as a bare Calls label (nodeText)')
 
