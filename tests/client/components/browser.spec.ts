@@ -1271,6 +1271,40 @@ describe('ContextBrowser message categories', () => {
     await m.unmount()
   })
 
+  test('tool-name capsules reveal the schema row; the row toggle stays out of the way', async () => {
+    const headers: ContextHeaders = { headers: [{ seq: 1, time: 1, systemTokens: 3, tools: [{ name: 'bash', tokens: 5 }, { name: 'write', tokens: 3 }] }] }
+    const m = await mountBrowser({ headers })
+    await click(catRow(m, 'assistant'))
+    // The stamped breadcrumb 'bash › write' (seq 61) renders one clickable segment per name.
+    const crumbRow = elemRows(m).find(r => text(r).includes('bash › write')) as HTMLElement
+    const links = queryAll(crumbRow, '.lc-br-tag-link')
+    assert.deepEqual(links.map(l => text(l)), ['bash', 'write'])
+    await click(links[0])
+    // The reveal opens the Tool Schemas category with the bash definition row expanded...
+    assert.ok(text(query(m.container, '.lc-br-cat-open')).includes('Tool Schemas'))
+    const open = queryAll(m.container, '.lc-br-elem-on')
+    assert.equal(open.length, 1)
+    assert.ok(text(open[0]).includes('bash'))
+    // ...and ONLY the schema body is open: the segment click stopped propagation,
+    // so the assistant row's own toggle never overwrote the reveal.
+    assert.equal(queryAll(m.container, '.lc-br-content').length, 1)
+    await m.unmount()
+  })
+
+  test('the expanded body’s call head reveals the tool schema too', async () => {
+    const headers: ContextHeaders = { headers: [{ seq: 1, time: 1, systemTokens: 3, tools: [{ name: 'bash', tokens: 5 }, { name: 'noargs', tokens: 2 }] }] }
+    const m = await mountBrowser({ headers })
+    await click(catRow(m, 'assistant'))
+    const row = elemRows(m).find(r => text(r).includes('full cascade')) as HTMLElement
+    await click(row)
+    const head = queryAll(m.container, '.lc-ts-card-head b').find(el => text(el) === '→ bash') as HTMLElement
+    await click(head)
+    const open = queryAll(m.container, '.lc-br-elem-on')
+    assert.equal(open.length, 1)
+    assert.ok(text(open[0]).includes('bash'), 'the call head lands on the bash schema row, expanded')
+    await m.unmount()
+  })
+
   test('user images render a placeholder when no loader is wired', async () => {
     const m = await mountBrowser({ loadImage: undefined })
     await click(catRow(m, 'user'))
