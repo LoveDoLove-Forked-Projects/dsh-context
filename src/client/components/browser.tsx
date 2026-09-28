@@ -572,6 +572,42 @@ function nodeNameOf(n: SurfaceNode): string {
   return typeof n.name === 'string' ? n.name : ''
 }
 
+/**
+ * The content kinds one assistant message proves, as the assistant category's
+ * kind chips count and filter them: thinking (a reasoning block — only the
+ * conversation join can prove it), tool calls (join blocks, else the fold's
+ * text-less-reply `calls` stamp), and answer text (join blocks, else the
+ * node's `text`). Legacy `content` joins classify the same way the body
+ * renders them. The flags are independent, so a combined reply lights
+ * several chips.
+ */
+function msgKindsOf(n: SurfaceNode, conv: ConversationNodeLike | undefined): { think: boolean; tool: boolean; answer: boolean } {
+  let think = false
+  let tool = false
+  let answer = false
+  for (const blocks of [conv?.blocks, conv?.content]) {
+    if (!Array.isArray(blocks)) continue
+    for (const b of blocks) {
+      const blk = b !== null && typeof b === 'object' ? b as { type?: unknown; kind?: unknown } : null
+      const k = blk !== null
+        ? typeof blk.kind === 'string' ? blk.kind : typeof blk.type === 'string' ? blk.type : ''
+        : ''
+      if (k === 'reasoning') think = true
+      else if (k === 'tool-call') tool = true
+      else if (k === 'text') answer = true
+    }
+  }
+  return {
+    think,
+    tool: tool || (Array.isArray(n.calls) && n.calls.length > 0),
+    answer: answer || (typeof n.text === 'string' && n.text !== ''),
+  }
+}
+
+/** The assistant rows' kind chips, in display order. */
+const ROW_KINDS = ['think', 'tool', 'answer'] as const
+type RowKind = (typeof ROW_KINDS)[number]
+
 function countOf(asm: Assembled, byCat: Partial<Record<Category, SurfaceNode[]>>, c: string): number {
   if (c === 'system') return asm.system !== null ? 1 : 0
   if (c === 'tools') return asm.header !== null ? asm.header.tools.length : 0
@@ -614,6 +650,10 @@ export function makeContextBrowser(
     // it, while step picks (setOpenCat(null) below) keep it so the same lens
     // compares epochs.
     const [rowQuery, setRowQuery] = useState('')
+    // The assistant category's picked kind chip (null = none). It follows the
+    // text filter's lens rules: reset on a category switch, kept across step
+    // picks.
+    const [rowKind, setRowKind] = useState<RowKind | null>(null)
     // Mount-time default from the plugin settings card; in-toolbar toggling
     // stays mount-local and never writes back.
     const [toolSort, setToolSort] = useState<DefaultToolSort>(() => settings.defaultToolSort())
@@ -795,6 +835,7 @@ export function makeContextBrowser(
       if (it === undefined) return
       setCat(it.cat)
       setRowQuery('')
+      setRowKind(null)
       setOpenElem(key)
       focusScrollRef.current = true
     }
@@ -829,6 +870,7 @@ export function makeContextBrowser(
       setCat(c)
       // A different category opens unfiltered — the lens belongs to the open one.
       setRowQuery('')
+      setRowKind(null)
       setOpenElem(singleKeyOf(c))
     }
     const toggleElem = (key: string) => { setOpenElem(openElem === key ? null : key) }
@@ -1035,15 +1077,42 @@ export function makeContextBrowser(
             preview = n.form === 'snapshot' ? t('node.snapshot') + n.text : n.text
           }
         }
-        return { n, conv, rowErr, tag, preview }
+        return { n, conv, rowErr, tag, preview, kinds: msgKindsOf(n, conv) }
       })
       const q = rowQuery.trim().toLowerCase()
-      const shown = q === '' ? rows : rows.filter(r =>
-        (r.tag ?? '').toLowerCase().includes(q) || r.preview.toLowerCase().includes(q)
-        || (typeof r.n.text === 'string' && r.n.text.toLowerCase().includes(q)))
+      // The assistant category's kind chips: per-kind message counts over ALL
+      // of the shown step's rows (the chips report the step's composition, not
+      // the text-lens survivors). A picked kind filters to the rows carrying
+      // it, intersected with the text query; picking it again clears.
+      const kindCounts = c === 'assistant'
+        ? ROW_KINDS.map(k => ({ k, n: rows.reduce((acc, r) => acc + (r.kinds[k] ? 1 : 0), 0) }))
+        : null
+      const shown = q === '' && rowKind === null
+        ? rows
+        : rows.filter(r =>
+          (rowKind === null || r.kinds[rowKind])
+          && (q === ''
+            || (r.tag ?? '').toLowerCase().includes(q) || r.preview.toLowerCase().includes(q)
+            || (typeof r.n.text === 'string' && r.n.text.toLowerCase().includes(q))))
       // The toolbar stays mounted on an empty match, or the filter could
       // never be cleared from the UI.
-      const rowctl = <RowToolbar value={rowQuery} placeholder={t('browser.search.' + c)} onChange={setRowQuery} />
+      const rowctl = kindCounts === null
+        ? <RowToolbar value={rowQuery} placeholder={t('browser.search.' + c)} onChange={setRowQuery} />
+        : (
+          <RowToolbar value={rowQuery} placeholder={t('browser.search.' + c)} tip={t('browser.kindTip')} onChange={setRowQuery}>
+            {kindCounts.map(({ k, n }) => (
+              <button
+                key={k}
+                type="button"
+                className={'lc-gran-btn' + (rowKind === k ? ' lc-gran-on' : '')}
+                onClick={() => { setRowKind(rowKind === k ? null : k) }}
+              >
+                {t('browser.kind.' + k)}
+                <span className="lc-kind-n">{fmt(n)}</span>
+              </button>
+            ))}
+          </RowToolbar>
+        )
       if (shown.length === 0) {
         return <div>{rowctl}<div className="lc-br-note">{t('browser.rowNoMatch')}</div></div>
       }

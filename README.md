@@ -123,6 +123,10 @@ Pick **Live (next request)** or any retained step, and browse what that request 
 
 ![Tool schemas with source chips, filter, and sort](https://raw.githubusercontent.com/bowenliang123/dsh-context/main/docs/context-browser-tools.png)
 
+- **Filter assistant replies by kind** — the assistant category's search box carries **Thinking / Tools / Answer** chips, each with the shown step's message count (one reply can carry several); click one to keep only the matching replies, click again to clear:
+
+![Assistant replies with kind filter chips](https://raw.githubusercontent.com/bowenliang123/dsh-context/main/docs/context-browser-assistant-kinds.png)
+
 - **Tool results open into the full call** — the tool name and arguments with its **OK/error** status, the result body with line count and a **Raw / Markdown** toggle:
 
 ![A tool result expanded with Raw/Markdown toggle](https://raw.githubusercontent.com/bowenliang123/dsh-context/main/docs/context-browser-tool-result.png)

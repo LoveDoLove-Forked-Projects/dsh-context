@@ -1219,6 +1219,57 @@ describe('ContextBrowser message categories', () => {
     await m.unmount()
   })
 
+  test('assistant kind chips: per-kind counts, click filters, re-click clears, switch resets', async () => {
+    const m = await mountBrowser()
+    await click(catRow(m, 'assistant'))
+    const toolctl = query(m.container, '.lc-br-toolctl')
+    assert.equal(queryAll(m.container, '.lc-br-toolctl .lc-gran').length, 1, 'only the assistant toolbar carries the kind group')
+    assert.equal(query(toolctl, '.lc-gran').getAttribute('title'), kit.t('browser.kindTip'))
+    assert.equal(query<HTMLInputElement>(toolctl, '.lc-br-tool-search').placeholder, 'Filter by reply or calls…')
+    const chips = () => queryAll<HTMLButtonElement>(m.container, '.lc-br-toolctl .lc-gran-btn')
+    // Counts over ALL of the shown step's rows: thinking rides the join's
+    // reasoning block (seq 68), tools the joined calls (62/63/64/68) plus the
+    // unjoined node's `calls` stamp (61), answers the joined text blocks plus
+    // the nodes' own text (61/66/67/68).
+    assert.deepEqual(chips().map(c => text(c)), ['Thinking1', 'Tools5', 'Answer4'])
+    const previews = () => elemRows(m).map(r => text(query(r, '.lc-br-preview')))
+    assert.equal(elemRows(m).length, 8)
+
+    // Tools: the joined tool-call blocks plus the unjoined `calls` stamp.
+    await click(chips()[1])
+    assert.ok(chips()[1].className.includes('lc-gran-on'))
+    assert.deepEqual(previews(), ['full cascade', 'b.ts', '(empty reply)', 'a.ts', 'done all'])
+    // The counts report the step's composition — the text lens narrows on top of them.
+    await typeToolSearch(m, 'done')
+    assert.deepEqual(previews(), ['done all'])
+    assert.deepEqual(chips().map(c => text(c)), ['Thinking1', 'Tools5', 'Answer4'])
+    await typeToolSearch(m, 'zzz')
+    assert.equal(elemRows(m).length, 0)
+    assert.ok(text(query(m.container, '.lc-br-body')).includes('No rows match the current filter'))
+    assert.equal(chips().length, 3, 'the chips stay mounted on an empty match')
+    await typeToolSearch(m, '')
+    assert.equal(elemRows(m).length, 5)
+
+    // Re-click clears; the other two kinds each keep only their own rows.
+    await click(chips()[1])
+    assert.equal(elemRows(m).length, 8)
+    await click(chips()[0])
+    assert.deepEqual(previews(), ['full cascade'])
+    await click(chips()[2])
+    assert.ok(chips()[2].className.includes('lc-gran-on'))
+    assert.ok(!chips()[0].className.includes('lc-gran-on'), 'the kinds are exclusive')
+    assert.deepEqual(previews(), ['full cascade', 'legacy', 'Calls ', 'done all'])
+
+    // A category switch resets the picked kind with the text lens.
+    await click(catRow(m, 'user'))
+    assert.equal(queryAll(m.container, '.lc-br-toolctl .lc-gran-btn').length, 0)
+    await click(catRow(m, 'assistant'))
+    assert.deepEqual(chips().map(c => text(c)), ['Thinking1', 'Tools5', 'Answer4'])
+    assert.ok(chips().every(c => !c.className.includes('lc-gran-on')))
+    assert.equal(elemRows(m).length, 8)
+    await m.unmount()
+  })
+
   test('user images render a placeholder when no loader is wired', async () => {
     const m = await mountBrowser({ loadImage: undefined })
     await click(catRow(m, 'user'))
@@ -1920,6 +1971,19 @@ describe('ContextBrowser DNA mode and the open-category bar pin', () => {
       assert.equal(query<HTMLInputElement>(m.container, '.lc-br-tool-search').value, '')
       assert.equal(queryAll(m.container, '.lc-br-elem-on').length, 1)
       assert.ok(text(query(m.container, '.lc-br-body')).includes('hi'))
+
+      // A stale kind chip clears the same way — even when the band reopens the SAME category (zero counts render too).
+      await click(catRow(m, 'assistant'))
+      const toolsChip = queryAll(m.container, '.lc-br-toolctl .lc-gran-btn')[1]
+      assert.equal(text(toolsChip), 'Tools0')
+      await click(toolsChip)
+      assert.ok(text(query(m.container, '.lc-br-body')).includes('No rows match'))
+      await click(bands(m)[5])
+      const kindChips = queryAll(m.container, '.lc-br-toolctl .lc-gran-btn')
+      assert.equal(kindChips.length, 3)
+      assert.ok(kindChips.every(b => !b.className.includes('lc-gran-on')), 'the band click clears a stale kind chip')
+      assert.equal(elemRows(m).length, 1)
+      assert.equal(queryAll(m.container, '.lc-br-elem-on').length, 1)
 
       // The system band opens the system section (metadata-only note without a header fetcher).
       await click(bands(m)[0])
