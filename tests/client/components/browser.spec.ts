@@ -1069,6 +1069,7 @@ describe('ContextBrowser message categories', () => {
       { kind: 'image', attachment: { attachmentId: 'b2', name: 'pic.png', bytes: 4096, width: 640, height: 480 } },
       { type: 'mystery', foo: 1 },
       { type: 'text', text: 42 },
+      { kind: 'reasoning', text: 42 },
       'plain string block',
       { foo: 'bar' },
     ] },
@@ -1226,7 +1227,7 @@ describe('ContextBrowser message categories', () => {
     const toolctl = query(m.container, '.lc-br-toolctl')
     assert.equal(queryAll(m.container, '.lc-br-toolctl .lc-gran').length, 1, 'only the assistant toolbar carries the kind group')
     assert.equal(query(toolctl, '.lc-gran').getAttribute('title'), kit.t('browser.kindTip'))
-    assert.equal(query<HTMLInputElement>(toolctl, '.lc-br-tool-search').placeholder, 'Filter by reply or calls…')
+    assert.equal(query<HTMLInputElement>(toolctl, '.lc-br-tool-search').placeholder, 'Filter by reply, calls, or thinking…')
     const chips = () => queryAll<HTMLButtonElement>(m.container, '.lc-br-toolctl .lc-gran-btn')
     // Counts over ALL of the shown step's rows: thinking rides the join's
     // reasoning block (seq 68), tools the joined calls (62/63/64/68) plus the
@@ -1326,6 +1327,23 @@ describe('ContextBrowser message categories', () => {
     await m.unmount()
   })
 
+  test('the assistant text filter scans the join’s reasoning blocks', async () => {
+    const m = await mountBrowser()
+    await click(catRow(m, 'assistant'))
+    // 'thinking hard' rides seq 68's reasoning block — no tag, preview, or node text carries it.
+    await typeToolSearch(m, 'thinking hard')
+    const rows = elemRows(m)
+    assert.equal(rows.length, 1)
+    assert.ok(text(rows[0]).includes('full cascade'))
+    // A malformed reasoning block (non-string text) drops from the scan whole — its value matches nothing.
+    await typeToolSearch(m, '42')
+    assert.equal(elemRows(m).length, 0)
+    assert.ok(text(query(m.container, '.lc-br-body')).includes('No rows match the current filter'))
+    await typeToolSearch(m, '')
+    assert.equal(elemRows(m).length, 8)
+    await m.unmount()
+  })
+
   test('user images render a placeholder when no loader is wired', async () => {
     const m = await mountBrowser({ loadImage: undefined })
     await click(catRow(m, 'user'))
@@ -1363,7 +1381,7 @@ describe('ContextBrowser message categories', () => {
     assert.ok(heads.some(s => s.includes('→ ?')), 'nameless call card')
     assert.ok(heads.some(s => s.includes('→ noargs')))
     assert.ok(heads.some(s => s.includes('Result')), 'nested tool-result text section')
-    assert.ok(heads.filter(s => s.includes('Other content')).length === 5, 'unknown blocks render raw JSON')
+    assert.ok(heads.filter(s => s.includes('Other content')).length === 6, 'unknown blocks render raw JSON')
     assert.ok(heads.some(s => s.includes('Images')))
     // Call arg rows: string, number and object values.
     const argVals = queryAll(content, '.lc-ts-arg-row').map(el => text(el))

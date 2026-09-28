@@ -630,6 +630,27 @@ function msgKindsOf(n: SurfaceNode, conv: ConversationNodeLike | undefined): { t
   }
 }
 
+/**
+ * The reasoning texts one assistant row's conversation join proves, concatenated for the row filter's scan —
+ * the fold stamps no reasoning on the node, so this is the only scan face the thinking blocks expose. Both block
+ * vocabularies classify here (the body renders the same blocks as the Reasoning sections); malformed blocks drop.
+ */
+function reasoningTextOf(conv: ConversationNodeLike | undefined): string {
+  if (conv === undefined) return ''
+  let out = ''
+  for (const blocks of [conv.blocks, conv.content]) {
+    if (!Array.isArray(blocks)) continue
+    for (const b of blocks) {
+      const blk = b !== null && typeof b === 'object' ? b as { type?: unknown; kind?: unknown; text?: unknown } : null
+      const k = blk !== null
+        ? typeof blk.kind === 'string' ? blk.kind : typeof blk.type === 'string' ? blk.type : ''
+        : ''
+      if (k === 'reasoning' && typeof blk?.text === 'string') out += blk.text + '\n'
+    }
+  }
+  return out
+}
+
 /** The assistant rows' kind chips, in display order. */
 const ROW_KINDS = ['think', 'tool', 'answer'] as const
 type RowKind = (typeof ROW_KINDS)[number]
@@ -1077,9 +1098,10 @@ export function makeContextBrowser(
          which requires count > 0 ⟺ byCat[c] exists; defensive. */
       const nodes = (byCat[c as Category] ?? []).slice().reverse()
       // Derive each row's display facts first so the text filter scans exactly
-      // what the rows show (tag + preview) at zero extra derivation cost; the
-      // survivors render unchanged. Identity-labeled injection rows keep their
-      // folded content out of the preview, so the filter scans `text` too.
+      // what the rows show (tag + preview, plus the assistant join's reasoning)
+      // at derivation time, not per keystroke; the survivors render unchanged.
+      // Identity-labeled injection rows keep their folded content out of the
+      // preview, so the filter scans `text` too.
       const rows = nodes.map((n) => {
         const conv = bySeq.get(n.seq)
         // A `skill`-tool load reclassifies into the `skill` bucket (issue #66)
@@ -1142,7 +1164,17 @@ export function makeContextBrowser(
             preview = n.form === 'snapshot' ? t('node.snapshot') + n.text : n.text
           }
         }
-        return { n, conv, rowErr, tag, tagNames, preview, kinds: msgKindsOf(n, conv) }
+        return {
+          n,
+          conv,
+          rowErr,
+          tag,
+          tagNames,
+          preview,
+          // The join's reasoning texts feed the scan (assistant rows only — no other category carries them).
+          reasoning: n.cat === 'assistant' ? reasoningTextOf(conv) : '',
+          kinds: msgKindsOf(n, conv),
+        }
       })
       const q = rowQuery.trim().toLowerCase()
       // The assistant category's kind chips: per-kind message counts over ALL
@@ -1158,7 +1190,8 @@ export function makeContextBrowser(
           (rowKind === null || r.kinds[rowKind])
           && (q === ''
             || (r.tag ?? '').toLowerCase().includes(q) || r.preview.toLowerCase().includes(q)
-            || (typeof r.n.text === 'string' && r.n.text.toLowerCase().includes(q))))
+            || (typeof r.n.text === 'string' && r.n.text.toLowerCase().includes(q))
+            || r.reasoning.toLowerCase().includes(q)))
       // The toolbar stays mounted on an empty match, or the filter could
       // never be cleared from the UI.
       const rowctl = kindCounts === null
