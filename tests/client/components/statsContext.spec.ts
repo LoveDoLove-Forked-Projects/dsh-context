@@ -167,6 +167,39 @@ describe('StatsContext', () => {
     await m.unmount()
   })
 
+  test('the cost cell links to the models.dev provider listing when one provider priced the scope', async () => {
+    const m = await mount(h(StatsContext, {
+      counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
+      usage: null,
+      cost: COST,
+      locale: 'en',
+    }))
+    await flush()
+    const links = queryAll(m.container, 'a.lc-stat')
+    assert.equal(links.length, 1, 'the cost cell is the only link')
+    assert.equal(links[0].getAttribute('href'), 'https://models.dev/providers/deepseek/')
+    assert.equal(links[0].getAttribute('target'), '_blank')
+    assert.ok(links[0].textContent.includes('$0.30'), 'the link keeps the framed cell body')
+    assert.ok(queryAll(m.container, '.lc-stat').length > links.length, 'the sibling cells stay plain')
+    await m.unmount()
+  })
+
+  test('a multi-provider scope keeps the cost cell unlinked', async () => {
+    const two: SessionCostUsage = {
+      'deepseek-official': { 'deepseek-v4-flash': { peak: { uncached: 1_000_000, cacheRead: 0, cacheWrite: 0, output: 0 } } },
+      'zai-coding-cn': { 'glm-5.3-flash': { peak: { uncached: 1_000_000, cacheRead: 0, cacheWrite: 0, output: 0 } } },
+    }
+    const m = await mount(h(StatsContext, {
+      counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
+      usage: null,
+      cost: two,
+      locale: 'en',
+    }))
+    await flush()
+    assert.equal(queryAll(m.container, 'a.lc-stat').length, 0, 'two providers name their faces in the tooltip instead')
+    await m.unmount()
+  })
+
   test('a multi-provider session names the resolved registry face on each listing line', async () => {
     const two: SessionCostUsage = {
       'deepseek-official': { 'deepseek-v4-flash': { peak: { uncached: 1_000_000, cacheRead: 0, cacheWrite: 0, output: 0 } } },

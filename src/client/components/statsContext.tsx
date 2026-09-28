@@ -231,16 +231,31 @@ export function makeStatsContext(
         numOf(props.usage.cacheReadTokens),
         numOf(props.usage.uncachedInputTokens) + numOf(props.usage.cacheReadTokens) + numOf(props.usage.cacheWriteTokens),
       )
-    const cell = (label: string, value: string | number, tip?: ReactNode): ReactElement => (
-      <div className={'lc-stat' + (tip === undefined ? '' : ' lc-stat-tipped group/tip')}>
-        <span className="lc-stat-label">
-          {label}
-          {tip !== undefined && <i className="lc-stat-q group-hover/tip:text-(--dsw-alias-label-primary) group-hover/tip:border-(--dsw-alias-label-primary)" aria-hidden="true">?</i>}
-        </span>
-        <b className="lc-stat-value">{typeof value === 'number' ? fmt(value) : value}</b>
-        {tip !== undefined && <span className="lc-tip lc-stat-tip group-hover/tip:opacity-100" role="tooltip">{tip}</span>}
-      </div>
-    )
+    const cell = (label: string, value: string | number, tip?: ReactNode, href?: string): ReactElement => {
+      // The framed cell body, as a div — or as an anchor opening the models.dev
+      // provider listing in a new tab when the caller hands a destination (the
+      // tooltip still frames and reveals off this same element).
+      const body = (
+        <>
+          <span className="lc-stat-label">
+            {label}
+            {tip !== undefined && <i className="lc-stat-q group-hover/tip:text-(--dsw-alias-label-primary) group-hover/tip:border-(--dsw-alias-label-primary)" aria-hidden="true">?</i>}
+          </span>
+          <b className="lc-stat-value">{typeof value === 'number' ? fmt(value) : value}</b>
+          {tip !== undefined && <span className="lc-tip lc-stat-tip group-hover/tip:opacity-100" role="tooltip">{tip}</span>}
+        </>
+      )
+      const className = 'lc-stat' + (tip === undefined ? '' : ' lc-stat-tipped group/tip')
+      return href === undefined
+        ? <div className={className}>{body}</div>
+        : <a className={className} href={href} target="_blank" rel="noreferrer noopener">{body}</a>
+    }
+    // The cost cell links to the listing when ONE models.dev provider priced
+    // the whole scope — the natural "check these rates" destination. A
+    // multi-provider scope names each face in the tooltip instead and stays
+    // unlinked.
+    const costPids = new Set(rows.map(r => r.face.pid).filter(p => p !== ''))
+    const costHref = costPids.size === 1 ? 'https://models.dev/providers/' + [...costPids][0] + '/' : undefined
     return (
       <div className="lc-card lc-col-stats flex-[3] min-w-[min(360px,100%)]">
         <div className="lc-card-title">
@@ -255,7 +270,7 @@ export function makeStatsContext(
           {cell(t('stats.humanInputs'), props.humanInputs ?? 0, t('stats.humanInputsTip'))}
           {cell(t('stats.toolCalls'), props.toolCalls ?? 0)}
           {cell(t('stats.cacheHit'), hit === null ? '—' : `${hit}%`, t('stats.cacheHitTip'))}
-          {cell(t('stats.cost'), cost === null ? '—' : formatCost(cost, currency), costTip)}
+          {cell(t('stats.cost'), cost === null ? '—' : formatCost(cost, currency), costTip, costHref)}
           {cell(t('stats.subCost'), subCost === null ? '—' : formatCost(subCost, currency), subTip)}
         </div>
       </div>
