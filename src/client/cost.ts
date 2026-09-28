@@ -226,12 +226,24 @@ function lookup(models: Record<string, PriceTriple>, model: string): PriceTriple
  * exact, case-insensitive, or suffix. A provider the book does not carry
  * falls back to the model-side resolution index, which names the vendor
  * from data (org segment, own-vendor SDK, id prefix, lone carrier) — never
- * from a per-model hardcode.
+ * from a per-model hardcode. The one vendor-level seam: a `deepseek-` model
+ * id prices from DeepSeek's own registry branch first — its listing is the
+ * first-party price book (cache rates included), while the model-side tiers
+ * can hand the same id to a self-named hosting provider whose flat listing
+ * bills cache hits as plain input (azure's `deepseek-v4-pro`, issue #93) —
+ * the same specialness the peak/off-peak split already grants DeepSeek.
  */
 export function priceOf(book: ModelBook | null | undefined, provider: string, model: string): PriceTriple | null {
   if (book === null || book === undefined) return null
   const direct = branchOf(book.prices, modelsDevProviderOf(provider))
   if (direct !== null) return lookup(direct, model)
+  if (model.toLowerCase().startsWith('deepseek-')) {
+    const firstParty = branchOf(book.prices, 'deepseek')
+    if (firstParty !== null) {
+      const official = lookup(firstParty, model)
+      if (official !== null) return official
+    }
+  }
   return resolveRate(book.index, model)
 }
 

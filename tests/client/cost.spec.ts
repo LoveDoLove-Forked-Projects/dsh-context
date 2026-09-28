@@ -144,6 +144,25 @@ describe('priceIndexOf / the model-side resolution tiers', () => {
     assert.deepEqual(priceOf(BOOK_B, 'any-gateway', 'deepseek-v4-flash'), FLASH, 'deepseek-v4-flash names deepseek')
   })
 
+  test('a deepseek- model id prices from the first-party branch first (issue #93)', () => {
+    // The live-registry shape: azure re-lists `deepseek-v4-pro` flat (no
+    // cache_read published) and its `@ai-sdk/azure` package is the only
+    // self-named one — DeepSeek rides `@ai-sdk/openai-compatible`, so the
+    // model-side tiers would hand the id to azure. The `deepseek-` spelling
+    // prices from DeepSeek's own listing instead.
+    const AZURE_FLAT = { hit: 1.74, miss: 1.74, write: 1.74, out: 3.48 }
+    const hostBook = bookOf({
+      deepseek: { 'deepseek-v4-pro': PRO },
+      azure: { 'deepseek-v4-pro': AZURE_FLAT, 'deepseek-v4-pro-0813': AZURE_FLAT, 'gpt-x': AZURE_FLAT },
+    }, { deepseek: '@ai-sdk/openai-compatible', azure: '@ai-sdk/azure' })
+    assert.deepEqual(priceOf(hostBook, 'hx', 'deepseek-v4-pro'), PRO, 'the id names deepseek; a self-named SDK proves hosting, not authorship')
+    assert.deepEqual(priceOf(hostBook, 'hx', 'DeepSeek-V4-Pro'), PRO, 'the seam is case-insensitive')
+    assert.deepEqual(priceOf(hostBook, 'hx', 'deepseek-v4-pro-0813'), AZURE_FLAT, 'an id the first party does not list falls back to the model-side tiers')
+    assert.deepEqual(priceOf(hostBook, 'hx', 'gpt-x'), AZURE_FLAT, 'a model id outside the seam resolves as before')
+    const hostOnly = bookOf({ azure: { 'deepseek-junk': AZURE_FLAT } }, { azure: '@ai-sdk/azure' })
+    assert.deepEqual(priceOf(hostOnly, 'hx', 'deepseek-junk'), AZURE_FLAT, 'no first-party branch in the book leaves the tiers in charge')
+  })
+
   test('tier: a lone carrier prices without any vendor signal', () => {
     const lone = bookOf({ solo: { 'weird-model-9': K3 } })
     assert.deepEqual(priceOf(lone, 'unknown', 'weird-model-9'), K3)
