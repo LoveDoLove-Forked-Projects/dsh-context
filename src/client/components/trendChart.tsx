@@ -7,6 +7,8 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type UIEvent } from 'react'
 import type { Category, ContextEventRecord, RequestRecord } from '../../shared/types'
 import { CATS } from '../categories'
+import { dnaBaseLabel } from '../dna'
+import type { TrendBand } from '../dna'
 import { containHorizontalOverscroll } from '../overscroll'
 import type { ViewKit } from '../viewkit'
 
@@ -33,6 +35,12 @@ export interface TrendChartProps {
    * on screen. Off = the whole retained log scales the axis, the historical behavior.
    */
   adaptive?: boolean
+  /**
+   * DNA mode (the trend card's toggle): per bar, its assembled context decomposed into ONE band per item in
+   * read order (dna.ts), aligned with `requests` by index. Non-null draws every bar as a single-gradient
+   * fingerprint and implies TOTAL semantics — the parent disables the Total/Delta switch while DNA is on.
+   */
+  dna?: TrendBand[][] | null
   onSelect: (seq: number | null) => void
   onHover: (seq: number | null) => void
   onHoverTurn: (turn: number | null) => void
@@ -206,9 +214,101 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     enterIndex: number
     /** The step flag's label (the bar's cumulative step number), or null to plant none. */
     flag: number | null
+    /** DNA mode: this bar's per-item bands (read order), or null in the stacked modes. */
+    dna: TrendBand[] | null
+    /** DNA mode: reports the band under the pointer (null when the pointer leaves it or rests on no band). */
+    onDnaHit: (key: string | null) => void
     onSelect: (seq: number | null) => void
     onHover: (seq: number | null) => void
   }
+
+  /**
+   * DNA mode's bar interior: ONE gradient div paints the whole fingerprint — consecutive same-color
+   * bands coalesce into a single run (long same-category message runs would otherwise bloat the
+   * style string), zero-token bands occupy no height and skip. Gradient stops are each band's
+   * cumulative share of the bar (percent of the div's own height, which is proportional to the
+   * bar's total), so the strip reads bottom-up in the model's read order.
+   */
+  interface DnaBarProps {
+    bands: TrendBand[]
+    total: number
+    maxTotal: number
+    enterIndex: number
+    onHit: (key: string | null) => void
+  }
+
+  const DnaBar = function DnaBar(props: DnaBarProps): ReactElement | null {
+    const runs: { color: string; from: number; to: number }[] = []
+    for (const b of props.bands) {
+      if (b.tokens <= 0) continue
+      const from = Math.round(b.off / props.total * 10000) / 100
+      const to = Math.round((b.off + b.tokens) / props.total * 10000) / 100
+      const last = runs.length > 0 ? runs[runs.length - 1] : null
+      if (last !== null && last.color === b.color && last.to === from) last.to = to
+      else runs.push({ color: b.color, from, to })
+    }
+    if (runs.length === 0) return null
+    return (
+      <div
+        className="lc-bar-dna animate-lc-bar-in motion-reduce:animate-none"
+        style={{
+          height: `${Math.max(1, Math.round(props.total / props.maxTotal * CHART_H))}px`,
+          background: 'linear-gradient(to top, ' + runs.map(r => `${r.color} ${r.from}%, ${r.color} ${r.to}%`).join(', ') + ')',
+          '--lc-i': Math.min(props.enterIndex, STAGGER_CAP),
+        } as CSSProperties}
+        onMouseMove={(e) => {
+          // The fraction measured from the div's bottom maps linearly onto [0, total] tokens; the
+          // hit is the LAST band whose start is at or below the position (zero-token bands are
+          // invisible and skip), so the top edge still resolves to the last band.
+          const rect = e.currentTarget.getBoundingClientRect()
+          const frac = rect.height > 0 ? Math.min(1, Math.max(0, 1 - (e.clientY - rect.top) / rect.height)) : 0
+          const pos = frac * props.total
+          let hit: string | null = null
+          for (const b of props.bands) {
+            if (b.off > pos) break
+            if (b.tokens > 0) hit = b.key
+          }
+          props.onHit(hit)
+        }}
+        onMouseLeave={() => { props.onHit(null) }}
+      />
+    )
+  }
+
+  /**
+   * DNA mode's cross-bar lifetime highlight: a flex row mirroring the bar grid (same 14px columns,
+   * 2px gap, 18px top band — no per-bar x math), painting ONE translucent slice over every bar that
+   * still holds the hovered item — its whole life in the context at a glance. Memoized so a hover
+   * change reconciles only this thin layer, never the memoized bars beneath; null while no item
+   * is hovered.
+   */
+  interface DnaHighlightsProps {
+    dna: TrendBand[][]
+    hit: string | null
+    maxTotal: number
+  }
+
+  const DnaHighlights = memo(function DnaHighlights(props: DnaHighlightsProps): ReactElement | null {
+    if (props.hit === null) return null
+    const hit = props.hit
+    return (
+      <div className="lc-dna-hl">
+        {props.dna.map((bands, i) => {
+          const band = bands.find(b => b.key === hit && b.tokens > 0)
+          return (
+            <span key={i} className="lc-dna-cell">
+              {band !== undefined ? (
+                <span className="lc-dna-slice" style={{
+                  bottom: `${Math.round(band.off / props.maxTotal * CHART_H)}px`,
+                  height: `${Math.max(1, Math.round(band.tokens / props.maxTotal * CHART_H))}px`,
+                }} />
+              ) : null}
+            </span>
+          )
+        })}
+      </div>
+    )
+  })
 
   // Memoized so a hover/selection change re-renders only the bars whose flags flipped — the retained log renders in full (thousands of
   // nodes on long sessions); `req`/`marker` keep stable identities because the parent memoizes its aggregation, so the default shallow
@@ -260,6 +360,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
               })}
             </div>
           </>
+        ) : props.dna !== null ? (
+          <DnaBar bands={props.dna} total={req.total} maxTotal={props.maxTotal} enterIndex={props.enterIndex} onHit={props.onDnaHit} />
         ) : (
           <div className="lc-bar-stack animate-lc-bar-in motion-reduce:animate-none" style={enterStyle}>
             {CATS.map((c) => {
@@ -275,11 +377,19 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
   })
 
   return function TrendChart(props: TrendChartProps): ReactElement {
-    const delta = props.mode === 'delta'
+    const dnaBands = props.dna ?? null
+    // DNA plots absolute composition: it implies TOTAL semantics (the parent disables the Total/Delta
+    // switch while on; a stale 'delta' state degrades to total rather than emptying the chart) and
+    // ignores the category focus — the bands ARE the full composition already.
+    const dnaOn = dnaBands !== null
+    const delta = props.mode === 'delta' && !dnaOn
     // An unrecognized focus key degrades to the unfocused chart instead of plotting an empty axis.
-    const focus = props.focusCat !== null && props.focusCat !== undefined && CATS.some(c => c.key === props.focusCat)
+    const focus = !dnaOn && props.focusCat !== null && props.focusCat !== undefined && CATS.some(c => c.key === props.focusCat)
       ? props.focusCat
       : null
+    // The item (band key) under the pointer in DNA mode: drives the cross-bar lifetime highlight
+    // and the tooltip's item row. Mount-local; cleared with the chart hover.
+    const [dnaHit, setDnaHit] = useState<string | null>(null)
     const requests = useMemo(
       () => {
         const base = focus !== null ? props.requests.map(req => focusOf(req, focus)) : props.requests
@@ -544,6 +654,14 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     // stepCount degrades to that too), step bars carry the step index plus the turn's step total. Delta swaps
     // the metric row for the net.
     const stepsOf = useMemo(() => turnStepsOf(props.requests), [props.requests])
+    const hoveredIdx = props.hoveredSeq !== null ? requests.findIndex(r => r.seq === props.hoveredSeq) : -1
+    const hoveredReq = hoveredIdx >= 0 ? requests[hoveredIdx] : null
+    // DNA mode: the band under the pointer in the hovered bar (nothing while the pointer rests on the
+    // bar's top padding, above the strip).
+    const hoveredBands = dnaOn && hoveredIdx >= 0 ? dnaBands[hoveredIdx] : null
+    const hitBand = hoveredBands !== null && dnaHit !== null
+      ? hoveredBands.find(b => b.key === dnaHit && b.tokens > 0) ?? null
+      : null
     const tipRowsOf = (req: RequestRecord): [string, string] => {
       const n = req.stepCount ?? 1
       const head = props.granularity === 'turn'
@@ -555,13 +673,18 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
         const n = req.net ?? 0
         return [head, t('tip.delta', { n: (n > 0 ? '+' : '') + fmt(n) })]
       }
+      // DNA mode: the metric row names the hovered item the way the browser's DNA bands name it; a
+      // hover with no band under the pointer keeps the plain total row.
+      if (dnaOn) {
+        return [head, hitBand !== null
+          ? t('trend.dnaItem', { label: dnaBaseLabel(hitBand, t, catLabel), n: fmt(hitBand.tokens) })
+          : t('tip.total', { n: fmt(req.total) })]
+      }
       // Focused: the metric row IS the focused category's figure, so the tip names it instead of claiming a total.
       return [head, focus !== null
         ? t('tip.cat', { cat: catLabel(focus), n: fmt(req.total) })
         : t('tip.total', { n: fmt(req.total) })]
     }
-    const hoveredIdx = props.hoveredSeq !== null ? requests.findIndex(r => r.seq === props.hoveredSeq) : -1
-    const hoveredReq = hoveredIdx >= 0 ? requests[hoveredIdx] : null
 
     // Column center (content px) of the currently hovered bar, for syncTip reads outside the render pass.
     const tipColRef = useRef(0)
@@ -645,7 +768,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
               // The shared category hover rides a plain attribute: the CSS lights that key's segment in EVERY bar
               // and recedes the rest, so the memoized bars never re-render on a cross-card hover change.
               data-catdim={props.hoverCat ?? undefined}
-              onMouseLeave={() => { props.onHover(null) }}
+              onMouseLeave={() => { props.onHover(null); setDnaHit(null) }}
             >
               <div className="lc-grid lc-grid-top" />
               {/* Dashed guides aligning the bars with the axis quarter marks (fixed heights, both modes); a delta
@@ -675,10 +798,13 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
                   downPx={delta ? downPx : undefined}
                   deltaScale={delta ? deltaScale : undefined}
                   enterIndex={i}
+                  dna={dnaOn ? dnaBands[i] : null}
+                  onDnaHit={setDnaHit}
                   onSelect={props.onSelect}
                   onHover={props.onHover}
                 />
               ))}
+              {dnaOn ? <DnaHighlights dna={dnaBands} hit={dnaHit} maxTotal={maxTotal} /> : null}
             </div>
             {/* Turn strip: one COLOR BLOCK per turn spanning exactly its bars' columns, so the partition reads at a glance and lines
                 up with the steps; hovering a block highlights that turn's bars and vice versa — one shared hover-only state.

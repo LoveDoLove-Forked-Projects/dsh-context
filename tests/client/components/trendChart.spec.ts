@@ -17,7 +17,8 @@ import assert from 'node:assert/strict'
 import { afterAll, beforeAll, describe, test } from 'vitest'
 import { aggregateByTurn, attachMarkers, jumpTargetOf, makeTrendChart, turnStepsOf, type TrendChartProps } from '../../../src/client/components/trendChart'
 import { CATS } from '../../../src/client/categories'
-import type { ContextEventRecord, RequestRecord } from '../../../src/shared/types'
+import type { TrendBand } from '../../../src/client/dna'
+import type { ContextEventRecord, RequestRecord, SurfaceNode } from '../../../src/shared/types'
 import { click, flush, hover, makeKit, mount, query, queryAll, unhover, wheel } from '../helpers/kit'
 
 const kit = makeKit()
@@ -1208,5 +1209,155 @@ describe('attachMarkers', () => {
     const markers = attachMarkers(reqs, [first, second])
     assert.equal(markers[0], first)
     assert.equal(markers[1], undefined)
+  })
+})
+
+describe('TrendChart DNA mode', () => {
+  const COLORS = Object.fromEntries(CATS.map(c => [c.key, c.color])) as Record<string, string>
+
+  /** Trend-band fixture builder: cumulative offsets accumulate exactly like trendBandsOf. */
+  function dnaBands(spec: [string, string, number, SurfaceNode?][]): TrendBand[] {
+    let off = 0
+    return spec.map(([key, cat, tokens, node]) => {
+      const band = (node !== undefined
+        ? { key, cat, tokens, off, color: COLORS[cat], node }
+        : { key, cat, tokens, off, color: COLORS[cat] }) as TrendBand
+      off += tokens
+      return band
+    })
+  }
+
+  /** jsdom has no layout: give a bar interior the 112px stack area so pointer fractions read real. */
+  function stubBarRect(el: HTMLElement): void {
+    el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 14, bottom: CHART_H, width: 14, height: CHART_H, x: 0, y: 0, toJSON: () => null }) as DOMRect
+  }
+
+  async function move(el: HTMLElement, clientY: number): Promise<void> {
+    await act(async () => { el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY })) })
+  }
+
+  test('paints one coalesced gradient per bar — read order, proportional heights, zero bands dropped', async () => {
+    const r1 = req(1, { turn: 1, step: 0, total: 300 })
+    const r2 = req(2, { turn: 1, step: 1, total: 600 })
+    const d1 = dnaBands([
+      ['sys', 'system', 100],
+      ['tool:bash', 'tools', 50],
+      ['n1', 'assistant', 80, { seq: 1, cat: 'assistant', tokens: 80 }],
+      ['n2', 'assistant', 70, { seq: 2, cat: 'assistant', tokens: 70 }],
+    ])
+    const d2 = dnaBands([
+      ['sys', 'system', 200],
+      ['n1', 'assistant', 80, { seq: 1, cat: 'assistant', tokens: 80 }],
+      ['n3', 'user', 100, { seq: 3, cat: 'user', tokens: 100 }],
+      ['n4', 'user', 0, { seq: 4, cat: 'user', tokens: 0 }],
+      ['n5', 'tool', 220, { seq: 5, cat: 'tool', tokens: 220 }],
+    ])
+    const m = await mount(h(TrendChart, propsOf([r1, r2], { dna: [d1, d2] })))
+    const dnaDivs = queryAll(m.container, '.lc-bar-dna')
+    assert.equal(dnaDivs.length, 2)
+    assert.equal(dnaDivs[0].style.height, `${Math.round(300 / 600 * CHART_H)}px`)
+    assert.equal(dnaDivs[1].style.height, `${CHART_H}px`)
+    // d1: the two adjacent assistant bands coalesce into ONE blue run (50% → 100%).
+    const g1 = dnaDivs[0].style.background
+    assert.ok(g1.startsWith('linear-gradient(to top, '), g1)
+    assert.ok(g1.includes('var(--color-indigo-500) 0%, var(--color-indigo-500) 33.33%'), g1)
+    assert.ok(g1.includes('var(--color-amber-500) 33.33%, var(--color-amber-500) 50%'), g1)
+    assert.ok(g1.includes('var(--color-blue-500) 50%, var(--color-blue-500) 100%'), g1)
+    // d2: the zero-token user band leaves no run of its own; the teal run starts at its offset.
+    const g2 = dnaDivs[1].style.background
+    assert.ok(g2.includes('var(--color-blue-500) 33.33%, var(--color-blue-500) 46.67%'), g2)
+    assert.ok(g2.includes('var(--color-green-500) 46.67%, var(--color-green-500) 63.33%'), g2)
+    assert.ok(g2.includes('var(--color-teal-500) 63.33%, var(--color-teal-500) 100%'), g2)
+    // No segmented stacks, and the total-mode axis stays.
+    assert.equal(queryAll(m.container, '.lc-bar-stack').length, 0)
+    assert.equal(query(m.container, '.lc-axis-top').textContent, '600')
+    await m.unmount()
+  })
+
+  test('hit-tests the pointer into a band; the same item lights its lifetime slice in every bar', async () => {
+    const r1 = req(1, { turn: 1, step: 0, total: 300 })
+    const r2 = req(2, { turn: 1, step: 1, total: 600 })
+    const n1: SurfaceNode = { seq: 1, cat: 'user', tokens: 100, text: 'hello' }
+    const d1 = dnaBands([['n1', 'user', 100, n1], ['n2', 'assistant', 200, { seq: 2, cat: 'assistant', tokens: 200 }]])
+    const d2 = dnaBands([
+      ['n1', 'user', 100, n1],
+      ['n3', 'tool', 400, { seq: 3, cat: 'tool', tokens: 400, tool: 'bash' }],
+      ['n4', 'user', 0, { seq: 4, cat: 'user', tokens: 0 }],
+      ['n5', 'tool', 100, { seq: 5, cat: 'tool', tokens: 100, tool: 'write' }],
+    ])
+    const m = await mount(h(TrendChart, propsOf([r1, r2], { dna: [d1, d2], hoveredSeq: 1 })))
+    const dnaDivs = queryAll(m.container, '.lc-bar-dna')
+    assert.equal(dnaDivs.length, 2)
+    const tipText = () => query(m.container, '.lc-chart-tip').textContent ?? ''
+
+    // Before the rect stub the zero-height fallback resolves to the bottom band (frac 0), which
+    // lives in BOTH bars: the lifetime highlight paints one slice per bar at its axis position.
+    await move(dnaDivs[0], 40)
+    let slices = queryAll(m.container, '.lc-dna-slice')
+    assert.equal(slices.length, 2)
+    assert.equal(slices[0].style.bottom, '0px')
+    assert.equal(slices[0].style.height, `${Math.round(100 / 600 * CHART_H)}px`)
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('user'), n: '100' })))
+
+    // Real 112px bars: the pointer walks the strip — below the bar clamps to the bottom band…
+    stubBarRect(dnaDivs[0])
+    stubBarRect(dnaDivs[1])
+    await move(dnaDivs[0], CHART_H + 20)
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('user'), n: '100' })))
+    // …the very top resolves to the LAST band (n2 lives only in the first bar)…
+    await move(dnaDivs[0], 0)
+    slices = queryAll(m.container, '.lc-dna-slice')
+    assert.equal(slices.length, 1)
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('assistant'), n: '200' })))
+    // …and above the second bar clamps to its top band (the zero-token n4 is invisible and skipped).
+    // The hover seq is a controlled prop, so the tip only follows after it moves to the second bar.
+    await m.update(h(TrendChart, propsOf([r1, r2], { dna: [d1, d2], hoveredSeq: 2 })))
+    await move(dnaDivs[1], -10)
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: 'write', n: '100' })))
+
+    // Leaving the band (not the bar) drops the highlight and restores the plain total row.
+    await unhover(dnaDivs[1])
+    assert.equal(queryAll(m.container, '.lc-dna-slice').length, 0)
+    assert.ok(tipText().includes(kit.t('tip.total', { n: '600' })))
+
+    // Leaving the whole chart clears the item hover too.
+    await move(dnaDivs[0], 100)
+    assert.equal(queryAll(m.container, '.lc-dna-slice').length, 2)
+    await unhover(query(m.container, '.lc-chart'))
+    assert.equal(queryAll(m.container, '.lc-dna-slice').length, 0)
+    await m.unmount()
+  })
+
+  test('a stale delta state degrades to total semantics instead of emptying the chart', async () => {
+    const r1 = req(1, { turn: 1, step: 0, total: 300 })
+    const r2 = req(2, { turn: 1, step: 1, total: 600 })
+    const d1 = dnaBands([['n1', 'user', 300, { seq: 1, cat: 'user', tokens: 300 }]])
+    const d2 = dnaBands([['n1', 'user', 600, { seq: 1, cat: 'user', tokens: 600 }]])
+    const m = await mount(h(TrendChart, propsOf([r1, r2], { dna: [d1, d2], mode: 'delta' })))
+    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 2)
+    assert.equal(queryAll(m.container, '.lc-bar-up, .lc-bar-down').length, 0)
+    assert.equal(query(m.container, '.lc-axis-top').textContent, '600')
+    assert.equal(query(m.container, '.lc-axis-mid').textContent, '300')
+    await m.unmount()
+  })
+
+  test('the browser category focus is ignored — the bands already are the full composition', async () => {
+    const r1 = req(1, { turn: 1, step: 0, total: 300 })
+    const d1 = dnaBands([['sys', 'system', 100], ['n1', 'user', 200, { seq: 1, cat: 'user', tokens: 200 }]])
+    const m = await mount(h(TrendChart, propsOf([r1], { dna: [d1], focusCat: 'user' })))
+    const dnaDiv = query(m.container, '.lc-bar-dna')
+    assert.equal(dnaDiv.style.height, `${CHART_H}px`, 'full height, not the focused category share')
+    assert.ok(dnaDiv.style.background.includes('var(--color-indigo-500)'), 'the system band is still painted')
+    await m.unmount()
+  })
+
+  test('a bar whose bands carry no tokens paints no DNA strip', async () => {
+    const r1 = req(1, { turn: 1, step: 0, total: 0 })
+    const r2 = req(2, { turn: 1, step: 1, total: 600 })
+    const d1 = dnaBands([['n1', 'user', 0, { seq: 1, cat: 'user', tokens: 0 }]])
+    const d2 = dnaBands([['n2', 'user', 600, { seq: 2, cat: 'user', tokens: 600 }]])
+    const m = await mount(h(TrendChart, propsOf([r1, r2], { dna: [d1, d2] })))
+    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 1)
+    await m.unmount()
   })
 })

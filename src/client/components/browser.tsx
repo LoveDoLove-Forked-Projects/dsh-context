@@ -3,7 +3,7 @@ import { UNKNOWN_TOOL_SOURCE, type Category, type ContextHeaders, type ContextTi
 import { assemble } from '../assemble'
 import type { Assembled } from '../assemble'
 import { CATS, CAT_COLOR, partsOf } from '../categories'
-import { dnaOf } from '../dna'
+import { dnaBaseLabel, dnaOf } from '../dna'
 import type { DnaItem } from '../dna'
 import type { ContentFetcher, ConversationNodeLike, HeaderFetcher } from '../services'
 import type { ContextSettings, DefaultDeltaBase, DefaultToolSort } from '../settings'
@@ -837,18 +837,9 @@ export function makeContextBrowser(
     const toolHitsOf = (tool: HeaderTool): number => toolHits.get(tool.name) ?? 0
 
     // DNA mode: per-item bands in prompt order (dna.ts). The band label names the item the way its accordion row would
-    // (skill name, tool name, injection form, else the category label), with the item's time appended.
+    // (the shared dnaBaseLabel — skill name, tool name, injection form, else the category label) with its time appended.
     const dnaLabel = (it: DnaItem): string => {
-      let base: string
-      if (!('node' in it)) {
-        base = it.cat === 'system' ? catLabel('system') : it.key.slice('tool:'.length)
-      } else {
-        const n = it.node
-        base = n.skill !== undefined ? t('node.skillTag', { name: n.skill })
-          : n.cat === 'tool' ? (n.tool ?? '?')
-            : n.cat === 'inject' ? t('form.' + (n.form || 'context'))
-              : catLabel(n.cat)
-      }
+      const base = dnaBaseLabel(it, t, catLabel)
       return it.time !== undefined ? base + ' · ' + fmtTime(it.time) : base
     }
     const dnaItems = dna ? dnaOf(view) : null

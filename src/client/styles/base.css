@@ -74,11 +74,16 @@
 .lc-trend-ctl .lc-gran, .lc-heat-ctl .lc-gran { margin-left: 0; }
 /* The heat title's hint text loses its own auto margin inside the wrapper. */
 .lc-heat-ctl .lc-card-sub { margin-left: 0; }
-/* The trend card's adaptive switch rides the title text's right — a single-button group whose auto margin is
-   neutralized so it stays adjacent (the browser card's DNA toggle idiom). */
-.lc-trend-adaptive { margin-left: 0; flex: none; }
+/* The trend title's DNA toggle and adaptive switch ride the title text's right as an adjacent pair —
+   each single-button group's auto margin is neutralized so they stay together (the browser card's DNA
+   toggle idiom). */
+.lc-trend-dna, .lc-trend-adaptive { margin-left: 0; flex: none; }
 .lc-gran-btn { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
 .lc-gran-btn:hover { color: var(--dsw-alias-label-primary); }
+/* Disabled chips (the Total/Delta pair while the trend card's DNA mode is on): inert and visually
+   receded, keeping the group's layout so the row does not reflow when DNA toggles. */
+.lc-gran-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lc-gran-btn:disabled:hover { color: var(--dsw-alias-label-secondary); }
 .lc-gran-on, .lc-gran-on:hover { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
 /* The events card's kind filters carry their per-kind event tally: a tabular
    count set off from the label, dimmed while the chip is off and inherited

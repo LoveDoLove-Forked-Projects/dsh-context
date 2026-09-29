@@ -474,9 +474,13 @@ describe('ContextView — interactions', () => {
     const titleText = query(card, '.lc-card-title-text')
     assert.equal(text(titleText), DICT_EN['trend.title'])
 
-    // The switch is the title text's NEXT sibling — left of the card's right-hand control cluster.
+    // The switch is the DNA toggle's NEXT sibling — the pair rides the title text's right, left of the
+    // card's right-hand control cluster.
     const toggleOf = () => buttonByText(m.container, DICT_EN['trend.adaptive'])
-    assert.equal(toggleOf().parentElement?.previousElementSibling, titleText)
+    const dnaGroupOf = () => buttonByText(m.container, DICT_EN['trend.dna']).parentElement as HTMLElement
+    assert.ok(dnaGroupOf().className.includes('lc-trend-dna'))
+    assert.equal(dnaGroupOf().previousElementSibling, titleText)
+    assert.equal(toggleOf().parentElement?.previousElementSibling, dnaGroupOf())
     assert.equal(toggleOf().parentElement?.getAttribute('title'), DICT_EN['trend.adaptiveHint'])
     assert.ok(!toggleOf().className.includes('lc-gran-on'), 'off at mount')
 
@@ -488,6 +492,42 @@ describe('ContextView — interactions', () => {
     await click(toggleOf())
     assert.ok(!toggleOf().className.includes('lc-gran-on'))
     assert.equal(text(query(m.container, '.lc-axis-top')), '420')
+    await m.unmount()
+  })
+
+  test('the trend card\'s DNA toggle fingerprints the bars and suspends the Total/Delta switch', async () => {
+    const m = await mountRich('sv-trend-dna')
+    const dnaBtn = () => buttonByText(m.container, DICT_EN['trend.dna'])
+    assert.ok(!dnaBtn().className.includes('lc-gran-on'), 'off at mount')
+    const dnaGroup = dnaBtn().parentElement as HTMLElement
+    assert.ok(dnaGroup.className.includes('lc-trend-dna'))
+    assert.equal(dnaGroup.getAttribute('title'), DICT_EN['trend.dnaTip'])
+    assert.ok((dnaGroup.nextElementSibling as HTMLElement | null)?.className.includes('lc-trend-adaptive'), 'DNA rides left of the adaptive switch')
+    assert.ok(!(buttonByText(m.container, DICT_EN['gran.delta']) as HTMLButtonElement).disabled, 'the mode switch is live at mount')
+
+    // A stale Delta state + DNA on: the bars become per-item fingerprints and the axis reads totals.
+    await click(buttonByText(m.container, DICT_EN['gran.delta']))
+    await click(dnaBtn())
+    assert.ok(dnaBtn().className.includes('lc-gran-on'))
+    assert.ok((buttonByText(m.container, DICT_EN['gran.total']) as HTMLButtonElement).disabled)
+    assert.ok((buttonByText(m.container, DICT_EN['gran.delta']) as HTMLButtonElement).disabled)
+    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 3)
+    assert.equal(text(query(m.container, '.lc-axis-top')), '420')
+
+    // The strip reads in the model's read order: the tool schema leads, then the messages by seq.
+    const g = query(m.container, '.lc-bar[data-seq="4"] .lc-bar-dna').style.background
+    const amberAt = g.indexOf('color-amber-500')
+    const greenAt = g.indexOf('color-green-500')
+    const blueAt = g.indexOf('color-blue-500')
+    const tealAt = g.indexOf('color-teal-500')
+    assert.ok(amberAt >= 0 && greenAt > amberAt && blueAt > greenAt && tealAt > blueAt, g)
+
+    // DNA off: the mode switch comes back live with its Delta state intact.
+    await click(dnaBtn())
+    assert.ok(!dnaBtn().className.includes('lc-gran-on'))
+    assert.ok(!(buttonByText(m.container, DICT_EN['gran.delta']) as HTMLButtonElement).disabled)
+    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 0)
+    assert.ok(queryAll(m.container, '.lc-bar-up').length > 0, 'delta arms are back')
     await m.unmount()
   })
 

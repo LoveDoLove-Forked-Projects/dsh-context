@@ -35,6 +35,8 @@ import { makeStatsTiming } from './statsTiming'
 import { makeStatsTokens } from './statsTokens'
 import { makeLegend, makeStackedBar } from './stackedBar'
 import { aggregateByTurn, attachMarkers, jumpTargetOf, makeTrendChart, turnStepsOf } from './trendChart'
+import { assemble } from '../assemble'
+import { trendBandsOf } from '../dna'
 
 import { subscribeContextFocus, takeContextFocus } from '../viewFocus'
 import { revealInScrollParent } from '../revealScroll'
@@ -108,6 +110,10 @@ export function makeContextView(
     // 'total' plots each request's cumulative composition, 'delta' its incremental change vs the previous one;
     // like granularity, the default is read at mount and in-chart toggling never writes back.
     const [trendMode, setTrendMode] = useState<'total' | 'delta'>(() => settings.defaultTrendMode())
+    // DNA mode: the trend bars become per-item fingerprints of each request's context (dna.ts); like the
+    // toggles above, mount-local and never written back. While on, the Total/Delta switch is inert — DNA
+    // plots absolute composition.
+    const [dna, setDna] = useState(false)
     // Adaptive scale (the title-adjacent toggle): the trend bars rescale to the visible window; like the two
     // toggles above, mount-local and never written back.
     const [adaptive, setAdaptive] = useState(false)
@@ -220,6 +226,16 @@ export function makeContextView(
     // aggregates read their own stepCount instead.
     const stepsOf = useMemo(() => turnStepsOf(requests), [requests])
     const markers = useMemo(() => attachMarkers(displayRequests, events), [displayRequests, events])
+    // DNA mode's per-bar bands: one assemble() per displayed record — the same pure client-side
+    // reconstruction the Context browser uses — memoized on the timeline so hover-driven re-renders
+    // never reassemble. Turn bars assemble at the aggregate's (its last step's) seq, exactly the
+    // step the bar plots. Null whenever DNA is off (the chart's stacked modes never pay for it).
+    /* v8 ignore next 1 -- a missing projection returns the loading screen before the trend card
+       (and its DNA toggle) renders, so `dna && data === null` cannot occur. */
+    const dnaBands = useMemo(
+      () => (dna && data !== null ? displayRequests.map(req => trendBandsOf(assemble(data, headers, req.seq))) : null),
+      [dna, data, headers, displayRequests],
+    )
 
     // Chat → Context jump, leg 1: pick up the assistant-action relay's request for this session —
     // once per mount, and again on every later record (the sidebar landing keeps this view mounted
@@ -429,6 +445,16 @@ export function makeContextView(
       <div className="lc-card">
         <div className="lc-card-title">
           <span className="lc-card-title-text">{t('trend.title')}</span>
+          {/* The DNA toggle rides the title text's right, left of the adaptive switch (the browser
+              card's DNA toggle idiom): each bar becomes that request's per-item context fingerprint;
+              while on, the Total/Delta switch is inert — DNA plots absolute composition. */}
+          <span className="lc-gran lc-trend-dna" role="group" title={t('trend.dnaTip')}>
+            <button
+              type="button"
+              className={'lc-gran-btn' + (dna ? ' lc-gran-on' : '')}
+              onClick={() => { setDna(v => !v) }}
+            >{t('trend.dna')}</button>
+          </span>
           {/* The adaptive switch rides the title's right (the browser card's DNA toggle idiom): bars rescale
               to the bars currently on screen instead of the whole retained log. */}
           <span className="lc-gran lc-trend-adaptive" role="group" title={t('trend.adaptiveHint')}>
@@ -454,11 +480,13 @@ export function makeContextView(
             </div>
             <div className="lc-gran" title={t('gran.modeHint')}>
               <button
-                className={'lc-gran-btn' + (trendMode === 'total' ? ' lc-gran-on' : '')}
+                className={'lc-gran-btn' + (trendMode === 'total' && !dna ? ' lc-gran-on' : '')}
+                disabled={dna}
                 onClick={() => { setTrendMode('total') }}
               >{t('gran.total')}</button>
               <button
-                className={'lc-gran-btn' + (trendMode === 'delta' ? ' lc-gran-on' : '')}
+                className={'lc-gran-btn' + (trendMode === 'delta' && !dna ? ' lc-gran-on' : '')}
+                disabled={dna}
                 onClick={() => { setTrendMode('delta') }}
               >{t('gran.delta')}</button>
             </div>
@@ -489,6 +517,7 @@ export function makeContextView(
                 hoverCat={trendHoverCat}
                 focusCat={focusCat}
                 adaptive={adaptive}
+                dna={dnaBands}
                 onSelect={setSelectedSeq}
                 onHover={setHoveredSeq}
                 onHoverTurn={setHoverTurn}

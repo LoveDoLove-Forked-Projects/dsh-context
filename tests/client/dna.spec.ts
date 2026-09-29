@@ -5,7 +5,9 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { dnaOf } from '../../src/client/dna'
+import { dnaBaseLabel, dnaOf, trendBandsOf } from '../../src/client/dna'
+import { CAT_COLOR } from '../../src/client/categories'
+import { makeKit } from './helpers/kit'
 import type { Assembled } from '../../src/client/assemble'
 import type { HeaderRecord, HeaderTool, SurfaceNode, SystemPromptNode } from '../../src/shared/types'
 
@@ -80,5 +82,63 @@ describe('dnaOf', () => {
   test('zero-token items keep their band (the bar drops zero widths, the reading order stays truthful)', () => {
     const items = dnaOf(asm({ nodes: [node({ seq: 1, tokens: 0 }), node({ seq: 2 })] }))
     assert.deepEqual(items.map(i => i.key), ['n1', 'n2'])
+  })
+})
+
+describe('trendBandsOf', () => {
+  test('read-order bands carry the category colors and cumulative offsets from the floor', () => {
+    const bands = trendBandsOf(asm({
+      system: system(),
+      header: header({ tools: [tool('bash', 30)] }),
+      nodes: [node({ seq: 1 }), node({ seq: 2, cat: 'assistant', tokens: 20 })],
+    }))
+    assert.deepEqual(bands.map(b => b.key), ['sys', 'tool:bash', 'n1', 'n2'])
+    assert.deepEqual(bands.map(b => b.cat), ['system', 'tools', 'user', 'assistant'])
+    assert.deepEqual(bands.map(b => b.tokens), [100, 30, 5, 20])
+    assert.deepEqual(bands.map(b => b.off), [0, 100, 130, 135])
+    for (const b of bands) assert.equal(b.color, CAT_COLOR[b.cat])
+    assert.ok(!('node' in bands[0]), 'header bands carry no node')
+    assert.equal((bands[2] as { node: SurfaceNode }).node.cat, 'user', 'message bands hand the node through')
+  })
+
+  test('zero-token bands keep their slot: the next offset still counts them', () => {
+    const bands = trendBandsOf(asm({ nodes: [node({ seq: 1, tokens: 0 }), node({ seq: 2, tokens: 7 })] }))
+    assert.deepEqual(bands.map(b => b.off), [0, 0])
+    assert.equal(bands[1].off + bands[1].tokens, 7)
+  })
+})
+
+describe('dnaBaseLabel', () => {
+  const kit = makeKit()
+  const bands = trendBandsOf(asm({
+    system: system(),
+    header: header({ tools: [tool('bash', 30)] }),
+    nodes: [
+      node({ seq: 1, cat: 'assistant' }),
+      node({ seq: 2, cat: 'tool', tool: 'write' }),
+      node({ seq: 3, cat: 'tool' }),
+      node({ seq: 4, cat: 'inject', form: 'notice' }),
+      node({ seq: 5, cat: 'inject' }),
+      node({ seq: 6, cat: 'user', skill: 'sync' }),
+    ],
+  }))
+  const label = (key: string): string => {
+    const b = bands.find(x => x.key === key)
+    assert.ok(b !== undefined)
+    return dnaBaseLabel(b, kit.t, kit.catLabel)
+  }
+
+  test('header bands name the system prompt and the tool schema', () => {
+    assert.equal(label('sys'), kit.catLabel('system'))
+    assert.equal(label('tool:bash'), 'bash')
+  })
+
+  test('message bands name the item the way its browser row would', () => {
+    assert.equal(label('n1'), kit.catLabel('assistant'))
+    assert.equal(label('n2'), 'write')
+    assert.equal(label('n3'), '?')
+    assert.equal(label('n4'), kit.t('form.notice'))
+    assert.equal(label('n5'), kit.t('form.context'))
+    assert.equal(label('n6'), kit.t('node.skillTag', { name: 'sync' }))
   })
 })

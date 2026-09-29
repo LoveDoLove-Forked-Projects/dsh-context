@@ -60,13 +60,17 @@
 .lc-bar-in-turn { background: color-mix(in srgb, var(--color-neutral-500) 14%, transparent); }
 .lc-bar-stack { display: flex; flex-direction: column-reverse; width: 100%; }
 .lc-bar-stack > div { width: 100%; }
+/* DNA mode's bar interior (trendChart.tsx DnaBar): ONE gradient div paints the whole per-item
+   fingerprint in read order — the px height rides the same total/maxTotal scale as the segmented
+   stack, so the total-mode axis stays honest. */
+.lc-bar-dna { width: 100%; border-radius: 2px; }
 /*
  Entrance rise: each bar's stack scaleY-opens from the baseline (total mode: the chart floor; delta arms:
  the zero line — the down-arm's origin is its top edge), staggered left to right with the cascade capped in
  the component so a long log still settles in about a second. The sweep rides the `animate-lc-bar-in`
  utility (theme token, `motion-reduce:animate-none` for the reduced-motion guard).
  */
-.lc-bar-stack, .lc-bar-up, .lc-bar-down { transform-origin: 50% 100%; }
+.lc-bar-stack, .lc-bar-up, .lc-bar-down, .lc-bar-dna { transform-origin: 50% 100%; }
 .lc-bar-down { transform-origin: 50% 0; }
 /* Rounded ends on each bar's outer corners only (the idiom radius, .lc-bar's 2px): the topmost segment
    carries the two top corners, the bottommost the two bottom, and an only segment all four — inner
@@ -99,7 +103,16 @@
 .lc-chart[data-catdim='skill'] .lc-cat-seg[data-cat='skill'],
 .lc-chart[data-catdim='assistant'] .lc-cat-seg[data-cat='assistant'],
 .lc-chart[data-catdim='tool'] .lc-cat-seg[data-cat='tool'] { opacity: 1; filter: brightness(1.18); }
-.lc-bar-marker { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--dsw-alias-state-warn-primary); }
+/*
+ DNA mode's cross-bar lifetime highlight (trendChart.tsx DnaHighlights): a flex row mirroring the bar
+ grid — same 18px top band, 2px gap and 14px columns, so no per-bar x math — painting one translucent
+ brand slice over every bar that still holds the hovered item. Pointer-transparent; z-index 1 keeps it
+ above the bars but below the ✂ markers and step flags (z-index 2), which a crossing slice must not hide.
+*/
+.lc-dna-hl { position: absolute; top: 18px; right: 2px; bottom: 0; left: 2px; z-index: 1; display: flex; gap: 2px; align-items: stretch; pointer-events: none; }
+.lc-dna-cell { position: relative; width: 14px; flex: none; }
+.lc-dna-slice { position: absolute; left: 0; width: 100%; box-sizing: border-box; border: 1px solid var(--dsw-alias-brand-primary); border-radius: 1px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 26%, transparent); }
+.lc-bar-marker { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); z-index: 2; font-size: 11px; color: var(--dsw-alias-state-warn-primary); }
 /*
  Step flags (step granularity only): every 5th bar plants a flag at its RIGHT edge — a 1px pole rising from
  the baseline into the chart's 18px top padding band, the cumulative step number boxed at the pole's top,
@@ -109,7 +122,7 @@
  ends AT the pole, and the first flag lands 4 columns in (pole at 81px), wider than any label's reach
  leftward. Renders BEFORE the ✂ marker so the event glyph paints on top on a same-bar collision.
  */
-.lc-step-flag { position: absolute; right: -1px; top: -17px; bottom: 0; width: 1px; background: color-mix(in srgb, var(--color-neutral-500) 45%, transparent); pointer-events: none; }
+.lc-step-flag { position: absolute; right: -1px; top: -17px; bottom: 0; z-index: 2; width: 1px; background: color-mix(in srgb, var(--color-neutral-500) 45%, transparent); pointer-events: none; }
 .lc-step-flag-label { position: absolute; top: 0; right: 0; box-sizing: border-box; padding: 1px 3px; border: 1px solid color-mix(in srgb, var(--color-neutral-500) 45%, transparent); border-radius: 3px; background: var(--dsw-alias-bg-layer-1); font-size: 9px; line-height: 1; font-weight: 600; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
 /*
  Turn strip: NEUTRAL zebra fills (inline, see TURN_FILLS) — never the category palette, or the strip reads as a detached bottom segment of the bars.
