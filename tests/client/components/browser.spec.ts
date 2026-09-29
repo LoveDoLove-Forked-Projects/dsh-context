@@ -1358,7 +1358,7 @@ describe('ContextBrowser message categories', () => {
     await click(rowOf('full cascade'))
     const content = query(m.container, '.lc-br-content')
     const heads = queryAll(content, '.lc-ts-card-head').map(el => text(el))
-    assert.ok(heads.some(s => s.includes('Response')))
+    assert.ok(heads.some(s => s.includes('Answer')))
     assert.ok(heads.some(s => s.includes('Reasoning')))
     assert.ok(heads.some(s => s.includes('→ bash')))
     assert.ok(heads.some(s => s.includes('→ broken')))

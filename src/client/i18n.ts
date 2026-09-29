@@ -693,7 +693,7 @@ export const DICT_EN: Record<string, string> = {
   'rich.md.copied': 'Copied',
   'rich.md.footnotes': 'Footnotes',
   'block.thinking': 'Reasoning',
-  'block.answer': 'Response',
+  'block.answer': 'Answer',
   'block.content': 'Content',
   'block.result': 'Result',
   'block.summary': 'Summary',
