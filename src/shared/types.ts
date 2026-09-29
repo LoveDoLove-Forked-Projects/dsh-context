@@ -149,6 +149,9 @@ export type DefaultGranularity = 'step' | 'turn'
 
 export type DefaultTrendMode = 'total' | 'delta'
 
+/** The browser delta baseline: against the immediately preceding record, or the previous turn's last step. */
+export type DefaultDeltaBase = 'step' | 'turn'
+
 /** File Activity row order: most operations first, most-recently-touched first, or path ascending. */
 export type DefaultFileSort = 'count' | 'latest' | 'path'
 
@@ -165,6 +168,7 @@ export interface PluginSettings {
   defaultPlacement: DefaultPlacement
   defaultGranularity: DefaultGranularity
   defaultTrendMode: DefaultTrendMode
+  defaultDeltaBase: DefaultDeltaBase
   defaultToolSort: DefaultToolSort
   defaultFileSort: DefaultFileSort
   insightsEntry: InsightsEntry

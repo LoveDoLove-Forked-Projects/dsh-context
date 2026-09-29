@@ -103,6 +103,19 @@ function withEpochContent(
 }
 
 describe('ContextBrowser live surface', () => {
+  test('the settings card default wins as the baseline toggle mount state', async () => {
+    const prefs = createContextSettings()
+    prefs.set('defaultDeltaBase', 'turn')
+    const PrefBrowser = makeContextBrowser(kit, makeStackedBar(kit), prefs)
+    const m = await mount(h(PrefBrowser, props({ data: tl({}) })))
+    const baseBtns = queryAll(m.container, '.lc-card-title .lc-gran-btn')
+    const turnBtn = baseBtns.find(b => text(b) === 'prev turn')
+    assert.ok(turnBtn !== undefined && turnBtn.className.includes('lc-gran-on'), 'the persisted baseline is active at mount')
+    const stepBtn = baseBtns.find(b => text(b) === 'prev step')
+    assert.ok(stepBtn !== undefined && !stepBtn.className.includes('lc-gran-on'))
+    await m.unmount()
+  })
+
   test('title, picker, live meta, category rows; empty categories stay shut', async () => {
     const data = tl({
       current: { system: 100, tools: 200, user: 50, inject: 0, skill: 0, assistant: 0, tool: 0, total: 350 },

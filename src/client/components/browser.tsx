@@ -6,7 +6,7 @@ import { CATS, CAT_COLOR, partsOf } from '../categories'
 import { dnaOf } from '../dna'
 import type { DnaItem } from '../dna'
 import type { ContentFetcher, ConversationNodeLike, HeaderFetcher } from '../services'
-import type { ContextSettings, DefaultToolSort } from '../settings'
+import type { ContextSettings, DefaultDeltaBase, DefaultToolSort } from '../settings'
 import type { ViewKit } from '../viewkit'
 import { blockSummaryOf, callNamesOf, callSummaryOf, parseCallArgs } from '../callSummary'
 import type { DetailState } from '../timelineSource'
@@ -682,8 +682,9 @@ export function makeContextBrowser(
     const [dna, setDna] = useState(false)
     const [dnaKey, setDnaKey] = useState<string | null>(null)
     // δ baseline toggle: 'step' diffs against the immediately preceding record, 'turn' against the
-    // previous turn's last step. Mount-local like the other toolbar toggles.
-    const [deltaBase, setDeltaBase] = useState<'step' | 'turn'>('step')
+    // previous turn's last step. Mount default from the plugin settings card; in-toolbar toggling
+    // stays mount-local and never writes back.
+    const [deltaBase, setDeltaBase] = useState<DefaultDeltaBase>(() => settings.defaultDeltaBase())
     // Every open-category change (toggle, step pick, pin, brief reveal) reports outward so the Context tab
     // can focus the trend chart on the open category.
     const onOpenCat = props.onOpenCat

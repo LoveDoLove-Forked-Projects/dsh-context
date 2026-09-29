@@ -27,7 +27,7 @@ export const SETTINGS_NAMESPACE = 'dsh-context'
 
 // The preference vocabulary is declared once in shared/types.ts; re-exported
 // here so host-side consumers keep their canonical import path.
-export type { DefaultFileSort, DefaultGranularity, DefaultPlacement, DefaultToolSort, DefaultTrendMode, InsightsEntry, PluginSettings } from '../shared/types'
+export type { DefaultDeltaBase, DefaultFileSort, DefaultGranularity, DefaultPlacement, DefaultToolSort, DefaultTrendMode, InsightsEntry, PluginSettings } from '../shared/types'
 
 /** Section schema: also the wire envelope the browser scope validates against. */
 export const SettingsSchema = z.object({
@@ -35,6 +35,7 @@ export const SettingsSchema = z.object({
   defaultPlacement: z.union(['all', 'tab', 'sidebar']).default('all').loose(),
   defaultGranularity: z.union(['step', 'turn']).default('step'),
   defaultTrendMode: z.union(['total', 'delta']).default('total').loose(),
+  defaultDeltaBase: z.union(['step', 'turn']).default('step').loose(),
   defaultToolSort: z.union(['size', 'count', 'name']).default('count').loose(),
   defaultFileSort: z.union(['count', 'latest', 'path']).default('count').loose(),
   // Loose so a stale value also reads as the default (`show`): a config
