@@ -681,6 +681,9 @@ export function makeContextBrowser(
     // DNA mode: the composition bar redraws as ONE band per context item in prompt order (dna.ts), hovered/clicked per item.
     const [dna, setDna] = useState(false)
     const [dnaKey, setDnaKey] = useState<string | null>(null)
+    // δ baseline toggle: 'step' diffs against the immediately preceding record, 'turn' against the
+    // previous turn's last step. Mount-local like the other toolbar toggles.
+    const [deltaBase, setDeltaBase] = useState<'step' | 'turn'>('step')
     // Every open-category change (toggle, step pick, pin, brief reveal) reports outward so the Context tab
     // can focus the trend chart on the open category.
     const onOpenCat = props.onOpenCat
@@ -800,11 +803,22 @@ export function makeContextBrowser(
       setOpenElem(null)
     }
 
-    // δ baselines against the PREVIOUS TURN's last request — one stable unit whatever step/live surface is shown (turn T reads against turn
-    // T−1's final step), avoiding the misleading 'change' a same-turn neighbour would imply.
+    // δ baseline per the picked mode. Picked steps: 'step' = the immediately preceding record, 'turn' =
+    // the previous turn's last step. Live: 'step' = the last served request (the next request's direct
+    // predecessor); 'turn' = the previous turn's last step — this turn's growth so far. A picked step or
+    // a live surface with no predecessor (the log's first step, a first turn) falls back to a ZERO
+    // baseline: the whole surface is change, so the pills show the full makeup. A request-less live
+    // surface has nothing to compare against at all: no baseline, no pills.
+    const prevRecordOf = (r: RequestRecord): RequestRecord | null => {
+      const i = requests.findIndex(x => x.seq === r.seq)
+      return i > 0 ? requests[i - 1] : null
+    }
+    const lastReq = requests.length > 0 ? requests[requests.length - 1] : null
+    const turnBaseOf = (r: RequestRecord): RequestRecord | null => lastOfTurn(requests, (r.turn ?? 0) - 1)
     const refReq = req === null
-      ? requests.length > 0 ? requests[requests.length - 1] : null
-      : lastOfTurn(requests, (req.turn ?? 0) - 1)
+      ? deltaBase === 'step' ? lastReq : lastReq === null ? null : turnBaseOf(lastReq)
+      : deltaBase === 'turn' ? turnBaseOf(req) : prevRecordOf(req)
+    const zeroBase = refReq === null && lastReq !== null
     const prevView = refReq !== null ? assemble(data, headers, refReq.seq) : null
     const prevByCat = prevView !== null ? byCatOf(prevView) : null
 
@@ -1221,7 +1235,22 @@ export function makeContextBrowser(
               {t('browser.dna')}
             </button>
           </span>
-          <span className="lc-br-hint">{t('browser.deltaHint')}</span>
+          <span className="lc-gran" role="group" title={t('browser.base.tip')}>
+            <button
+              type="button"
+              className={'lc-gran-btn' + (deltaBase === 'step' ? ' lc-gran-on' : '')}
+              onClick={() => { setDeltaBase('step') }}
+            >
+              {t('browser.base.step')}
+            </button>
+            <button
+              type="button"
+              className={'lc-gran-btn' + (deltaBase === 'turn' ? ' lc-gran-on' : '')}
+              onClick={() => { setDeltaBase('turn') }}
+            >
+              {t('browser.base.turn')}
+            </button>
+          </span>
           <select
             className="lc-br-pick"
             value={seq === null ? 'live' : String(seq)}
@@ -1230,7 +1259,7 @@ export function makeContextBrowser(
             <option value="live">{t('browser.live')}</option>
             {requests.slice().reverse().map(r => (
               <option key={r.seq} value={String(r.seq)}>
-                {t('detail.step', { t: r.turn ?? 0, s: r.step ?? 0, n: stepsOf(r.turn) }) + ' · ' + fmtTime(r.time)}
+                {t('detail.step', { t: r.turn ?? 0, s: r.step ?? 0, n: stepsOf(r.turn) })}
               </option>
             ))}
           </select>
@@ -1282,9 +1311,9 @@ export function makeContextBrowser(
           {CATS.map((c) => {
             const count = toolCount(c.key)
             const v = breakdown[c.key] || 0
-            const prevCount = prevView !== null && prevByCat !== null ? countOf(prevView, prevByCat, c.key) : null
+            const prevCount = zeroBase ? 0 : prevView !== null && prevByCat !== null ? countOf(prevView, prevByCat, c.key) : null
             const countDelta = prevCount !== null ? count - prevCount : null
-            const prevTokens = refReq !== null ? (refReq[c.key] || 0) : null
+            const prevTokens = zeroBase ? 0 : refReq !== null ? (refReq[c.key] || 0) : null
             const tokenDelta = prevTokens !== null ? v - prevTokens : null
             const openable = count > 0
               || ((c.key === 'system' || c.key === 'tools') && view.header === null)

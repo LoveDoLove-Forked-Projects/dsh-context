@@ -79,6 +79,13 @@ async function pickStep(m: Mounted, value: string): Promise<void> {
   })
 }
 
+/** Click the delta-baseline toggle button ('prev step'/'prev turn') in the card title. */
+async function clickDeltaBase(m: Mounted, label: 'prev step' | 'prev turn'): Promise<void> {
+  const btn = queryAll(m.container, '.lc-card-title .lc-gran-btn').find(b => text(b) === label)
+  assert.ok(btn !== undefined, `toggle button ${label} exists`)
+  await click(btn)
+}
+
 function props(over: Partial<ContextBrowserProps>): ContextBrowserProps {
   return { data: tl({}), headers: null, ...over }
 }
@@ -108,17 +115,28 @@ describe('ContextBrowser live surface', () => {
     })
     const m = await mount(h(Browser, props({ data })))
     assert.ok(text(query(m.container, '.lc-card-title-text')).includes('Context Browser'))
-    assert.ok(text(query(m.container, '.lc-br-hint')).includes('vs previous turn'))
+    const baseBtns = queryAll(m.container, '.lc-card-title .lc-gran-btn')
+    const stepBtn = baseBtns.find(b => text(b) === 'prev step')
+    assert.ok(stepBtn !== undefined && stepBtn.className.includes('lc-gran-on'), 'step baseline is the default')
+    assert.ok(baseBtns.some(b => text(b) === 'prev turn' && !b.className.includes('lc-gran-on')))
     const sel = query<HTMLSelectElement>(m.container, 'select.lc-br-pick')
     assert.equal(sel.value, 'live')
     const options = queryAll(sel, 'option').map(o => text(o))
     assert.equal(options.length, 4, 'live + one option per request')
     assert.equal(options[0], 'Live (Next Request)')
+    assert.equal(options[3], 'Turn 1 · Step 0 of 2', 'options carry the step label without a time suffix')
     assert.ok(options.some(o => o.includes('Turn 0 · Step 0')), 'requests without turn/step degrade to zeroes')
     const meta = text(query(m.container, '.lc-br-meta'))
     assert.ok(meta.includes('Live · Next Request'))
     assert.ok(meta.includes('Estimated ≈ 350'))
     assert.ok(meta.includes('Actual 800'), 'live pairs the estimate with the freshest actual')
+    // Live in 'prev turn' mode: the freshest request is turn-less (degrades to turn 0), so no previous
+    // turn exists — the zero baseline shows the whole live makeup as change.
+    await clickDeltaBase(m, 'prev turn')
+    const liveUserCat = queryAll(m.container, '.lc-br-cat')[ROW.user]
+    assert.equal(text(query(liveUserCat, '.lc-br-delta')), '+1')
+    assert.equal(text(query(liveUserCat, '.lc-br-tdelta')), '+50')
+    await clickDeltaBase(m, 'prev step')
     assert.equal(queryAll(m.container, '.lc-br-cat-row').length, 7)
     assert.ok(text(catRow(m, 'user')).includes('1 Items'))
     assert.ok(queryAll(m.container, '.lc-br-cat')[ROW.inject].className.includes('lc-br-cat-empty'), 'empty category is marked')
@@ -127,7 +145,11 @@ describe('ContextBrowser live surface', () => {
     const meta2 = text(query(m.container, '.lc-br-meta'))
     assert.ok(meta2.includes('Turn 0 · Step 0'))
     assert.ok(!meta2.includes('Actual'), 'this freshest request reported no usage')
-    assert.equal(queryAll(m.container, '.lc-br-delta').length, 0, 'no previous turn to compare against')
+    assert.equal(queryAll(m.container, '.lc-br-delta').length, 0, 'the seq-7 view and its seq-20 baseline hold the same single node')
+    // Turn mode on a turn-less record: 'turn − 1' degrades to −1, no baseline turn exists —
+    // the zero baseline shows the step's single node as pure change.
+    await clickDeltaBase(m, 'prev turn')
+    assert.equal(text(query(m.container, '.lc-br-delta')), '+1')
     await pickStep(m, 'live')
     await click(catRow(m, 'inject'))
     assert.equal(queryAll(m.container, '.lc-br-body').length, 0)
@@ -138,6 +160,10 @@ describe('ContextBrowser live surface', () => {
   test('zero-total surface renders no percentages; no requests means no delta pills', async () => {
     const m = await mount(h(Browser, props({ data: tl({}) })))
     assert.ok(queryAll(m.container, '.lc-br-pct').every(el => text(el) === ''))
+    assert.equal(queryAll(m.container, '.lc-br-delta').length, 0)
+    assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 0)
+    // 'prev turn' on a request-less live surface: no baseline exists at all, still no pills.
+    await clickDeltaBase(m, 'prev turn')
     assert.equal(queryAll(m.container, '.lc-br-delta').length, 0)
     assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 0)
     const meta = text(query(m.container, '.lc-br-meta'))
@@ -196,7 +222,7 @@ describe('ContextBrowser live surface', () => {
     await m.unmount()
   })
 
-  test('delta pills read against the previous turn’s last step; live reads the last request', async () => {
+  test('delta pills follow the picked baseline; a predecessor-less step diffs against zero', async () => {
     const data = tl({
       current: { system: 1, tools: 2, user: 99, inject: 0, skill: 0, assistant: 0, tool: 0, total: 102 },
       requests: [
@@ -206,25 +232,46 @@ describe('ContextBrowser live surface', () => {
         req({ seq: 4, turn: 2, step: 1, system: 1, tools: 2, user: 40, total: 43 }),
         req({ seq: 5, turn: 3, step: 0, system: 1, tools: 2, user: 50, total: 53 }),
       ],
-      nodes: [1, 2, 3, 4, 5].map(seq => node({ seq, tokens: seq })),
+      nodes: [0, 1, 2, 3, 4, 5].map(seq => node({ seq, tokens: seq })),
     })
     const m = await mount(h(Browser, props({ data })))
+    const userRow = (): HTMLElement => queryAll(m.container, '.lc-br-cat')[ROW.user]
+    // Default 'prev step': step 4 reads against step 3, its immediate predecessor.
     await pickStep(m, '4')
-    const countPills = queryAll(m.container, '.lc-br-delta')
+    const countPills = queryAll(userRow(), '.lc-br-delta')
     assert.equal(countPills.length, 1, 'only the user count changed')
-    assert.equal(text(countPills[0]), '+2')
+    assert.equal(text(countPills[0]), '+1')
     assert.ok(countPills[0].className.includes('lc-br-delta-up'))
-    const tokenPills = queryAll(m.container, '.lc-br-tdelta')
+    const tokenPills = queryAll(userRow(), '.lc-br-tdelta')
     assert.equal(tokenPills.length, 1)
-    assert.equal(text(tokenPills[0]), '+20')
-    // First turn: no previous-turn baseline → no pills at all.
+    assert.equal(text(tokenPills[0]), '+10')
+    // The log's first step has no predecessor: the zero baseline shows the full makeup as change,
+    // EVERY category included (system +1, tools +2, user +10).
     await pickStep(m, '1')
-    assert.equal(queryAll(m.container, '.lc-br-delta').length, 0)
-    assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 0)
-    // Live: baseline is the most recent request.
+    assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 3)
+    assert.equal(text(query(userRow(), '.lc-br-delta')), '+1')
+    assert.equal(text(query(userRow(), '.lc-br-tdelta')), '+10')
+    // 'prev turn': step 4 reads against turn 1's last step (seq 2).
+    await pickStep(m, '4')
+    await clickDeltaBase(m, 'prev turn')
+    assert.equal(text(query(userRow(), '.lc-br-delta')), '+2')
+    assert.equal(text(query(userRow(), '.lc-br-tdelta')), '+20')
+    // A first-turn step in 'prev turn' mode has no baseline either: zero again.
+    await pickStep(m, '1')
+    assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 3)
+    assert.equal(text(query(userRow(), '.lc-br-delta')), '+1')
+    assert.equal(text(query(userRow(), '.lc-br-tdelta')), '+10')
+    // Live: 'prev step' reads the last request; 'prev turn' reads the previous turn's last step (seq 4).
     await pickStep(m, 'live')
-    assert.equal(text(query(m.container, '.lc-br-delta')), '+1')
-    assert.equal(text(query(m.container, '.lc-br-tdelta')), '+49')
+    await clickDeltaBase(m, 'prev step')
+    assert.equal(text(query(userRow(), '.lc-br-delta')), '+1')
+    assert.equal(text(query(userRow(), '.lc-br-tdelta')), '+49')
+    await clickDeltaBase(m, 'prev turn')
+    assert.equal(text(query(userRow(), '.lc-br-delta')), '+2')
+    assert.equal(text(query(userRow(), '.lc-br-tdelta')), '+59')
+    await clickDeltaBase(m, 'prev step')
+    assert.equal(text(query(userRow(), '.lc-br-delta')), '+1')
+    assert.equal(text(query(userRow(), '.lc-br-tdelta')), '+49')
     await m.unmount()
   })
 
