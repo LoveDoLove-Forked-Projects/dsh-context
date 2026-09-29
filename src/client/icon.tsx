@@ -6,8 +6,12 @@
  * package.json `icon` hands to the Host's package-meta reader, which serves
  * it to the Plugins page's package cards. The client bundle inlines the
  * file's markup at build time (the `?raw` channel in tsdown.config.ts) and
- * re-renders it at every requested size. Fixed fills, never `currentColor` —
- * the sheet is deliberately polychrome on both light and dark chrome.
+ * re-renders it at every requested size. The identity seats (tab chip,
+ * command, sidebar registration, panel head) keep the sheet's fixed fills —
+ * deliberately polychrome on both light and dark chrome — while the
+ * sidebar-foot entry seat (overviewButton.tsx) opts into `mono`, trading
+ * every fill for `currentColor` so the glyph sits quietly beside the
+ * harness's own footer rows (Settings and friends).
  */
 
 import sheetMarkup from '../../icon.svg?raw'
@@ -20,16 +24,21 @@ const SHEET_MARKUP = sheetMarkup
   .trim()
   .replace(/>\s+</g, '><')
 
+/** The mono seat's strokes: same geometry, every palette fill traded for the surrounding text colour. */
+const SHEET_MARKUP_MONO = SHEET_MARKUP.replace(/fill="#[0-9A-Fa-f]{6}"/g, 'fill="currentColor"')
+
 /** The emblem's props, matching the harness `IconProps` the guide capsule hands it. */
 export interface ContextIconProps {
   /** Square edge in px. */
   size?: number
   /** Extra class for layout placement. */
   className?: string
+  /** Render in the surrounding text colour instead of the palette (the sidebar-foot entry seat). */
+  mono?: boolean
 }
 
-/** The colourful document sheet at the requested square edge. */
-export function ContextIcon({ size = 20, className }: ContextIconProps): ReactElement {
+/** The document sheet at the requested square edge — polychrome by default, text-coloured in `mono`. */
+export function ContextIcon({ size = 20, className, mono = false }: ContextIconProps): ReactElement {
   return (
     <svg
       width={size}
@@ -38,7 +47,7 @@ export function ContextIcon({ size = 20, className }: ContextIconProps): ReactEl
       className={className}
       aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"
-      dangerouslySetInnerHTML={{ __html: SHEET_MARKUP }}
+      dangerouslySetInnerHTML={{ __html: mono ? SHEET_MARKUP_MONO : SHEET_MARKUP }}
     />
   )
 }

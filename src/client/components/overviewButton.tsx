@@ -2,9 +2,10 @@
  * The Context Dashboard's sidebar entry: a footer action stacked directly
  * above Settings (the harness's own foot layout: footer actions, then the
  * settings row), mirroring the Settings trigger's geometry in both column
- * widths. The button carries the plugin emblem and, on the wide
- * column, its label. Clicking opens the overview overlay through the shared
- * module store (overviewStore.ts).
+ * widths. The button carries the plugin emblem — in the mono seat, so the
+ * glyph matches the harness's own footer rows rather than shouting over
+ * them — and, on the wide column, its label. Clicking opens the overview
+ * overlay through the shared module store (overviewStore.ts).
  *
  * The per-user `insightsEntry` preference takes the entry down (renders
  * null) without unregistering the seat. The subscription fails open: an
@@ -47,7 +48,7 @@ export function makeOverviewButton(kit: ViewKit, settings?: ContextSettings): (p
         aria-label={t('ov.entry')}
         onClick={() => { overviewStore.set(true) }}
       >
-        <ContextIcon size={props.wide === true ? 16 : 18} className="lc-ov-entry-icon" />
+        <ContextIcon size={props.wide === true ? 16 : 18} className="lc-ov-entry-icon" mono />
         {props.wide === true && <span className="lc-ov-entry-label">{t('ov.entry')}</span>}
       </button>
     )
