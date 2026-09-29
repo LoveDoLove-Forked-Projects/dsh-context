@@ -362,7 +362,16 @@ export function makeContextView(
     }, [activeReq, activeIdx, displayRequests])
 
     if (!data) {
-      return <div className="lc-root" ref={rootRef}><div className="lc-empty">{t('loading')}</div></div>
+      // No renderable value: the cold read is still in flight (the loading
+      // screen) or settled without one — the retryable failure note, never a
+      // spinner that never resolves.
+      return (
+        <div className="lc-root" ref={rootRef}>
+          {source.detailState === 'failed'
+            ? <DetailNote state="failed" onRetry={source.retryDetail} />
+            : <div className="lc-empty">{t('loading')}</div>}
+        </div>
+      )
     }
 
     const markerOf = (req: RequestRecord): ContextEventRecord | undefined => {
