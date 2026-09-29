@@ -26,8 +26,6 @@ jobs:
         # requests, and every ^0.1.5-rc range resolves to it. Revisit when
         # upstream republishes a complete stable closure.
         uses: bowenliang123/dsh-plugin-checker@v1
-        with:
-          dshVersion: next
 
       # Reads the pinned pnpm version from `packageManager` in package.json.
       - uses: pnpm/action-setup@v6
