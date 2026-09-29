@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, test, vi } from 'vitest'
 import { makeContextView } from '../../../src/client/components/contextView'
 import { watchHistoryFaces } from '../../../src/client/historyPage'
 import { requestContextFocus, takeContextFocus } from '../../../src/client/viewFocus'
+import { resetTimelineDetailStores } from '../../../src/client/timelineSource'
 import { createContextSettings } from '../../../src/client/settings'
 import type { SettingsScopeLike } from '../../../src/client/settings'
 import { resetModelPrices, setModelPricesLoader } from '../../../src/client/modelPrices'
@@ -30,6 +31,10 @@ const kit = makeKit()
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  // The cold-start share (timelineSource.ts) is page-lifetime per session:
+  // drop it so one test's cold read never leaks its failed/ready state into
+  // a later test that reuses the same session id.
+  resetTimelineDetailStores()
 })
 
 
@@ -133,6 +138,18 @@ describe('ContextView — projection guards', () => {
     const m3 = await mount(h(View, { useProjection: () => undefined }))
     assert.ok(text(m3.container).includes(DICT_EN.loading))
     await m3.unmount()
+  })
+
+  test('a cold read that settles without data surfaces the retryable failure, not a stall', async () => {
+    vi.stubGlobal('fetch', () => Promise.resolve({ ok: false, status: 500, json: async () => null } as Response))
+    const View = makeView(new TestClientCtx())
+    const m = await mount(h(View, { sessionId: 'sv-cold-fail', useProjection: () => undefined }))
+    await until(() => text(m.container).includes(DICT_EN['detail.loadFailed']), 'the failure note never surfaced')
+    assert.ok(!text(m.container).includes(DICT_EN.loading), 'no spinner remains once failed')
+    await act(async () => {
+      buttonByText(m.container, DICT_EN['detail.loadFailed']).click()
+    })
+    await m.unmount()
   })
 
   test('renders the full tab without a session id (the agent card anchors nothing)', async () => {

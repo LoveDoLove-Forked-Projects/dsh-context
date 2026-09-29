@@ -400,10 +400,11 @@ describe('detailStoreOf', () => {
 })
 
 /** A probe component rendering the source's observable surface as text. */
-function SourceProbe(props: { ctx: ClientCtx; sessionId: string; value: unknown }): ReactElement {
+function SourceProbe(props: { ctx: ClientCtx; sessionId: string; value?: unknown; useProjection?: (key: string) => unknown }): ReactElement {
+  const useProjection = props.useProjection ?? ((key: string) => (key === 'contextTimeline' ? props.value : undefined))
   const source = useTimelineSource(props.ctx, {
     sessionId: props.sessionId,
-    useProjection: (key: string) => (key === 'contextTimeline' ? props.value : undefined),
+    useProjection,
   })
   const data = source.data
   return h('div', null,
@@ -451,10 +452,89 @@ describe('useTimelineSource', () => {
     await m.unmount()
   })
 
-  test('no projection value keeps the loading surface', async () => {
-    const m = await mount(h(SourceProbe, { ctx: ctxWithCall(() => ({ body: null })), sessionId: 's1', value: undefined }))
+  test('the cold start: no pushed value opens the channel itself and renders from the read', async () => {
+    let calls = 0
+    const ctx = ctxWithCall(() => {
+      calls++
+      return { body: { ok: true, value: detail(2, { head: slimHead(2) }) } }
+    })
+    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    // The first paint waits on the cold read — then the read's own slim head
+    // stands in for the never-pushed projection value.
     assert.equal(probeRead(m.container, 'state'), 'loading')
+    await until(() => probeRead(m.container, 'state') === 'ready', 'the cold read never landed')
+    assert.equal(probeRead(m.container, 'model'), 'm', 'the read head renders')
+    assert.equal(probeRead(m.container, 'rev'), '2')
+    assert.equal(probeRead(m.container, 'steps'), '1', 'the read collections merge')
+    assert.ok(calls >= 1)
+    await m.unmount()
+  })
+
+  test('a pushed head arriving after the cold read takes the channel back', async () => {
+    // The stub folds the served rev per the latest requested revision — the
+    // production route folds the requested session at its current watermark.
+    let servedRev = 1
+    vi.stubGlobal('fetch', async () => ({ ok: true, status: 200, json: async () => ({ ok: true, value: detail(servedRev, { head: slimHead(servedRev, { model: servedRev === 1 ? 'cold-m' : 'pushed-m' }) }) }) }))
+    const ctx = asClientCtx(new TestClientCtx())
+    // The probe reads `useProjection` through a mutable capture so an update
+    // rerender sees the freshly pushed head (the real seat reads per render).
+    let pushed: unknown = undefined
+    function PushProbe(): ReactElement {
+      return h(SourceProbe, {
+        ctx,
+        sessionId: 's1',
+        useProjection: (key: string) => (key === 'contextTimeline' ? pushed : undefined),
+      })
+    }
+    const m = await mount(h(PushProbe, null))
+    await until(() => probeRead(m.container, 'state') === 'ready', 'the cold read never landed')
+    assert.equal(probeRead(m.container, 'model'), 'cold-m')
+    // The pushed head outruns the cold read's revision: same per-session
+    // store, one trailing refetch, the pushed value renders.
+    servedRev = 2
+    pushed = slimHead(2, { model: 'pushed-m' })
+    await m.update(h(PushProbe, null))
+    assert.equal(probeRead(m.container, 'model'), 'pushed-m', 'the pushed head wins at once')
+    assert.equal(probeRead(m.container, 'rev'), '2', 'the pushed revision renders')
+    await until(() => detailStoreOf(ctx, 's1').getSnapshot().detail?.rev === 2, 'the pushed head never trailed the channel')
+    await m.unmount()
+  })
+
+  test('the cold read failing arms the retry affordance instead of stalling', async () => {
+    let online = false
+    const ctx = ctxWithCall(() => {
+      if (!online) throw new Error('offline')
+      return { body: { ok: true, value: detail(1, { head: slimHead(1) }) } }
+    })
+    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    await until(() => probeRead(m.container, 'state') === 'failed', 'the cold failure never surfaced')
     assert.equal(probeRead(m.container, 'steps'), 'null')
+    online = true
+    await act(async () => {
+      ;(m.container.querySelector('[data-k="retry"]') as HTMLElement).click()
+    })
+    await until(() => probeRead(m.container, 'state') === 'ready', 'the retry never recovered')
+    await m.unmount()
+  })
+
+  test('a cold payload without its head types the failure (nothing renderable, no stall)', async () => {
+    const ctx = ctxWithCall(() => ({ body: { ok: true, value: detail(1) } }))
+    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    await until(() => probeRead(m.container, 'state') === 'failed', 'the headless payload never surfaced')
+    await m.unmount()
+  })
+
+  test('an absent cold answer (the session left the live set) surfaces the failed note', async () => {
+    const ctx = ctxWithCall(() => ({ body: { ok: true, value: null } }))
+    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    await until(() => probeRead(m.container, 'state') === 'failed', 'absence never surfaced')
+    await m.unmount()
+  })
+
+  test('no session id to read for: the cold start types the failure, not an eternal spinner', async () => {
+    const ctx = ctxWithCall(() => ({ body: { ok: true, value: detail(1, { head: slimHead(1) }) } }))
+    const m = await mount(h(SourceProbe, { ctx, sessionId: '', value: undefined }))
+    await until(() => probeRead(m.container, 'state') === 'failed', 'the empty-id cold start never surfaced')
     await m.unmount()
   })
 
