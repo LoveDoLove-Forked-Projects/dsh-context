@@ -1345,16 +1345,114 @@ describe('TrendChart DNA mode', () => {
     await m.unmount()
   })
 
-  test('a stale delta state degrades to total semantics instead of emptying the chart', async () => {
-    const r1 = req(1, { turn: 1, step: 0, total: 300 })
-    const r2 = req(2, { turn: 1, step: 1, total: 600 })
-    const d1 = dnaBands([['n1', 'user', 300, { seq: 1, cat: 'user', tokens: 300 }]])
-    const d2 = dnaBands([['n1', 'user', 600, { seq: 1, cat: 'user', tokens: 600 }]])
-    const m = await mount(h(TrendChart, propsOf([r1, r2], { dna: [d1, d2], mode: 'delta' })))
-    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 2)
-    assert.equal(queryAll(m.container, '.lc-bar-up, .lc-bar-down').length, 0)
-    assert.equal(query(m.container, '.lc-axis-top').textContent, '600')
-    assert.equal(query(m.container, '.lc-axis-mid').textContent, '300')
+  test('DNA + delta diffs each item against the previous bar — new items rise, removed items hang', async () => {
+    const rs = [
+      req(1, { turn: 1, step: 0, total: 300 }),
+      req(2, { turn: 1, step: 1, total: 300 }),
+      req(3, { turn: 1, step: 2, total: 600 }),
+      req(4, { turn: 2, step: 0, total: 500 }),
+      req(5, { turn: 2, step: 1, total: 300 }),
+    ]
+    const ds = [
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 100, { seq: 1, cat: 'user', tokens: 100 }]]),
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 100, { seq: 1, cat: 'user', tokens: 100 }], ['a1', 'assistant', 60, { seq: 2, cat: 'assistant', tokens: 60 }]]),
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 100, { seq: 1, cat: 'user', tokens: 100 }], ['a1', 'assistant', 90, { seq: 2, cat: 'assistant', tokens: 90 }], ['t1', 'tool', 120, { seq: 3, cat: 'tool', tokens: 120, tool: 'bash' }]]),
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 100, { seq: 1, cat: 'user', tokens: 100 }], ['u1', 'user', 40, { seq: 4, cat: 'user', tokens: 40 }], ['u2', 'user', 40, { seq: 5, cat: 'user', tokens: 40 }]]),
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 100, { seq: 1, cat: 'user', tokens: 100 }]]),
+    ]
+    const picks: [number, string][] = []
+    const m = await mount(h(TrendChart, propsOf(rs, {
+      dna: ds,
+      mode: 'delta',
+      hoveredSeq: 4,
+      adaptive: true,
+      onPickBand: (seq, band) => { picks.push([seq, band.key]) },
+    })))
+    // maxUp = 150 (bar 3's growth + newcomers), maxDown = 210 (bar 4's removals); the zero line
+    // splits the floor plan at downPx = 112 − round(150·112/360) = 65.
+    const dnaDivs = queryAll(m.container, '.lc-bar-dna')
+    assert.equal(dnaDivs.length, 4, 'the first bar has no baseline and carries no strip')
+    assert.equal(query(m.container, '.lc-axis-top').textContent, '+150')
+    assert.equal(query(m.container, '.lc-axis-mid').textContent, '0')
+    assert.equal(query(m.container, '.lc-axis-bot').textContent, '-210')
+
+    // Bar 2 (idx 0): one up item, no down — the div rides the zero line (bottom 65), one blue run.
+    assert.equal(dnaDivs[0].style.height, '19px')
+    assert.equal(dnaDivs[0].style.bottom, '65px')
+    assert.ok(dnaDivs[0].style.background.includes('var(--color-blue-500) 0%, var(--color-blue-500) 100%'))
+
+    // Bar 3 (idx 1): up arm in read order (a1 grew +30, t1 joined +120) — still nothing below the line.
+    assert.equal(dnaDivs[1].style.height, '47px')
+    const g3 = dnaDivs[1].style.background
+    assert.ok(g3.includes('var(--color-blue-500) 0%, var(--color-blue-500) 20%'), g3)
+    assert.ok(g3.includes('var(--color-teal-500) 20%, var(--color-teal-500) 100%'), g3)
+
+    // Bar 4 (idx 2): the removals hang BELOW the line (bottom 0 — the div spans both arms) and the
+    // gradient reads bottom-up: the down arm REVERSED (t1, then a1), then the up arm — the two
+    // adjacent user newcomers coalesce into ONE green run.
+    assert.equal(dnaDivs[2].style.height, '90px')
+    assert.equal(dnaDivs[2].style.bottom, '0px')
+    assert.equal(dnaDivs[2].style.transformOrigin, '50% 72.41%')
+    const g4 = dnaDivs[2].style.background
+    assert.ok(g4.includes('var(--color-teal-500) 0%, var(--color-teal-500) 41.38%'), g4)
+    assert.ok(g4.includes('var(--color-blue-500) 41.38%, var(--color-blue-500) 72.41%'), g4)
+    assert.ok(g4.includes('var(--color-green-500) 72.41%, var(--color-green-500) 100%'), g4)
+
+    // Bar 5 (idx 3): a pure removal (both user messages left, coalesced) hanging under the line.
+    assert.equal(dnaDivs[3].style.height, '25px')
+    assert.equal(dnaDivs[3].style.bottom, '40px')
+
+    // The zero-height rect fallback resolves to the bottom band before any stub (t1, the last
+    // down item); stub 112px and walk bar 4's arms: u1 (+40) at the top, then a1 (−90) and t1
+    // (−120) below the line in read order.
+    await move(dnaDivs[2], 40)
+    const tipText = () => query(m.container, '.lc-chart-tip').textContent ?? ''
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: 'bash', n: '-120' })))
+    stubBarRect(dnaDivs[2])
+    await move(dnaDivs[2], 0)
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('user'), n: '+40' })), 'the very top is the last up band')
+    await move(dnaDivs[2], 55)
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('assistant'), n: '-90' })), 'the down arm walks read order from the zero line')
+    // A band click picks through to the reveal bridge with the bar's seq.
+    await act(async () => { dnaDivs[2].dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 55 })) })
+    assert.deepEqual(picks, [[4, 'a1']])
+
+    // Hovering t1 lights its delta slices across the bars: above the line where it joined
+    // (bar 3), below where it was removed (bar 4), nothing where it never existed.
+    stubBarRect(dnaDivs[1])
+    await move(dnaDivs[1], 0)
+    const slices = queryAll(m.container, '.lc-dna-slice')
+    assert.equal(slices.length, 2)
+    // Bar 3's up arm: t1 joined at off 30 (after a1's +30).
+    assert.equal(slices[0].style.bottom, `${Math.round(65 + 30 * 112 / 360)}px`)
+    assert.equal(slices[0].style.height, `${Math.max(1, Math.round(120 * 112 / 360))}px`)
+    // Bar 4's down arm: a1 (90) then t1 (120) stack from the zero line — t1 hugs the floor.
+    assert.equal(slices[1].style.bottom, `${Math.round(65 - 210 * 112 / 360)}px`)
+    assert.equal(slices[1].style.height, `${Math.max(1, Math.round(120 * 112 / 360))}px`)
+    // Leaving the band (not the bar) drops the highlight.
+    await unhover(dnaDivs[1])
+    assert.equal(queryAll(m.container, '.lc-dna-slice').length, 0)
+    await m.unmount()
+  })
+
+  test('a down-only DNA+delta bar resolves the zero-line edge into its first removed item', async () => {
+    const rs = [
+      req(1, { turn: 1, step: 0, total: 300 }),
+      req(2, { turn: 1, step: 1, total: 260 }),
+    ]
+    const ds = [
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 200, { seq: 1, cat: 'user', tokens: 200 }]]),
+      dnaBands([['sys', 'system', 100]]),
+    ]
+    const m = await mount(h(TrendChart, propsOf(rs, { dna: ds, mode: 'delta', hoveredSeq: 2 })))
+    const dnaDiv = query(m.container, '.lc-bar-dna')
+    stubBarRect(dnaDiv)
+    // No onPickBand handler: the pick guard's undefined arm is a quiet no-op.
+    await act(async () => { dnaDiv.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 0 })) })
+    // The very top of a down-only bar IS the zero line: it resolves to the first removed item.
+    await move(dnaDiv, 0)
+    const tipText = () => query(m.container, '.lc-chart-tip').textContent ?? ''
+    assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('user'), n: '-200' })))
     await m.unmount()
   })
 

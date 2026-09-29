@@ -37,7 +37,6 @@ import { makeLegend, makeStackedBar } from './stackedBar'
 import { aggregateByTurn, attachMarkers, jumpTargetOf, makeTrendChart, turnStepsOf } from './trendChart'
 import { assemble } from '../assemble'
 import { trendBandsOf } from '../dna'
-import type { TrendBand } from '../dna'
 
 import { subscribeContextFocus, takeContextFocus } from '../viewFocus'
 import { revealInScrollParent } from '../revealScroll'
@@ -112,8 +111,8 @@ export function makeContextView(
     // like granularity, the default is read at mount and in-chart toggling never writes back.
     const [trendMode, setTrendMode] = useState<'total' | 'delta'>(() => settings.defaultTrendMode())
     // DNA mode: the trend bars become per-item fingerprints of each request's context (dna.ts); like the
-    // toggles above, mount-local and never written back. While on, the Total/Delta switch is inert — DNA
-    // plots absolute composition.
+    // toggles above, mount-local and never written back. Orthogonal to the Total/Delta switch — delta
+    // diffs the bands against the previous bar, so the two combine into a per-item change view.
     const [dna, setDna] = useState(false)
     // Adaptive scale (the title-adjacent toggle): the trend bars rescale to the visible window; like the two
     // toggles above, mount-local and never written back.
@@ -242,7 +241,7 @@ export function makeContextView(
     // A DNA band click reveals the item in the Context browser through the same one-shot bridge
     // the step brief uses — the band key ('sys' / 'tool:<name>' / 'n<seq>') opens the very row
     // the browser's own DNA bands click open, at the bar's step.
-    const revealBand = useCallback((seq: number, band: TrendBand): void => {
+    const revealBand = useCallback((seq: number, band: { key: string; cat: Category | 'system' | 'tools' }): void => {
       setNodeFocus({ step: seq, key: band.key, cat: band.cat })
     }, [])
 
@@ -456,7 +455,7 @@ export function makeContextView(
           <span className="lc-card-title-text">{t('trend.title')}</span>
           {/* The DNA toggle rides the title text's right, left of the adaptive switch (the browser
               card's DNA toggle idiom): each bar becomes that request's per-item context fingerprint;
-              while on, the Total/Delta switch is inert — DNA plots absolute composition. */}
+              combined with Delta, each band shows that item's change against the previous bar. */}
           <span className="lc-gran lc-trend-dna" role="group" title={t('trend.dnaTip')}>
             <button
               type="button"
@@ -489,13 +488,11 @@ export function makeContextView(
             </div>
             <div className="lc-gran" title={t('gran.modeHint')}>
               <button
-                className={'lc-gran-btn' + (trendMode === 'total' && !dna ? ' lc-gran-on' : '')}
-                disabled={dna}
+                className={'lc-gran-btn' + (trendMode === 'total' ? ' lc-gran-on' : '')}
                 onClick={() => { setTrendMode('total') }}
               >{t('gran.total')}</button>
               <button
-                className={'lc-gran-btn' + (trendMode === 'delta' && !dna ? ' lc-gran-on' : '')}
-                disabled={dna}
+                className={'lc-gran-btn' + (trendMode === 'delta' ? ' lc-gran-on' : '')}
                 onClick={() => { setTrendMode('delta') }}
               >{t('gran.delta')}</button>
             </div>

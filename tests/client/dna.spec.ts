@@ -5,7 +5,8 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { dnaBaseLabel, dnaOf, trendBandsOf } from '../../src/client/dna'
+import { deltaBandsOf, dnaBaseLabel, dnaOf, trendBandsOf } from '../../src/client/dna'
+import type { TrendBand } from '../../src/client/dna'
 import { CAT_COLOR } from '../../src/client/categories'
 import { makeKit } from './helpers/kit'
 import type { Assembled } from '../../src/client/assemble'
@@ -140,5 +141,62 @@ describe('dnaBaseLabel', () => {
     assert.equal(label('n4'), kit.t('form.notice'))
     assert.equal(label('n5'), kit.t('form.context'))
     assert.equal(label('n6'), kit.t('node.skillTag', { name: 'sync' }))
+  })
+})
+
+describe('deltaBandsOf', () => {
+  // Fixture builder: one bar's band list per entry; bands shared across bars pair up by key.
+  function barsOf(spec: [key: string, cat: string, tokens: number][][]): TrendBand[][] {
+    return spec.map(list => {
+      let off = 0
+      const out: TrendBand[] = list.map(([key, cat, tokens]) => {
+        const color = CAT_COLOR[cat as keyof typeof CAT_COLOR]
+        const band = (key.startsWith('n')
+          ? { key, cat, tokens, off, color, node: { seq: Number(key.slice(1)), cat, tokens } as SurfaceNode }
+          : { key, cat, tokens, off, color }) as TrendBand
+        off += tokens
+        return band
+      })
+      return out
+    })
+  }
+
+  test('no baseline (the first bar) carries no change at all', () => {
+    const [b1] = barsOf([[['sys', 'system', 100], ['n1', 'user', 200]]])
+    assert.deepEqual(deltaBandsOf(b1, null), { up: [], down: [] })
+  })
+
+  test('newcomers and growth ride the up arm in read order; removals hang on the down arm', () => {
+    const [b1, b2] = barsOf([
+      [['sys', 'system', 100], ['n1', 'user', 100], ['a1', 'assistant', 60], ['t1', 'tool', 40]],
+      [['sys', 'system', 100], ['n1', 'user', 100], ['a1', 'assistant', 90], ['n4', 'user', 30]],
+    ])
+    const d = deltaBandsOf(b2, b1)
+    // Up: a1 grew +30 (keeping its read-order slot), then the n4 newcomer +30. Down: t1 left −40.
+    assert.deepEqual(d.up.map(b => [b.key, b.tokens, b.off]), [['a1', 30, 0], ['n4', 30, 30]])
+    assert.deepEqual(d.down.map(b => [b.key, b.tokens, b.off]), [['t1', -40, 0]])
+    assert.deepEqual(d.up.map(b => b.cat), ['assistant', 'user'])
+    assert.equal(d.up[0].color, CAT_COLOR.assistant)
+    const n4 = d.up[1]
+    assert.ok('node' in n4)
+    assert.equal(n4.node.seq, 4, 'message delta bands hand the node through for labels')
+  })
+
+  test('unchanged items vanish from both arms entirely', () => {
+    const [b1, b2] = barsOf([
+      [['sys', 'system', 100], ['n1', 'user', 200]],
+      [['sys', 'system', 100], ['n1', 'user', 200]],
+    ])
+    assert.deepEqual(deltaBandsOf(b2, b1), { up: [], down: [] })
+  })
+
+  test('a removed item\'s node still reaches the label builder', () => {
+    const kit = makeKit()
+    const prev = trendBandsOf(asm({ nodes: [node({ seq: 9, cat: 'tool', tool: 'write', tokens: 50 })] }))
+    const cur = trendBandsOf(asm({}))
+    const d = deltaBandsOf(cur, prev)
+    assert.equal(d.down.length, 1)
+    assert.equal(d.down[0].tokens, -50)
+    assert.equal(dnaBaseLabel(d.down[0], kit.t, kit.catLabel), 'write')
   })
 })

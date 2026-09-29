@@ -495,7 +495,7 @@ describe('ContextView — interactions', () => {
     await m.unmount()
   })
 
-  test('the trend card\'s DNA toggle fingerprints the bars and suspends the Total/Delta switch', async () => {
+  test('the trend card\'s DNA toggle fingerprints the bars, combinable with Delta', async () => {
     const m = await mountRich('sv-trend-dna')
     const dnaBtn = () => buttonByText(m.container, DICT_EN['trend.dna'])
     assert.ok(!dnaBtn().className.includes('lc-gran-on'), 'off at mount')
@@ -503,14 +503,10 @@ describe('ContextView — interactions', () => {
     assert.ok(dnaGroup.className.includes('lc-trend-dna'))
     assert.equal(dnaGroup.getAttribute('title'), DICT_EN['trend.dnaTip'])
     assert.ok((dnaGroup.nextElementSibling as HTMLElement | null)?.className.includes('lc-trend-adaptive'), 'DNA rides left of the adaptive switch')
-    assert.ok(!(buttonByText(m.container, DICT_EN['gran.delta']) as HTMLButtonElement).disabled, 'the mode switch is live at mount')
 
-    // A stale Delta state + DNA on: the bars become per-item fingerprints and the axis reads totals.
-    await click(buttonByText(m.container, DICT_EN['gran.delta']))
+    // DNA on: the bars become per-item fingerprints and the axis reads totals.
     await click(dnaBtn())
     assert.ok(dnaBtn().className.includes('lc-gran-on'))
-    assert.ok((buttonByText(m.container, DICT_EN['gran.total']) as HTMLButtonElement).disabled)
-    assert.ok((buttonByText(m.container, DICT_EN['gran.delta']) as HTMLButtonElement).disabled)
     assert.equal(queryAll(m.container, '.lc-bar-dna').length, 3)
     assert.equal(text(query(m.container, '.lc-axis-top')), '420')
 
@@ -522,10 +518,15 @@ describe('ContextView — interactions', () => {
     const tealAt = g.indexOf('color-teal-500')
     assert.ok(amberAt >= 0 && greenAt > amberAt && blueAt > greenAt && tealAt > blueAt, g)
 
-    // DNA off: the mode switch comes back live with its Delta state intact.
+    // DNA + Delta: the mode switch stays live and each bar diffs its bands against the previous
+    // one — the first bar carries no change (no strip), the axis turns signed around a zero line.
+    await click(buttonByText(m.container, DICT_EN['gran.delta']))
+    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 2)
+    assert.ok(text(query(m.container, '.lc-axis-mid')).includes('0'), 'the delta zero line label rides the axis')
+
+    // DNA off: the segmented delta arms are back with the Delta state intact.
     await click(dnaBtn())
     assert.ok(!dnaBtn().className.includes('lc-gran-on'))
-    assert.ok(!(buttonByText(m.container, DICT_EN['gran.delta']) as HTMLButtonElement).disabled)
     assert.equal(queryAll(m.container, '.lc-bar-dna').length, 0)
     assert.ok(queryAll(m.container, '.lc-bar-up').length > 0, 'delta arms are back')
     await m.unmount()
