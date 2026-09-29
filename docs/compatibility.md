@@ -2,7 +2,7 @@
 
 dsh-context declares per-release compatibility with `@deepseek-ai/dsh` in its package manifest (`dsh.compatibility.dshReleases`). This page records what is actually verified for each declared release, and how.
 
-Last verified: **2026-09-28** (plugin `dsh-context@0.58.0` source tree, dsh `0.1.7-rc.2`).
+Last verified: **2026-09-29** (plugin `dsh-context@0.60.0` source tree, dsh `0.2.0-rc.2`).
 
 ## Supported dsh releases
 
@@ -10,14 +10,15 @@ Last verified: **2026-09-28** (plugin `dsh-context@0.58.0` source tree, dsh `0.1
 | --- | --- | --- | --- | --- |
 | `0.1.5-rc.1` | V3 | compatible | ✅ baseline `v0.1.5-rc.1` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (verified 2026-09-10) |
 | `0.1.7-rc.2` | V4 | compatible | ✅ baseline `v0.1.7-rc.2` | ✅ install OK → uninstall OK (verified manually 2026-09-28) |
+| `0.2.0-rc.2` | V4 | compatible | ✅ baseline `v0.2.0-rc.2` | ✅ install OK → 1 composed row → uninstall OK → 0 rows (`dsh-context@0.60.0`, verified manually 2026-09-29) |
 
-The automated seam matrix runs for every row on every `pnpm test`. The disposable-profile column is a manual, per-release check: each release's CLI was installed from npm into a temporary `DSH_HOME` (the real `~/.dsh` is never touched) — `0.1.5-rc.1` on 2026-09-10 against the official npm registry (a stale mirror can 404 the harness's own dependency closure before the plugin is even considered), and `0.1.7-rc.2` likewise on 2026-09-28.
+The automated seam matrix runs for every row on every `pnpm test`. The disposable-profile column is a manual, per-release check: each release's CLI was installed from npm into a temporary `DSH_HOME` (the real `~/.dsh` is never touched) — `0.1.5-rc.1` on 2026-09-10 (a stale mirror can 404 the harness's own dependency closure before the plugin is even considered), then `0.1.7-rc.2` and `0.2.0-rc.2` on 2026-09-28 and 2026-09-29. The check pins the plugin build it installs: a bare-name install resolves through the profile's package manager, whose release-age policy can lag a just-published build (on `0.2.0-rc.2` the bare name resolved to `0.59.1`, so the row records the explicit `dsh-context@0.60.0`). The only pnpm complaints there are peers the harness supplies from its own runtime module tree — none version-incompatible, and the install is never refused.
 
-The supported range is the two lines above: the `0.1.5` line from `rc.1` and the `0.1.7` line from `rc.2` (the first release of that line with a complete npm dependency closure; `rc.2` adds `startsSeries` to the first `request/header` of a resumed series and the `developer/message` tool-registry events, both inert to the fold). Everything older — the `0.1.2`/`0.1.3` generations, the `0.1.1` line, and the alpha previews — was supported through `dsh-context@0.55.x` and is no longer in the support matrix; on such a harness the plugin's baseline gate composes the fallback units and shows the upgrade prompt instead of folding.
+The supported range is the three lines above: the `0.1.5` line from `rc.1`, the `0.1.7` line from `rc.2` (the first release of that line with a complete npm dependency closure; `rc.2` adds `startsSeries` to the first `request/header` of a resumed series and the `developer/message` tool-registry events, both inert to the fold), and the `0.2.0` line from `rc.2` — the continuation of the V4 Config-form generation, every seam the plugin rides spelled as at `0.1.7-rc.2` (cordis `4.0.4`, the same projection-registry contract, platform module table, client seats, settings transport, and durable-event vocabulary; still the V4 log generation, with no `v4-to-v5` migration in the session-format tree). Everything older — the `0.1.2`/`0.1.3` generations, the `0.1.1` line, and the alpha previews — was supported through `dsh-context@0.55.x` and is no longer in the support matrix; on such a harness the plugin's baseline gate composes the fallback units and shows the upgrade prompt instead of folding.
 
 ## Harness-side compatibility admission (0.1.7+)
 
-From `0.1.7` the harness enforces a plugin's own `peerDependencies` at startup and install: a bundle whose `@deepseek-ai/dsh*` peer ranges do not satisfy the running version (semver, `includePrerelease: true`) is skipped at composition, refused at install, and only loads with an exact-version exemption (`dsh plugin allow-version`). This plugin's dsh peers are all `>=0.1.5-rc.1`, which every supported release — both prerelease lines included — satisfies, so the plugin composes normally with no exemption.
+From `0.1.7` the harness enforces a plugin's own `peerDependencies` at startup and install: a bundle whose `@deepseek-ai/dsh*` peer ranges do not satisfy the running version (semver, `includePrerelease: true`) is skipped at composition, refused at install, and only loads with an exact-version exemption (`dsh plugin allow-version`). This plugin's dsh peers are all `>=0.1.5-rc.1`, which every supported release — all three prerelease lines included — satisfies, so the plugin composes normally with no exemption. The `0.2.0` line keeps the same gate.
 
 ## Baseline gate
 
@@ -31,9 +32,9 @@ The mirror reflects whichever installation last booted a CLI profile, which need
 
 ## Session-log generations
 
-The supported range spans two durable-log generations, and the plugin folds both from one shape-driven code path: the spellings meet only in `src/host/logShapes.ts` (`firstTokenTimeOfStream`, `replaceRangeOf`, `isTokenChunk`), and `applyTimeline` runs a single code path over all of them:
+The supported range spans three baselines and two durable-log generations, and the plugin folds both generations from one shape-driven code path: the spellings meet only in `src/host/logShapes.ts` (`firstTokenTimeOfStream`, `replaceRangeOf`, `isTokenChunk`), and `applyTimeline` runs a single code path over all of them:
 
-| Seam | V3 (`0.1.5-rc.1+`) | V4 (`0.1.6/0.1.7+`) |
+| Seam | V3 (`0.1.5-rc.1+`) | V4 (`0.1.6/0.1.7+`, `0.2.0+`) |
 | --- | --- | --- |
 | System prompt | `system/message` surface node (a `request/header` carrying `header.system` is rejected outright) | same as V3 |
 | First token | embedded `assistant/message.data.stream` (also `assistant/attempt.data.stream`) — packed delta runs plus raw `chunk` records | same as V3 |
@@ -52,7 +53,7 @@ The fold never branches on a detected harness version. The version probe is best
 - **User preferences (shipped)**: the V4 line (first shipped in `0.1.6-alpha.2`) retired the `settings.register` host face and the `settings.plugin.item` browser slot — plugin configuration moved to the Plugins page, derived from each loader entry's own Config schema. The plugin serves both generations from one entry schema:
   - The entry `Config` (`src/host/config.ts`) is schemastery. Cordis still validates the `config:` block through its Standard Schema face on every supported line; on V4+ the SAME schema is what the settings `describe` projects — the namespace is the entry id (`dsh-context`) and the six preference fields (`.volatile()`-marked) are the served, live-editable form; the fold bounds stay ordinary entry config (their edit remounts the entry, a preference edit commits volatile-only and never remounts).
   - The browser half registers its card on the seat the running line declares, by service presence: `settingsScope` + `settings.plugin.item` on V3, `configForms` + the Plugins page's keyed `plugins.bundle.config` on V4+ (`ctx.configForms.whileServed` keeps the card alive only while the Host serves the namespace). Both seats render the same six preference rows.
-  - The `.volatile()` modifier exists only on the Config-form generations' schemastery; the schema builder feature-detects it, so the same bundle serves both lines.
+  - The `.volatile()` modifier exists only on the Config-form generations' schemastery; the schema builder feature-detects it, so the same bundle serves both generations.
   - Deliberate relaxations against the replaced zod schema: schemastery objects merge unknown keys through instead of failing the load, and only whole-value edits are rejected by range/step checks (bounds remain `min 1, step 1`).
   - Preference values persisted on the V3 line live in the settings document (`settings.yaml` section `dsh-context`); the V4 harness's own legacy import moves that section into the profile entry of the same name on first boot, so existing values carry into the new surface.
 
@@ -73,12 +74,12 @@ The plugin's low-level logic mirrors the newest supported dsh implementation: to
 
 ## Web client seams
 
-The browser half rides generation-specific seats, each reached through an optional seam so a deployment without the service simply goes without the capability. Capabilities only newer lines serve are reached through a deferred `ctx.inject` — never a hard module `inject` — so an older harness composes fully with the capability absent (no pending fiber, no throw): the service shape is re-proved before use, the registration is guarded, and the module is declared in `dsh.client.inject`. Both supported lines ship the right Sidebar and the keyed `main` conversation panel; the plugin contributes to whichever face the running line serves:
+The browser half rides generation-specific seats, each reached through an optional seam so a deployment without the service simply goes without the capability. Capabilities only newer lines serve are reached through a deferred `ctx.inject` — never a hard module `inject` — so an older harness composes fully with the capability absent (no pending fiber, no throw): the service shape is re-proved before use, the registration is guarded, and the module is declared in `dsh.client.inject`. Every supported line ships the right Sidebar and the keyed `main` conversation panel; the plugin contributes to whichever face the running line serves:
 
-| Seam | V3 (`0.1.5-rc.1`) | V4 (`0.1.7-rc.2`) |
+| Seam | V3 (`0.1.5-rc.1`) | V4 (`0.1.7-rc.2`, `0.2.0-rc.2`) |
 | --- | --- | --- |
 | Conversation panel root | keyed `main` panel's `main.conversation` (the plugin's `conversation.view` seat hangs under it) | same as V3 |
-| Right Sidebar tab + guide entry | `sidebarRightTabs` registry, `sidebar.right.pane.tab`(+`.title`) seats, guide capsule with `order`/`title`/`description`/`icon` | same as V3 (`0.1.7-rc.2` adds an optional `commandId` to guide entries and `bindCommands` to tab actions — additive, unused by the plugin) |
+| Right Sidebar tab + guide entry | `sidebarRightTabs` registry, `sidebar.right.pane.tab`(+`.title`) seats, guide capsule with `order`/`title`/`description`/`icon` | same as V3 (`0.1.7-rc.2`+ adds an optional `commandId` to guide entries and `bindCommands` to tab actions — additive, unused by the plugin) |
 | Preferences card seat | `settings.plugin.item` over the `settingsScope` transport | `plugins.bundle.config` over the `configForms` transport |
 | Session jump | `uiWorkspace.openSession` — the sidebar row click's own verb; the retired `sessions.open(id)` spelling is still served as a fallback | `uiWorkspace.openSession(target: SessionTarget)` — same verb, parameter re-spelled by the 0.1.6 selection refactor; the sessions service carries no selection verb any more |
 
