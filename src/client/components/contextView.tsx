@@ -111,8 +111,9 @@ export function makeContextView(
     // like granularity, the default is read at mount and in-chart toggling never writes back.
     const [trendMode, setTrendMode] = useState<'total' | 'delta'>(() => settings.defaultTrendMode())
     // DNA mode: the trend bars become per-item fingerprints of each request's context (dna.ts); like the
-    // toggles above, mount-local and never written back. Orthogonal to the Total/Delta switch — delta
-    // diffs the bands against the previous bar, so the two combine into a per-item change view.
+    // toggles above, mount-local and never written back — and SHARED with the Context browser, whose DNA
+    // toggle rides this same state so both switches move as one. Orthogonal to the Total/Delta switch —
+    // delta diffs the bands against the previous bar, so the two combine into a per-item change view.
     const [dna, setDna] = useState(false)
     // Adaptive scale (the title-adjacent toggle): the trend bars rescale to the visible window; like the two
     // toggles above, mount-local and never written back.
@@ -566,6 +567,9 @@ export function makeContextView(
         loadImage={loadImage}
         detailState={source.detailState}
         onDetailRetry={source.retryDetail}
+        // The DNA switch is shared with the trend card: both toggles move as one.
+        dna={dna}
+        onDnaChange={setDna}
       />
     )
 

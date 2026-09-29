@@ -1987,8 +1987,27 @@ describe('ContextBrowser DNA mode and the open-category bar pin', () => {
     return queryAll(m.container, '.lc-stacked-seg')
   }
 
-  test('the toggle redraws the composition bar as one band per item, in prompt order', async () => {
-    const m = await mount(h(Browser, props({ data: dnaData, headers: dnaHeaders })))
+  test('the DNA toggle is parent-linked when both props arrive; a lone prop is ignored', async () => {
+    // Linked on: the bar redraws and the button reflects the parent's state without a click.
+    const m = await mount(h(Browser, props({ data: dnaData, headers: dnaHeaders, dna: true, onDnaChange: () => {} })))
+    assert.equal(bands(m).length, 7)
+    assert.ok(dnaButton(m).className.includes('lc-gran-on'))
+    // A lone `dna` prop without the handler does NOT link: the mount-local toggle still rules.
+    await m.update(h(Browser, props({ data: dnaData, headers: dnaHeaders, dna: true })))
+    assert.equal(bands(m).length, 6, 'unlinked: the local toggle is off')
+    // The click reports to the parent instead of flipping local state; the bar follows the prop.
+    const calls: boolean[] = []
+    await m.update(h(Browser, props({
+      data: dnaData, headers: dnaHeaders, dna: true,
+      onDnaChange: (on) => { calls.push(on) },
+    })))
+    await click(dnaButton(m))
+    assert.deepEqual(calls, [false])
+    assert.equal(bands(m).length, 7, 'still on until the parent re-renders the prop')
+    await m.unmount()
+  })
+
+  test('the toggle redraws the composition bar as one band per item, in prompt order', async () => {    const m = await mount(h(Browser, props({ data: dnaData, headers: dnaHeaders })))
     // Category mode: one segment per category in CATS order, pick cursor off, tooltip slot unmounted.
     assert.equal(bands(m).length, 6)
     const normal = bands(m).map(seg => seg.style.width)

@@ -532,8 +532,26 @@ describe('ContextView — interactions', () => {
     await m.unmount()
   })
 
-  test('clicking a DNA band reveals that item in the Context browser', async () => {
-    const m = await mountRich('sv-dna-reveal')
+  test('the trend and browser DNA toggles move as one', async () => {
+    const m = await mountRich('sv-dna-link')
+    const trendDna = () => query(m.container, '.lc-trend-dna .lc-gran-btn')
+    const browserDna = () => query(m.container, '.lc-br-dna-ctl .lc-gran-btn')
+    assert.ok(!trendDna().className.includes('lc-gran-on') && !browserDna().className.includes('lc-gran-on'), 'both off at mount')
+
+    // The browser follows the trend toggle — its composition bar redraws as a fingerprint too.
+    await click(trendDna())
+    assert.ok(browserDna().className.includes('lc-gran-on'), 'the browser follows the trend toggle')
+    assert.equal(queryAll(m.container, '.lc-br-bar-dna').length, 1)
+
+    // And the trend follows the browser toggle — the chart's strips drop away.
+    await click(browserDna())
+    assert.ok(!trendDna().className.includes('lc-gran-on'), 'the trend follows the browser toggle')
+    assert.equal(queryAll(m.container, '.lc-bar-dna').length, 0)
+    assert.equal(queryAll(m.container, '.lc-br-bar-dna').length, 0)
+    await m.unmount()
+  })
+
+  test('clicking a DNA band reveals that item in the Context browser', async () => {    const m = await mountRich('sv-dna-reveal')
     await click(buttonByText(m.container, DICT_EN['trend.dna']))
     // Give the strip a real 112px stack area, then click its very top: the hit is the LAST band of
     // bar seq 4 — the 'file output' tool result (system and the header lead the strip below it).

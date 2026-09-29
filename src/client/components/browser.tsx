@@ -48,6 +48,13 @@ export interface ContextBrowserProps {
   /** Pin-seq: a pin selects that step; pinSeq null returns the browser to the live surface. */
   pinSeq?: number | null
   /**
+   * DNA mode's on/off, LINKED across cards: the Context tab passes its trend card's toggle state
+   * so both DNA switches move as one. Controlled only when BOTH props arrive; absent (the
+   * /context modal) — the browser keeps its own mount-local toggle.
+   */
+  dna?: boolean
+  onDnaChange?: (on: boolean) => void
+  /**
    * One-shot reveal request (the step brief's locate, a trend-DNA band pick): select the step, open the
    * item's category and element, scroll it into view. `key` is the band key both DNA surfaces share —
    * 'sys' (system prompt), 'tool:<name>' (a tool schema), 'n<seq>' (a message) — so the same bridge
@@ -681,8 +688,20 @@ export function makeContextBrowser(
     // Mount-time default from the plugin settings card; in-toolbar toggling
     // stays mount-local and never writes back.
     const [toolSort, setToolSort] = useState<DefaultToolSort>(() => settings.defaultToolSort())
-    // DNA mode: the composition bar redraws as ONE band per context item in prompt order (dna.ts), hovered/clicked per item.
-    const [dna, setDna] = useState(false)
+    // DNA mode: the composition bar redraws as ONE band per context item in prompt order (dna.ts), hovered/clicked per
+    // item. Parent-linked when both props arrive — the Context tab's trend toggle moves this one too; a lone
+    // prop is ignored — otherwise mount-local (the /context modal).
+    const [dnaLocal, setDnaLocal] = useState(false)
+    const dnaLinked = props.dna !== undefined && props.onDnaChange !== undefined
+    const dna = dnaLinked ? props.dna === true : dnaLocal
+    const setDna = (on: boolean): void => {
+      if (dnaLinked) {
+        /* v8 ignore next 1 -- `dnaLinked` requires both props, so the handler is always present. */
+        props.onDnaChange?.(on)
+      } else {
+        setDnaLocal(on)
+      }
+    }
     const [dnaKey, setDnaKey] = useState<string | null>(null)
     // δ baseline toggle: 'step' diffs against the immediately preceding record, 'turn' against the
     // previous turn's last step. Mount default from the plugin settings card; in-toolbar toggling
@@ -1229,7 +1248,7 @@ export function makeContextBrowser(
             <button
               type="button"
               className={'lc-gran-btn' + (dna ? ' lc-gran-on' : '')}
-              onClick={() => { setDna(on => !on) }}
+              onClick={() => { setDna(!dna) }}
             >
               {t('browser.dna')}
             </button>
