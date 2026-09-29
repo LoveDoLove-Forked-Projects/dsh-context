@@ -1272,37 +1272,27 @@ describe('ContextBrowser message categories', () => {
     await m.unmount()
   })
 
-  test('tool-name capsules reveal the schema row; the row toggle stays out of the way', async () => {
+  test('call-name capsules and heads are inert: a click never reveals the schema row', async () => {
     const headers: ContextHeaders = { headers: [{ seq: 1, time: 1, systemTokens: 3, tools: [{ name: 'bash', tokens: 5 }, { name: 'write', tokens: 3 }] }] }
     const m = await mountBrowser({ headers })
     await click(catRow(m, 'assistant'))
-    // The stamped breadcrumb (seq 61) renders one clickable capsule per distinct call name.
+    // The breadcrumb capsule is plain text on the row button: a click bubbles to the row's own toggle —
+    // the row opens and nothing navigates to Tool Schemas.
     const crumbRow = elemRows(m).find(r => text(r).includes('done all')) as HTMLElement
-    const links = queryAll(crumbRow, '.lc-br-tag-link')
-    assert.deepEqual(links.map(l => text(l)), ['bash', 'write'])
-    await click(links[0])
-    // The reveal opens the Tool Schemas category with the bash definition row expanded...
-    assert.ok(text(query(m.container, '.lc-br-cat-open')).includes('Tool Schemas'))
+    await click(query(crumbRow, '.lc-br-tag'))
+    assert.ok(!text(query(m.container, '.lc-br-cat-open')).includes('Tool Schemas'), 'no category jump')
     const open = queryAll(m.container, '.lc-br-elem-on')
     assert.equal(open.length, 1)
-    assert.ok(text(open[0]).includes('bash'))
-    // ...and ONLY the schema body is open: the segment click stopped propagation,
-    // so the assistant row's own toggle never overwrote the reveal.
-    assert.equal(queryAll(m.container, '.lc-br-content').length, 1)
-    await m.unmount()
-  })
-
-  test('the expanded body’s call head reveals the tool schema too', async () => {
-    const headers: ContextHeaders = { headers: [{ seq: 1, time: 1, systemTokens: 3, tools: [{ name: 'bash', tokens: 5 }, { name: 'noargs', tokens: 2 }] }] }
-    const m = await mountBrowser({ headers })
-    await click(catRow(m, 'assistant'))
-    const row = elemRows(m).find(r => text(r).includes('full cascade')) as HTMLElement
-    await click(row)
+    assert.ok(text(open[0]).includes('done all'), 'the row toggle fired')
+    // The expanded body's call head is inert too: a click stays on the open row.
+    const cascade = elemRows(m).find(r => text(r).includes('full cascade')) as HTMLElement
+    await click(cascade)
     const head = queryAll(m.container, '.lc-ts-card-head b').find(el => text(el) === '→ bash') as HTMLElement
     await click(head)
-    const open = queryAll(m.container, '.lc-br-elem-on')
-    assert.equal(open.length, 1)
-    assert.ok(text(open[0]).includes('bash'), 'the call head lands on the bash schema row, expanded')
+    assert.ok(!text(query(m.container, '.lc-br-cat-open')).includes('Tool Schemas'), 'no category jump')
+    const on = queryAll(m.container, '.lc-br-elem-on')
+    assert.equal(on.length, 1)
+    assert.ok(text(on[0]).includes('full cascade'), 'the open row never moved')
     await m.unmount()
   })
 
@@ -1316,14 +1306,8 @@ describe('ContextBrowser message categories', () => {
     await click(catRow(m, 'assistant'))
     // 'bash › write › bash › bash' groups into two capsules: the repeat multiplier keeps the first-appearance order.
     const row = elemRows(m)[0]
-    const links = queryAll(row, '.lc-br-tag-link')
-    assert.deepEqual(links.map(l => text(l)), ['bash ×3', 'write'])
-    // The folded capsule still reveals the named tool's schema.
-    await click(links[0])
-    const open = queryAll(m.container, '.lc-br-elem-on')
-    assert.equal(open.length, 1)
-    assert.ok(text(open[0]).includes('bash'))
-    assert.equal(queryAll(m.container, '.lc-br-content').length, 1, 'the row toggle never fires')
+    const caps = queryAll(row, '.lc-br-tag')
+    assert.deepEqual(caps.map(c => text(c)), ['bash ×3', 'write'])
     await m.unmount()
   })
 

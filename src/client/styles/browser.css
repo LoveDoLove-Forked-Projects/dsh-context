@@ -57,10 +57,6 @@
 /* The row's tag slot: one or more fact capsules in a shrinkable group — a tool breadcrumb renders one capsule per
    distinct call name (repeats fold into a ×N multiplier), the group ellipsizes like the single capsule it replaces. */
 .lc-br-tags { min-width: 0; display: inline-flex; align-items: center; gap: 4px; }
-/* Clickable tool-name capsule (the row button owns the toggle; the capsule click stops propagation). Hover lifts
-   the whole capsule: primary label on the shared interactive hover face. */
-.lc-br-tag-link { cursor: pointer; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), background-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
-.lc-br-tag-link:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); }
 /* Registering-plugin chip on tool-schema rows: package/server names scan on a
    brand-tinted pill (the badge tint idiom), in the same face and size as the
    tool name they tag (the row inherits the UI font at 12px) so the attribution

@@ -170,8 +170,6 @@ function Section(props: {
   count?: number
   actions?: ReactNode
   meta?: ReactNode
-  /** Makes the head label a click affordance (the call head's schema reveal); hover styling rides the link class. */
-  onLabelClick?: () => void
   children: ReactNode
 }): ReactElement {
   const right = props.actions !== undefined || props.meta !== undefined
@@ -179,11 +177,7 @@ function Section(props: {
     <div className="lc-ts-card">
       <div className={'lc-ts-card-head' + (props.foldHead === true ? ' lc-ts-card-head-wrap' : '')}>
         {/* The title recovers an ellipsized label: long mono call names truncate under width pressure. */}
-        <b
-          className={(props.labelClass ?? '') + (props.onLabelClick !== undefined ? ' lc-ts-label-link' : '')}
-          title={props.label}
-          onClick={props.onLabelClick}
-        >{props.label}</b>
+        <b className={props.labelClass} title={props.label}>{props.label}</b>
         {right ? <span className="lc-ts-card-right">{props.meta}{props.actions}</span> : null}
         {props.count !== undefined ? <span className="lc-ts-card-count">{props.count}</span> : null}
       </div>
@@ -362,8 +356,6 @@ function BlocksBody(props: {
   rich: RichKit
   img: ImageKit
   labels: DetailLabels
-  /** The call head's schema reveal, threaded to every call card and the nested tool-result recursion. */
-  onSchema: (name: string) => void
 }): ReactElement {
   const { rich, img, labels } = props
   const out: ReactNode[] = []
@@ -406,7 +398,6 @@ function BlocksBody(props: {
         key={out.length}
         name={typeof blk?.name === 'string' ? blk.name : '?'}
         argsRaw={blk?.argsRaw ?? blk?.arguments}
-        onSchema={props.onSchema}
       />)
       continue
     }
@@ -419,7 +410,6 @@ function BlocksBody(props: {
         rich={rich}
         img={img}
         labels={labels}
-        onSchema={props.onSchema}
       />)
       continue
     }
@@ -481,17 +471,13 @@ function ToolCallCard(props: {
   argsRaw: unknown
   arrow?: string
   status?: ReactNode
-  /** Reveals the tool's definition row in the Tool Schemas category. */
-  onSchema: (name: string) => void
 }): ReactElement {
   const args = useMemo(() => parseCallArgs(props.argsRaw), [props.argsRaw])
-  const onSchema = props.onSchema
   return (
     <Section
       label={(props.arrow ?? '→') + ' ' + props.name}
       labelClass="lc-ts-call-name"
       meta={props.status}
-      onLabelClick={() => { onSchema(props.name) }}
     >
       {args !== null
         ? Object.keys(args).map(k => <CallArgRow key={k} name={k} value={args[k]} />)
@@ -524,8 +510,6 @@ function NodeContent(props: {
   rich: RichKit
   img: ImageKit
   labels: DetailLabels
-  /** The call head's schema reveal, threaded to every block body this node renders. */
-  onSchema: (name: string) => void
 }): ReactElement {
   const { node, conv, rich, img, labels } = props
   if (conv === undefined) {
@@ -542,10 +526,7 @@ function NodeContent(props: {
     )
   }
   if (conv.kind === 'assistant' && Array.isArray(conv.blocks)) {
-    return <BlocksBody
-      blocks={conv.blocks} richable textLabel={labels.answer}
-      rich={rich} img={img} labels={labels} onSchema={props.onSchema}
-    />
+    return <BlocksBody blocks={conv.blocks} richable textLabel={labels.answer} rich={rich} img={img} labels={labels} />
   }
   if (conv.kind === 'tool-result') {
     const { err, exit } = toolErrOf(node, conv)
@@ -557,14 +538,10 @@ function NodeContent(props: {
             name={conv.call.name}
             argsRaw={conv.call.argsRaw}
             status={labels.callState(err, exit)}
-            onSchema={props.onSchema}
           />
           : null}
         {Array.isArray(conv.content)
-          ? <BlocksBody
-            blocks={conv.content} richable={false} textLabel={labels.result}
-            rich={rich} img={img} labels={labels} onSchema={props.onSchema}
-          />
+          ? <BlocksBody blocks={conv.content} richable={false} textLabel={labels.result} rich={rich} img={img} labels={labels} />
           : null}
       </>
     )
@@ -575,10 +552,7 @@ function NodeContent(props: {
       : <></>
   }
   if (Array.isArray(conv.content)) {
-    return <BlocksBody
-      blocks={conv.content} richable textLabel={labels.content}
-      rich={rich} img={img} labels={labels} onSchema={props.onSchema}
-    />
+    return <BlocksBody blocks={conv.content} richable textLabel={labels.content} rich={rich} img={img} labels={labels} />
   }
   return <div className="lc-br-note">{props.hint}</div>
 }
@@ -887,17 +861,6 @@ export function makeContextBrowser(
       focusScrollRef.current = true
     }
 
-    // A tool-name capsule (a row tag or a call head) reveals the tool's definition row in the Tool Schemas category —
-    // the same open + unfilter + one-shot scroll reveal the DNA bands use. A name the header epoch does not declare
-    // still lands on the category, where the filter can find it.
-    const revealSchema = (name: string): void => {
-      setCat('tools')
-      setRowQuery('')
-      setRowKind(null)
-      setOpenElem('tool:' + name)
-      focusScrollRef.current = true
-    }
-
     const toolCount = (c: string): number => countOf(view, byCat, c)
 
     // A category holding exactly one item opens that row with the category, so
@@ -959,21 +922,15 @@ export function makeContextBrowser(
       )
     }
 
-    // The row's tag slot: inert tags render as one capsule; tool-named tags render one CLICKABLE capsule per
-    // distinct call name, in first-appearance order, repeats folded into a ×N multiplier ('bash ×3'). The capsule
-    // click stops propagation — the row button owns the toggle, and a bubbling toggle would overwrite the reveal.
+    // The row's tag slot: plain tags render as one capsule; tool-named tags render one capsule per distinct call
+    // name, in first-appearance order, repeats folded into a ×N multiplier ('bash ×3').
     const rowTagNode = (tag: string | null, names: readonly string[] | null): ReactNode => {
       if (tag === null) return null
       if (names === null) return <span className="lc-br-tag">{tag}</span>
       const counts = new Map<string, number>()
       for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1)
       return [...counts.entries()].map(([name, count]) => (
-        <span
-          key={name}
-          className="lc-br-tag lc-br-tag-link"
-          title={t('browser.schemaTip')}
-          onClick={(e) => { e.stopPropagation(); revealSchema(name) }}
-        >{count > 1 ? name + ' ×' + String(count) : name}</span>
+        <span key={name} className="lc-br-tag">{count > 1 ? name + ' ×' + String(count) : name}</span>
       ))
     }
 
@@ -1110,8 +1067,8 @@ export function makeContextBrowser(
         // Tag carries the compact fact (tool name, injection form) — one shared subtle chip style; the preview line carries the text — each
         // fact shown once.
         let tag: string | null = null
-        // The tool names the tag carries, when it names tools (tool rows, a call breadcrumb) — they render as
-        // clickable segments revealing the tool's schema; every other tag stays inert text.
+        // The tool names the tag carries, when it names tools (tool rows, a call breadcrumb) — they render as one
+        // capsule per distinct name; every other tag stays a single capsule.
         let tagNames: string[] | null = null
         let preview = nodeText(n)
         const id = nodeNameOf(n)
@@ -1223,7 +1180,6 @@ export function makeContextBrowser(
               conv={conv}
               rich={rich}
               img={{ Card: ImageCard, load: props.loadImage }}
-              onSchema={revealSchema}
               // Localized section titles handed in by the parent so the body stays a pure function of props.
               labels={{
                 thinking: t('block.thinking'),
