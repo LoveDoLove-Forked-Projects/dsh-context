@@ -41,6 +41,8 @@ export interface TrendChartProps {
    * fingerprint and implies TOTAL semantics — the parent disables the Total/Delta switch while DNA is on.
    */
   dna?: TrendBand[][] | null
+  /** DNA mode: a band click reveals that item in the Context browser at the bar's step. */
+  onPickBand?: (seq: number, band: TrendBand) => void
   onSelect: (seq: number | null) => void
   onHover: (seq: number | null) => void
   onHoverTurn: (turn: number | null) => void
@@ -218,6 +220,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     dna: TrendBand[] | null
     /** DNA mode: reports the band under the pointer (null when the pointer leaves it or rests on no band). */
     onDnaHit: (key: string | null) => void
+    /** DNA mode: a band click asks the owner to reveal the item in the Context browser. */
+    onPickBand?: (seq: number, band: TrendBand) => void
     onSelect: (seq: number | null) => void
     onHover: (seq: number | null) => void
   }
@@ -234,20 +238,43 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     total: number
     maxTotal: number
     enterIndex: number
+    /** The bar's request seq: a band pick reveals the item at THIS step in the Context browser. */
+    seq: number
     onHit: (key: string | null) => void
+    /** A band click's reveal request, lifted to the chart's owner (undefined = picking disabled). */
+    onPick?: (seq: number, band: TrendBand) => void
   }
 
   const DnaBar = function DnaBar(props: DnaBarProps): ReactElement | null {
+    // Zero-token bands occupy no height: they keep their read-order slot (the hit-test below
+    // walks the full list) but drop out of the gradient's runs entirely.
+    const visible: TrendBand[] = []
+    for (const b of props.bands) if (b.tokens > 0) visible.push(b)
+    if (visible.length === 0) return null
     const runs: { color: string; from: number; to: number }[] = []
-    for (const b of props.bands) {
-      if (b.tokens <= 0) continue
+    for (const b of visible) {
       const from = Math.round(b.off / props.total * 10000) / 100
       const to = Math.round((b.off + b.tokens) / props.total * 10000) / 100
       const last = runs.length > 0 ? runs[runs.length - 1] : null
       if (last !== null && last.color === b.color && last.to === from) last.to = to
       else runs.push({ color: b.color, from, to })
     }
-    if (runs.length === 0) return null
+    // Pointer → band: the fraction measured from the div's bottom maps linearly onto [0, total]
+    // tokens; the hit is the LAST band whose start is at or below the position (zero-token bands
+    // are invisible and skip), so the top edge still resolves to the last band. A hit always
+    // exists — the first visible band starts at off 0 (leading zero-token bands advance nothing)
+    // and the fraction clamps into [0, 1] — so the type carries no null.
+    const hitAt = (e: { clientY: number; currentTarget: HTMLDivElement }): TrendBand => {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const frac = rect.height > 0 ? Math.min(1, Math.max(0, 1 - (e.clientY - rect.top) / rect.height)) : 0
+      const pos = frac * props.total
+      let hit = visible[0]
+      for (const b of props.bands) {
+        if (b.off > pos) break
+        if (b.tokens > 0) hit = b
+      }
+      return hit
+    }
     return (
       <div
         className="lc-bar-dna animate-lc-bar-in motion-reduce:animate-none"
@@ -256,21 +283,13 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
           background: 'linear-gradient(to top, ' + runs.map(r => `${r.color} ${r.from}%, ${r.color} ${r.to}%`).join(', ') + ')',
           '--lc-i': Math.min(props.enterIndex, STAGGER_CAP),
         } as CSSProperties}
-        onMouseMove={(e) => {
-          // The fraction measured from the div's bottom maps linearly onto [0, total] tokens; the
-          // hit is the LAST band whose start is at or below the position (zero-token bands are
-          // invisible and skip), so the top edge still resolves to the last band.
-          const rect = e.currentTarget.getBoundingClientRect()
-          const frac = rect.height > 0 ? Math.min(1, Math.max(0, 1 - (e.clientY - rect.top) / rect.height)) : 0
-          const pos = frac * props.total
-          let hit: string | null = null
-          for (const b of props.bands) {
-            if (b.off > pos) break
-            if (b.tokens > 0) hit = b.key
-          }
-          props.onHit(hit)
-        }}
+        onMouseMove={(e) => { props.onHit(hitAt(e).key) }}
         onMouseLeave={() => { props.onHit(null) }}
+        onClick={(e) => {
+          // A band click reveals the item in the Context browser (and the bar's own click
+          // bubbles up to pin this step — the two land on the same seq).
+          if (props.onPick !== undefined) props.onPick(props.seq, hitAt(e))
+        }}
       />
     )
   }
@@ -361,7 +380,15 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
             </div>
           </>
         ) : props.dna !== null ? (
-          <DnaBar bands={props.dna} total={req.total} maxTotal={props.maxTotal} enterIndex={props.enterIndex} onHit={props.onDnaHit} />
+          <DnaBar
+            bands={props.dna}
+            total={req.total}
+            maxTotal={props.maxTotal}
+            enterIndex={props.enterIndex}
+            seq={req.seq}
+            onHit={props.onDnaHit}
+            onPick={props.onPickBand}
+          />
         ) : (
           <div className="lc-bar-stack animate-lc-bar-in motion-reduce:animate-none" style={enterStyle}>
             {CATS.map((c) => {
@@ -800,6 +827,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
                   enterIndex={i}
                   dna={dnaOn ? dnaBands[i] : null}
                   onDnaHit={setDnaHit}
+                  onPickBand={props.onPickBand}
                   onSelect={props.onSelect}
                   onHover={props.onHover}
                 />

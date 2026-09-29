@@ -531,6 +531,22 @@ describe('ContextView — interactions', () => {
     await m.unmount()
   })
 
+  test('clicking a DNA band reveals that item in the Context browser', async () => {
+    const m = await mountRich('sv-dna-reveal')
+    await click(buttonByText(m.container, DICT_EN['trend.dna']))
+    // Give the strip a real 112px stack area, then click its very top: the hit is the LAST band of
+    // bar seq 4 — the 'file output' tool result (system and the header lead the strip below it).
+    const dnaDiv = query(m.container, '.lc-bar[data-seq="4"] .lc-bar-dna')
+    dnaDiv.getBoundingClientRect = () => ({ top: 0, left: 0, right: 14, bottom: 112, width: 14, height: 112, x: 0, y: 0, toJSON: () => null }) as DOMRect
+    await act(async () => { dnaDiv.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 0 })) })
+    await flush()
+    // The browser left the live surface for the bar's step and opened the node's row — the pin
+    // alone would only select the step (accordion reset), so the open row is the reveal.
+    assert.equal(query<HTMLSelectElement>(m.container, 'select.lc-br-pick').value, '4')
+    assert.ok(text(query(m.container, '.lc-br-elem-on')).includes('file output'))
+    await m.unmount()
+  })
+
   test('delta mode pairs the detail with the previous record; first bar has none', async () => {
     const m = await mountRich('sv-delta')
     const chart = query(m.container, '.lc-chart')

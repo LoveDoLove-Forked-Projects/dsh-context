@@ -1841,7 +1841,7 @@ describe('ContextBrowser focus bridges', () => {
       const m = await mount(h(Browser, props({ data, headers, convNodes })))
       await m.update(h(Browser, props({
         data, headers, convNodes,
-        nodeFocus: { step: 'live', seq: 1, cat: 'user' },
+        nodeFocus: { step: 'live', key: 'n1', cat: 'user' },
         onNodeFocusHandled: () => { handled += 1 },
       })))
       assert.equal(handled, 1)
@@ -1852,7 +1852,7 @@ describe('ContextBrowser focus bridges', () => {
       // A step focus switches the assembled view.
       await m.update(h(Browser, props({
         data, headers, convNodes,
-        nodeFocus: { step: 20, seq: 1, cat: 'user' },
+        nodeFocus: { step: 20, key: 'n1', cat: 'user' },
         onNodeFocusHandled: () => { handled += 1 },
       })))
       assert.ok(text(query(m.container, '.lc-br-meta')).includes('Turn 1 · Step 1'))
@@ -1860,7 +1860,7 @@ describe('ContextBrowser focus bridges', () => {
       // A node outside the assembled surface leaves nothing to scroll to.
       await m.update(h(Browser, props({
         data, headers, convNodes,
-        nodeFocus: { step: 'live', seq: 999, cat: 'user' },
+        nodeFocus: { step: 'live', key: 'n999', cat: 'user' },
       })))
       assert.equal(queryAll(m.container, '.lc-br-elem-on').length, 0)
       await m.unmount()
@@ -1953,7 +1953,7 @@ describe('ContextBrowser open-category reporting', () => {
     assert.deepEqual(opens, [null, null], 'pinning resets the accordion')
     await m.update(h(Browser, props({
       data, onOpenCat, pinSeq: 10,
-      nodeFocus: { step: 'live', seq: 1, cat: 'tool' },
+      nodeFocus: { step: 'live', key: 'n1', cat: 'tool' },
       onNodeFocusHandled: () => {},
     })))
     assert.deepEqual(opens, [null, null, 'tool'], 'the reveal opens the node category')

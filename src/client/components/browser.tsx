@@ -48,10 +48,13 @@ export interface ContextBrowserProps {
   /** Pin-seq: a pin selects that step; pinSeq null returns the browser to the live surface. */
   pinSeq?: number | null
   /**
-   * One-shot reveal request from the step brief: select the step, open the category and the node element, scroll it into view;
-   * handed back via `onNodeFocusHandled` so the same row can fire again.
+   * One-shot reveal request (the step brief's locate, a trend-DNA band pick): select the step, open the
+   * item's category and element, scroll it into view. `key` is the band key both DNA surfaces share —
+   * 'sys' (system prompt), 'tool:<name>' (a tool schema), 'n<seq>' (a message) — so the same bridge
+   * serves header bands and message nodes; handed back via `onNodeFocusHandled` so the same row can
+   * fire again.
    */
-  nodeFocus?: { step: number | 'live'; seq: number; cat: Category } | null
+  nodeFocus?: { step: number | 'live'; key: string; cat: Category | 'system' | 'tools' } | null
   onNodeFocusHandled?: () => void
   hoverKey?: string | null
   onHoverKey?: (key: string | null) => void
@@ -731,8 +734,10 @@ export function makeContextBrowser(
       setCat(null)
       setOpenElem(null)
     }, [pinSeq, onOpenCat])
-    // Step-brief reveal: select the owning step, open the node's category + element (the pagination effect above already pulls older
-    // history for a missing join), then arm a one-shot scroll consumed by the layout effect once the row renders.
+    // Reveal (step brief / trend-DNA pick): select the owning step, open the item's category +
+    // element (the pagination effect above already pulls older history for a missing join), clear
+    // the row lens so a stale filter cannot hide the revealed row, then arm a one-shot scroll
+    // consumed by the layout effect once the row renders.
     const rootRef = useRef<HTMLDivElement | null>(null)
     const focusScrollRef = useRef(false)
     const nodeFocus = props.nodeFocus
@@ -740,7 +745,9 @@ export function makeContextBrowser(
       if (nodeFocus === null || nodeFocus === undefined) return
       setSel(nodeFocus.step)
       setCat(nodeFocus.cat)
-      setOpenElem('n' + String(nodeFocus.seq))
+      setOpenElem(nodeFocus.key)
+      setRowQuery('')
+      setRowKind(null)
       focusScrollRef.current = true
       if (props.onNodeFocusHandled !== undefined) props.onNodeFocusHandled()
     }, [nodeFocus, props.onNodeFocusHandled, onOpenCat])

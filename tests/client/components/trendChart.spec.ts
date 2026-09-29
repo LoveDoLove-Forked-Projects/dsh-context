@@ -1271,6 +1271,23 @@ describe('TrendChart DNA mode', () => {
     // No segmented stacks, and the total-mode axis stays.
     assert.equal(queryAll(m.container, '.lc-bar-stack').length, 0)
     assert.equal(query(m.container, '.lc-axis-top').textContent, '600')
+    // Without an onPickBand handler a band click is a quiet no-op (the pick guard's undefined arm).
+    await act(async () => { dnaDivs[0].dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    await m.unmount()
+  })
+
+  test('a band click reports the picked item with the bar seq, for the Context browser reveal', async () => {
+    const r1 = req(1, { turn: 1, step: 0, total: 300 })
+    const d1 = dnaBands([['sys', 'system', 100], ['n1', 'user', 200, { seq: 1, cat: 'user', tokens: 200 }]])
+    const picks: [number, string][] = []
+    const m = await mount(h(TrendChart, propsOf([r1], {
+      dna: [d1],
+      onPickBand: (seq, band) => { picks.push([seq, band.key]) },
+    })))
+    // jsdom's zero-height rect resolves the click to the bottom band; the pick carries the bar's seq.
+    const dnaDiv = query(m.container, '.lc-bar-dna')
+    await act(async () => { dnaDiv.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 30 })) })
+    assert.deepEqual(picks, [[1, 'sys']])
     await m.unmount()
   })
 
