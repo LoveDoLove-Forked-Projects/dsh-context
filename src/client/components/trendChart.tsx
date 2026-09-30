@@ -842,19 +842,17 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
         ? (n > 1 ? t('tip.turn', { t: req.turn ?? 0, n }) : t('tip.turn1', { t: req.turn ?? 0 }))
         : t('tip.step', { t: req.turn ?? 0, s: req.step ?? 0, n: stepsOf(req.turn) })
       // DNA mode: the metric row names the hovered item the way the browser's DNA bands name it —
-      // its absolute tokens in total mode, its SIGNED change in delta mode. A hover with no band
-      // under the pointer keeps the plain total row.
-      if (dnaOn) {
-        const band = hitBand ?? hoveredDelta
-        return [head, band !== null
-          ? t('trend.dnaItem', { label: dnaBaseLabel(band, t, catLabel), n: dnaDeltaOn ? fmtSigned(band.tokens) : fmt(band.tokens) })
-          : t('tip.total', { n: fmt(req.total) })]
+      // its absolute tokens in total mode, its SIGNED change in delta mode. Both lookups are null
+      // unless a band sits under the pointer (a hover on the bar's padding above the strip falls
+      // through to the mode's own row: the delta's net, else the total).
+      const band = hitBand ?? hoveredDelta
+      if (band !== null) {
+        return [head, t('trend.dnaItem', { label: dnaBaseLabel(band, t, catLabel), n: dnaDeltaOn ? fmtSigned(band.tokens) : fmt(band.tokens) })]
       }
       if (delta) {
         /* v8 ignore next 1 -- delta mode only receives records from
            deltaOf, which always assigns net; the fallback is defensive. */
-        const n = req.net ?? 0
-        return [head, t('tip.delta', { n: (n > 0 ? '+' : '') + fmt(n) })]
+        return [head, t('tip.delta', { n: fmtSigned(req.net ?? 0) })]
       }
       // Focused: the metric row IS the focused category's figure, so the tip names it instead of claiming a total.
       return [head, focus !== null

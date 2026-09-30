@@ -1456,6 +1456,24 @@ describe('TrendChart DNA mode', () => {
     await m.unmount()
   })
 
+  test('combo hover off the arms keeps the delta row — the churn is never labeled a total (#96)', async () => {
+    const rs = [
+      req(1, { turn: 1, step: 0, total: 300 }),
+      req(2, { turn: 1, step: 1, total: 260, tool: 20 }),
+    ]
+    const ds = [
+      dnaBands([['sys', 'system', 100], ['n1', 'user', 200, { seq: 1, cat: 'user', tokens: 200 }]]),
+      dnaBands([['sys', 'system', 100]]),
+    ]
+    const m = await mount(h(TrendChart, propsOf(rs, { dna: ds, mode: 'delta', hoveredSeq: 2 })))
+    const tipText = () => query(m.container, '.lc-chart-tip').textContent ?? ''
+    // No band under the pointer (dnaHit untouched): the fallback speaks the bar's NET — the same
+    // row plain delta mode shows — never the churn under the total label.
+    assert.ok(tipText().includes(kit.t('tip.delta', { n: '-40' })))
+    assert.ok(!tipText().includes(kit.t('tip.total', { n: '40' })))
+    await m.unmount()
+  })
+
   test('the browser category focus is ignored — the bands already are the full composition', async () => {
     const r1 = req(1, { turn: 1, step: 0, total: 300 })
     const d1 = dnaBands([['sys', 'system', 100], ['n1', 'user', 200, { seq: 1, cat: 'user', tokens: 200 }]])
