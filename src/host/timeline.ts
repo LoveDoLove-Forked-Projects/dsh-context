@@ -113,6 +113,13 @@ const fileOpSchema = z.object({
   gone: z.number().int().nonnegative().optional(),
 }).strict()
 
+/** One painted span of the timing strip (shared/types.ts TimingSpan). */
+const timingSpanSchema = z.object({
+  kind: z.enum(['ttft', 'reasoning', 'text', 'toolarg', 'tools', 'other']),
+  start: z.number(),
+  end: z.number(),
+}).strict()
+
 const currentSchema = z.object({
   system: z.number().int().nonnegative(),
   tools: z.number().int().nonnegative(),
@@ -223,6 +230,7 @@ export const contextTimelineSchema = z.object({
   archiveFloor: z.number().int().nonnegative().optional(),
   fileOps: z.array(fileOpSchema).optional(),
   fileOpsFloor: z.number().int().nonnegative().optional(),
+  spans: z.array(timingSpanSchema).optional(),
 }).strict() as unknown as z.ZodType<ContextTimeline>
 
 /**
@@ -266,6 +274,8 @@ const timelineStateSchema = z.object({
   detailRev: z.number().int().nonnegative().optional(),
   fileOps: z.array(fileOpSchema),
   fileOpsFloor: z.number().int().nonnegative().optional(),
+  spans: z.array(timingSpanSchema),
+  stepSpans: z.array(timingSpanSchema).optional(),
   pendingCodeOps: z.record(z.string(), z.array(fileOpSchema)).optional(),
 }) as unknown as z.ZodType<TimelineState>
 
@@ -419,7 +429,14 @@ export function createContextTimelineDefinition(config: Config, slim: () => bool
     // priced by the session it forked from (issue #94). Cached rows for
     // seeded forks refold from the log; untagged resume markers reset
     // nothing, so ordinary rows refold to the same totals.
-    stateVersion: 22,
+    //
+    // 23: the timing strip's painted spans joined the state (`spans` + the
+    // per-step `stepSpans` accumulator) — the completed steps' time slices
+    // positioned by their real instants, flushed at `step/end`. A running
+    // per-step collection that later events cannot backfill (the timing
+    // totals' own v11 precedent), so cached rows refold from the log, which
+    // rebuilds the spans for sessions started under older plugin builds.
+    stateVersion: 23,
   }
   return definition
 }

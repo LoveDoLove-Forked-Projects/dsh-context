@@ -304,6 +304,13 @@ export interface Snapshot {
    */
   fileOps?: FileOpRecord[]
   fileOpsFloor?: number
+  /**
+   * The timing strip's painted spans (see TimingSpan) — present on the INLINE
+   * wire value and on the detail payload, absent from the slim head (they ride
+   * the detail channel there) and from rows folded before the collection
+   * existed (older hosts; the client then shows no strip).
+   */
+  spans?: TimingSpan[]
 }
 
 /**
@@ -345,6 +352,13 @@ export interface ContextTimelineDetail {
   fileOps?: FileOpRecord[]
   /** The newest dropped op's seq when the op log trimmed (coverage honesty, same family as archiveFloor). */
   fileOpsFloor?: number
+  /**
+   * The timing strip's painted spans (see TimingSpan): the completed steps'
+   * time slices in log order, positioned by their real instants. Additive-
+   * optional: a payload folded before the collection existed (older hosts)
+   * serves without it, and the timing card shows no strip then.
+   */
+  spans?: TimingSpan[]
 }
 
 /**
@@ -446,6 +460,23 @@ export interface TokenUsage {
   cacheReadTokens: number
   /** Billed prompt tokens written into the provider cache. */
   cacheWriteTokens: number
+}
+
+/**
+ * One painted span of the timing card's session-time strip (the card's bottom
+ * band): a completed step's time slice — the TTFT wait, one decode block (in
+ * stream order), one tool-run window, or an in-step residue gap — folded
+ * host-side at `step/end`. The instants are the slice's REAL occurrence times
+ * (the hover tip reads them); the strip packs the spans gapless in log order,
+ * each band's width its share of the session's cumulative active time (idle
+ * time BETWEEN steps carries no span and takes no track). `end` > `start`
+ * always (the fold drops zero/negative slices).
+ */
+export interface TimingSpan {
+  /** The slice kind — the timing card's own slice vocabulary (same keys, same colors). */
+  kind: 'ttft' | 'reasoning' | 'text' | 'toolarg' | 'tools' | 'other'
+  start: number
+  end: number
 }
 
 /**

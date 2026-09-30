@@ -102,8 +102,14 @@ describe('detailOf', () => {
     }))
     assert.equal(withOps?.fileOps?.length, 1, 'junk entries drop')
     assert.equal(withOps?.fileOpsFloor, 4)
+    // The timing strip's painted spans ride through, per-item guarded too.
+    const withSpans = detailOf(detail(1, {
+      spans: [{ kind: 'ttft', start: 0, end: 100 }, null],
+    }))
+    assert.equal(withSpans?.spans?.length, 1, 'junk span entries drop')
     // Absent stays absent (the legacy inline generation's marker).
     assert.equal(detailOf(detail(1))?.fileOps, undefined)
+    assert.equal(detailOf(detail(1))?.spans, undefined)
   })
 
   test('the slim head rides through sanitized; a malformed head drops alone', () => {
@@ -414,6 +420,7 @@ function SourceProbe(props: { ctx: ClientCtx; sessionId: string; value?: unknown
     h('span', { 'data-k': 'rev' }, String(data?.detailRev ?? 'x')),
     h('span', { 'data-k': 'floors' }, `${String(data?.surfaceFloor ?? 'x')}/${String(data?.archiveFloor ?? 'x')}`),
     h('span', { 'data-k': 'ops' }, String(data?.fileOps?.length ?? 'x')),
+    h('span', { 'data-k': 'spans' }, String(data?.spans?.length ?? 'x')),
     h('span', { 'data-k': 'model' }, data?.model ?? 'x'),
     h('button', { 'data-k': 'retry', onClick: source.retryDetail }, 'retry'))
 }
@@ -550,6 +557,7 @@ describe('useTimelineSource', () => {
             archiveFloor: 5,
             fileOps: [{ seq: 2, path: 'a.ts', kind: 'read', tool: 'read', err: false, added: 0, removed: 0 }],
             fileOpsFloor: 4,
+            spans: [{ kind: 'ttft', start: 0, end: 100 }, { kind: 'other', start: 100, end: 1_400 }],
           }),
         },
       }
@@ -565,6 +573,7 @@ describe('useTimelineSource', () => {
     assert.equal(probeRead(m.container, 'rev'), '3')
     assert.equal(probeRead(m.container, 'floors'), '2/5', 'the detail floors merge')
     assert.equal(probeRead(m.container, 'ops'), '1', 'the op log merges')
+    assert.equal(probeRead(m.container, 'spans'), '2', 'the strip spans merge')
     assert.ok(calls >= 1)
     await m.unmount()
   })

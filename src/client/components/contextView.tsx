@@ -590,7 +590,7 @@ export function makeContextView(
         )}
         <div className="lc-cols lc-head">
           <StatsTokens usage={usage} current={data.current} breakdown={breakdown} />
-          <StatsTiming timing={data.timing ?? null} />
+          <StatsTiming timing={data.timing ?? null} spans={data.spans} />
         </div>
 
         {/* One arrangement for every host: composition over trend in the left

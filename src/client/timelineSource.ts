@@ -72,6 +72,7 @@ export function detailOf(value: unknown): ContextTimelineDetail | null {
     ...(typeof data.archiveFloor === 'number' ? { archiveFloor: data.archiveFloor } : {}),
     ...(data.fileOps !== undefined ? { fileOps: objectsOf(data.fileOps) } : {}),
     ...(typeof data.fileOpsFloor === 'number' ? { fileOpsFloor: data.fileOpsFloor } : {}),
+    ...(data.spans !== undefined ? { spans: objectsOf(data.spans) } : {}),
   }
 }
 
@@ -348,6 +349,7 @@ export function useTimelineSource(ctx: ClientCtx, props: SessionStandardProps): 
       ...(detail.archiveFloor !== undefined ? { archiveFloor: detail.archiveFloor } : {}),
       ...(detail.fileOps !== undefined ? { fileOps: detail.fileOps } : {}),
       ...(detail.fileOpsFloor !== undefined ? { fileOpsFloor: detail.fileOpsFloor } : {}),
+      ...(detail.spans !== undefined ? { spans: detail.spans } : {}),
     }
     return { data, detailState: 'ready', retryDetail: retry }
   }, [head, slim, store, snap])

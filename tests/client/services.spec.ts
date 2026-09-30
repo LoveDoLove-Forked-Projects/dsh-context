@@ -298,6 +298,7 @@ describe('timelineOf', () => {
       detailRev: 12,
       fileOps: [{ seq: 2, path: 'a.ts', kind: 'read', tool: 'read', err: false, added: 0, removed: 0 }],
       fileOpsFloor: 5,
+      spans: [{ kind: 'ttft', start: 0, end: 100 }, null],
     }
     const out = timelineOf(head)
     assert.ok(out !== null)
@@ -309,6 +310,7 @@ describe('timelineOf', () => {
     assert.deepEqual(out.archive, [])
     assert.equal(out.fileOps?.length, 1, 'the op log survives the head sanitize')
     assert.equal(out.fileOpsFloor, 5)
+    assert.equal(out.spans?.length, 1, 'the strip spans survive, junk entries dropped')
   })
 
   test('the slim head fields re-prove: partial counts zero per field, shapeless last/detailRev drop', () => {

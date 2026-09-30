@@ -19,7 +19,7 @@
  *   the request/event records are the raw material of `buildTimelineView`.
  */
 
-import type { Category, ContextEventRecord, ContextTimelineDetail, CostModelUsage, FileOpRecord, RequestRecord, SessionCostUsage, Snapshot, SurfaceNode, SystemPromptNode, TimingTotals, ToolTimingTotals } from '../shared/types'
+import type { Category, ContextEventRecord, ContextTimelineDetail, CostModelUsage, FileOpRecord, RequestRecord, SessionCostUsage, Snapshot, SurfaceNode, SystemPromptNode, TimingSpan, TimingTotals, ToolTimingTotals } from '../shared/types'
 import { isDeepSeekProvider } from '../shared/providers'
 import { estimateSystemContent } from '../shared/estimate'
 import type { FoldBounds } from './config'
@@ -34,7 +34,7 @@ import {
 } from './pricing'
 import type { ContentBlock, MessageSource } from './pricing'
 import { deriveEventMessage } from '@deepseek-ai/dsh-session'
-import { decodeTallyOfStream, firstTokenTimeOfStream, replaceRangeOf } from './logShapes'
+import { decodeSpansOfStream, decodeTallyOfStream, firstTokenTimeOfStream, replaceRangeOf } from './logShapes'
 import type { DecodeKind } from './logShapes'
 import { opBearingTool, opsOfCall, parseCallArgs, rawArgsNeeded } from '../shared/fileOps'
 
@@ -171,6 +171,28 @@ export interface TimelineState {
     firstToken?: number
   }
   /**
+   * The timing strip's painted spans (shared/types.ts TimingSpan): every
+   * completed step's time slices in log order, stamped with their REAL
+   * instants — the TTFT wait, the decode blocks in stream order, the tool-run
+   * windows, and the in-step residue. The client packs them gapless, each
+   * band's width its share of the cumulative active time (idle time BETWEEN
+   * steps carries no span and takes no track). Bounded by TIMING_SPANS_MAX
+   * (newest tail kept). Flushed per step at `step/end` from the `stepSpans`
+   * accumulator.
+   */
+  spans: TimingSpan[]
+  /**
+   * The open step's accumulated painted spans: the assistant message pushes
+   * the model slices (TTFT + the decode blocks), each paired tool result its
+   * run window; `step/end` clamps them into the step window, de-overlaps
+   * first-wins (parallel runs paint their union), fills the holes with the
+   * residue kind, and flushes the tiling into `spans`. Absent until the first
+   * in-step span; DELETED at the flush (the plain-JSON precondition). Same
+   * arm/remove lifecycle as `stepStart` — never written in place, always
+   * replaced, so no CloneKey covers it.
+   */
+  stepSpans?: TimingSpan[]
+  /**
    * Tool callId → the call's name, start instant, and raw arguments, armed by
    * `tool/call` and DELETED when its `tool/result` folds in (one result per
    * call, in log order) — the map stays at pending-call size instead of
@@ -266,6 +288,9 @@ function trimState(st: TimelineState, bounds: FoldBounds): void {
     st.turnRuns = countTurnRuns(st.requests)
   }
   if (st.events.length > bounds.maxEvents) st.events = st.events.slice(-bounds.maxEvents)
+  // The timing strip's spans: newest tail (a plain count cap — see
+  // TIMING_SPANS_MAX; the strip paints the retained window's time axis).
+  if (st.spans.length > TIMING_SPANS_MAX) st.spans = st.spans.slice(-TIMING_SPANS_MAX)
   // The file-op log: newest tail; the newest dropped op's seq rides
   // `fileOpsFloor` (the same coverage-floor family as archiveFloor).
   if (st.fileOps.length > bounds.maxFileOps) {
@@ -297,6 +322,14 @@ function trimState(st: TimelineState, bounds: FoldBounds): void {
   }
 }
 
+/**
+ * Bound on the timing strip's painted spans (TimelineState.spans): a count
+ * cap, newest tail kept — the same hardcoded-cap family as SYSTEM_NODES_MAX.
+ * At ~6–8 spans per step the cap covers a few hundred recent steps, far past
+ * the strip's pixel resolution on any real pane.
+ */
+const TIMING_SPANS_MAX = 2_000
+
 export function createTimelineState(): TimelineState {
   return {
     surface: [],
@@ -309,6 +342,7 @@ export function createTimelineState(): TimelineState {
     archived: [],
     callNames: {},
     fileOps: [],
+    spans: [],
   }
 }
 
@@ -549,6 +583,13 @@ function applySurface(
       timing.toolsMs += dur
       timing.toolCalls += 1
       bumpToolTotals(timing, toolEntry.name, dur)
+      // The strip's tool window paints only while a step is open to own it
+      // (a cross-step/foreign result still prices the totals above); the
+      // step/end flush clamps and de-overlaps it. Replace-style push — the
+      // accumulator is never written in place (see TimelineState.stepSpans).
+      if (st.stepStart !== undefined) {
+        st.stepSpans = [...(st.stepSpans ?? []), { kind: 'tools', start: toolEntry.start, end: ev.time }]
+      }
     }
     // Consume-once: the entry is never looked up again after its result
     // folds in (see TimelineState.callNames). Rebuild without the used ids
@@ -1001,9 +1042,12 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         // assistant/message and step/end price the model wait/generation and
         // the whole step against this instant. Always a state change (a new
         // slot value), even over an un-consumed predecessor — sequential logs
-        // never hit that, hostile ones just supersede it.
+        // never hit that, hostile ones just supersede it. A superseded step's
+        // leftover span accumulator dies here too (its spans predate the new
+        // window and would clamp to nothing at the flush regardless).
         const s = ensure([])
         s.stepStart = { time: event.time }
+        delete s.stepSpans
         break
       }
       case 'step/end': {
@@ -1013,9 +1057,37 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         if (start === undefined) return state
         const s = ensure(['timing'])
         ensureTiming(s).wallMs += durOf(start.time, event.time)
-        // Consume-once: DELETE the optional field — assigning `undefined`
+        // Flush the open step's accumulated spans into the strip's painted
+        // list (see TimelineState.stepSpans): clamp every span into the step
+        // window, then tile it left to right — first-wins de-overlap
+        // (parallel tool runs paint their UNION, never double wall time) and
+        // every hole fills with the residue kind, so [step start, step end]
+        // always tiles gapless. A zero-width step (hostile times) flushes
+        // nothing. The spans ride the detail channel, so the flush dirties
+        // the detail revision for open tabs.
+        const painted: TimingSpan[] = []
+        for (const span of state.stepSpans ?? []) {
+          const from = Math.max(start.time, span.start)
+          const to = Math.min(event.time, span.end)
+          if (to > from) painted.push({ kind: span.kind, start: from, end: to })
+        }
+        painted.sort((a, b) => (a.start - b.start) || (a.end - b.end))
+        const flushed: TimingSpan[] = []
+        let cursor = start.time
+        for (const span of painted) {
+          const from = Math.max(cursor, span.start)
+          if (span.end <= from) continue
+          if (from > cursor) flushed.push({ kind: 'other', start: cursor, end: from })
+          flushed.push({ kind: span.kind, start: from, end: span.end })
+          cursor = span.end
+        }
+        if (event.time > cursor) flushed.push({ kind: 'other', start: cursor, end: event.time })
+        s.spans = [...state.spans, ...flushed]
+        // Consume-once: DELETE the optional fields — assigning `undefined`
         // would break the plain-JSON persisted-state precondition.
         delete s.stepStart
+        delete s.stepSpans
+        bumpDetailRev(s)
         break
       }
       case 'user/message': {
@@ -1230,6 +1302,28 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
           if (firstToken !== undefined) {
             timing.ttftMs += durOf(stepStart.time, firstToken)
             timing.genMs += durOf(firstToken, event.time)
+            // The strip's model slices: the silent wait, then the decode
+            // blocks in STREAM order. The decode window opens at the first
+            // OBSERVABLE instant — the first token, or an earlier block
+            // marker the token packing could not stamp: a redacted reasoning
+            // block leaves no chunk behind, so clamping to the token would
+            // let the wait swallow the whole decode window (and the legend's
+            // reasoning row, which the markers tile independently, would
+            // paint nothing). The FIRST surviving block reaches back to that
+            // instant (a marker can sit marginally past the token); the
+            // later blocks keep their marker-stamped starts. A marker-less
+            // stream leaves the window to the step/end residue fill.
+            // Replace-style push (see stepSpans).
+            const decodeBlocks = decodeSpansOfStream(data?.stream, event.time)
+            let decodeStart = firstToken
+            for (const block of decodeBlocks) decodeStart = Math.min(decodeStart, block.start)
+            const modelSpans: TimingSpan[] = [{ kind: 'ttft', start: stepStart.time, end: decodeStart }]
+            for (const block of decodeBlocks) {
+              const to = Math.min(event.time, block.end)
+              if (to <= block.start) continue
+              modelSpans.push({ kind: block.kind, start: modelSpans.length === 1 ? decodeStart : block.start, end: to })
+            }
+            s.stepSpans = [...(s.stepSpans ?? []), ...modelSpans]
             // The throughput seat, paired exactly as the harness's session-stats
             // fold pairs them: a call counts ONLY when both its decode window
             // (this branch) and its provider-reported output tokens (the usage
@@ -1429,6 +1523,8 @@ function detailCollectionsOf(state: TimelineState, bounds: FoldBounds): Omit<Con
     // the detail payload share this builder) — COPIES, never state aliases.
     fileOps: state.fileOps.map(o => ({ ...o })),
     ...(state.fileOpsFloor !== undefined ? { fileOpsFloor: state.fileOpsFloor } : {}),
+    // The timing strip's painted spans ride the same collections — COPIES too.
+    spans: state.spans.map(s => ({ ...s })),
   }
   // The served slice: the newest `maxNodes` tail PLUS every live inject/skill
   // node older than the tail. Injections (AGENTS.md, session-start context, …)

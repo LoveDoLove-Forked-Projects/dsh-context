@@ -108,3 +108,29 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
 /* The stats grid's cell count is intrinsic (`repeat(auto-fit, minmax(108px,1fr))` on the element, see
    statsContext.tsx); the donut row's 320px gap fold and 240px stack still ride
    `@max-[…]/lc-card` utilities — statsTokens.tsx / statsTiming.tsx / sliceList.tsx / donut.tsx. */
+/*
+ ---- Timing card's session-time strip (timingStrip.tsx): the fold's painted
+ spans packed gapless in occurrence order — each band's width is its share of
+ the cumulative active time, idle time takes no track. The bands sit
+ absolutely positioned at their cumulative percent offsets; the neutral track
+ only reads through sub-pixel rounding seams and during the grow-in. Hover
+ chrome mirrors the stacked bar: staggered grow-in, dim rest.
+ */
+.lc-tstrip { margin-top: 10px; }
+.lc-tstrip-wrap { position: relative; }
+.lc-tstrip-bar { position: relative; width: 100%; height: 12px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--color-neutral-500) 18%, transparent); }
+.lc-tstrip-seg { position: absolute; top: 0; height: 100%; transform-origin: 0 50%; transition: opacity var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), filter var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+.lc-tstrip-seg-on { filter: brightness(1.18); }
+.lc-tstrip-dim .lc-tstrip-seg { opacity: 0.35; }
+.lc-tstrip-dim .lc-tstrip-seg-on { opacity: 1; }
+/*
+ The axis: tick labels centered under hairline marks at the fixed quartiles,
+ the ends pinned outward — 0 hugs the left edge, the final active time the
+ right — so width pressure squeezes the interior labels, never the endpoints. */
+.lc-tstrip-axis { position: relative; height: 13px; margin-top: 5px; font-size: 10px; line-height: 13px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.lc-tstrip-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.lc-tstrip-tick::before { content: ''; position: absolute; left: 50%; top: -4px; width: 1px; height: 3px; background: var(--dsw-alias-border-l1); }
+.lc-tstrip-tick-first { transform: none; }
+.lc-tstrip-tick-first::before { left: 0; }
+.lc-tstrip-tick-last { transform: translateX(-100%); }
+.lc-tstrip-tick-last::before { left: auto; right: 0; }
