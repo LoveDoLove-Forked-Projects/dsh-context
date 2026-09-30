@@ -1287,36 +1287,37 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
           + (prevLast === undefined
             ? (record.turn !== undefined ? 1 : 0)
             : (record.turn === prevLast.turn ? 0 : 1))
-        // Timing: one completed model call; its wait/generation split prices
-        // off the slot's first-token stamp, read from the message's own
-        // EMBEDDED stream when the open attempt(s) carried none — the same
-        // fallback the harness's sessionStats fold applies. A call whose
-        // stream carried no token (an aborted step) stays unattributed and
-        // lands in the card's residue. The pending slot stays armed — the
-        // step's tool calls and `step/end` still follow.
+        // Timing: one completed model call; its wait/generation boundary sits
+        // at the first OBSERVABLE instant — the slot's first-token stamp,
+        // read from the message's own EMBEDDED stream when the open
+        // attempt(s) carried none (the same fallback the harness's
+        // sessionStats fold applies), reached back to an earlier block
+        // marker when the stream's markers precede the token: a redacted
+        // reasoning block leaves no chunk behind, so anchoring at the token
+        // would charge the marker-tiled decode window to the wait as well
+        // and the legend's rows would double-count it past 100%. A call
+        // whose stream carried no token (an aborted step) stays unattributed
+        // and lands in the card's residue. The pending slot stays armed —
+        // the step's tool calls and `step/end` still follow.
         const timing = ensureTiming(s)
         timing.calls += 1
         const stepStart = state.stepStart
         if (stepStart !== undefined) {
           const firstToken = stepStart.firstToken ?? firstTokenTimeOfStream(data?.stream)
           if (firstToken !== undefined) {
-            timing.ttftMs += durOf(stepStart.time, firstToken)
-            timing.genMs += durOf(firstToken, event.time)
-            // The strip's model slices: the silent wait, then the decode
-            // blocks in STREAM order. The decode window opens at the first
-            // OBSERVABLE instant — the first token, or an earlier block
-            // marker the token packing could not stamp: a redacted reasoning
-            // block leaves no chunk behind, so clamping to the token would
-            // let the wait swallow the whole decode window (and the legend's
-            // reasoning row, which the markers tile independently, would
-            // paint nothing). The FIRST surviving block reaches back to that
-            // instant (a marker can sit marginally past the token); the
-            // later blocks keep their marker-stamped starts. A marker-less
-            // stream leaves the window to the step/end residue fill.
-            // Replace-style push (see stepSpans).
             const decodeBlocks = decodeSpansOfStream(data?.stream, event.time)
             let decodeStart = firstToken
             for (const block of decodeBlocks) decodeStart = Math.min(decodeStart, block.start)
+            timing.ttftMs += durOf(stepStart.time, decodeStart)
+            timing.genMs += durOf(decodeStart, event.time)
+            // The strip's model slices: the silent wait, then the decode
+            // blocks in STREAM order off the SAME decodeStart boundary, so
+            // the rows, the ring and the strip read one window. The FIRST
+            // surviving block reaches back to that instant (a marker can
+            // sit marginally past the token); the later blocks keep their
+            // marker-stamped starts. A marker-less stream leaves the window
+            // to the step/end residue fill. Replace-style push (see
+            // stepSpans).
             const modelSpans: TimingSpan[] = [{ kind: 'ttft', start: stepStart.time, end: decodeStart }]
             for (const block of decodeBlocks) {
               const to = Math.min(event.time, block.end)
@@ -1329,7 +1330,10 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
             // (this branch) and its provider-reported output tokens (the usage
             // above) are known — a token-stamped call without usage prices the
             // genMs slice but not this, and usage without a decode window
-            // (never stamped) counts nowhere.
+            // (never stamped) counts nowhere. TPS KEEPS the first-token
+            // anchor on purpose: it is the harness-parity figure, priced on
+            // the same instants as `assistantStreamFirstTokenTime`, not the
+            // card's marker-aware window.
             if (output !== null) {
               timing.speedMs = (timing.speedMs ?? 0) + durOf(firstToken, event.time)
               timing.speedTokens = (timing.speedTokens ?? 0) + output

@@ -436,7 +436,15 @@ export function createContextTimelineDefinition(config: Config, slim: () => bool
     // per-step collection that later events cannot backfill (the timing
     // totals' own v11 precedent), so cached rows refold from the log, which
     // rebuilds the spans for sessions started under older plugin builds.
-    stateVersion: 23,
+    //
+    // 24: the timing totals' wait/generation boundary moved from the first
+    // token to the first OBSERVABLE instant (an earlier block marker wins —
+    // a redacted reasoning block leaves no chunk for the token rule to
+    // stamp), matching the boundary the spans already paint. Rows folded
+    // under 23 charged the marker-tiled decode window to BOTH the wait and
+    // the generation split, so their legend rows sum past 100% and cannot
+    // be re-split by later events; cached rows refold from the log.
+    stateVersion: 24,
   }
   return definition
 }

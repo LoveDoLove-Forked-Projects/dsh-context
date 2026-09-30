@@ -207,7 +207,9 @@ describe('timing — tool call durations', () => {
 
 describe('timing — the generation split (reasoning / text / tool args)', () => {
   test('the embedded stream tiles the generation window into the three buckets', () => {
-    // step start 0, first token 210, blocks reasoning→text→tool-call, message at 2000.
+    // step start 0, first marker 200 (10ms BEFORE the first token 210 — the
+    // wait/generation boundary opens there), blocks reasoning→text→tool-call,
+    // message at 2000.
     const stream = [
       chunkRec(200, { type: 'block-start', index: 0, blockType: 'reasoning' }),
       { type: 'reasoning-chunks', time0: 210, index: 0, dt: [], texts: ['think'] },
@@ -220,11 +222,17 @@ describe('timing — the generation split (reasoning / text / tool args)', () =>
       stepStart(1, { time: 0 }),
       assistantMessage(2, { time: 2_000, stream }),
     ])
-    assert.equal(state.timing?.ttftMs, 210)
-    assert.equal(state.timing?.genMs, 1_790)
+    assert.equal(state.timing?.ttftMs, 200)
+    assert.equal(state.timing?.genMs, 1_800)
     assert.equal(state.timing?.reasoningMs, 500, 'reasoning owns 200→700')
     assert.equal(state.timing?.textMs, 500, 'text owns 700→1200')
     assert.equal(state.timing?.toolArgMs, 800, 'tool args own 1200→message')
+    // The buckets partition the generation window exactly — the 10ms the
+    // marker leads the token is charged once, never to both rows.
+    assert.equal(
+      (state.timing?.reasoningMs ?? 0) + (state.timing?.textMs ?? 0) + (state.timing?.toolArgMs ?? 0),
+      state.timing?.genMs,
+    )
     // Each marker is one counted block — the card's per-slice tally.
     assert.equal(state.timing?.reasoningBlocks, 1)
     assert.equal(state.timing?.textBlocks, 1)

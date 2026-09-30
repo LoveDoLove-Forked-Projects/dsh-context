@@ -508,20 +508,26 @@ export interface ToolTimingTotals {
  * own embedded stream (`assistant/message.data.stream` /
  * `assistant/attempt.data.stream`), matching the harness's own
  * session-stats fold. Durations are wall-clock milliseconds: `wallMs` sums
- * whole steps, `ttftMs` the step-start → first-token slice (the model wait)
- * and `genMs` the first-token → assistant-message slice (the generation) —
+ * whole steps, `ttftMs` the step-start → decode-start slice (the model wait)
+ * and `genMs` the decode-start → assistant-message slice (the generation) —
  * both only over calls whose stream carried a token delta, `toolsMs` the sum
  * of per-call tool durations (parallel calls each count, so it can overlap).
- * Absent until the first step lifecycle completes in the log.
+ * The decode window opens at the first OBSERVABLE instant — the first token,
+ * or an earlier `block-start` marker the token packing could not stamp (a
+ * redacted reasoning block leaves no chunk behind): anchoring at the token
+ * would charge the marker-tiled window to the wait as well, double-counting
+ * it past 100% in the legend. Absent until the first step lifecycle
+ * completes in the log.
  *
  * The generation window itself splits by WHAT was being decoded, off the
  * stream's `block-start` framing (`blockType`): `reasoningMs` (the model's
  * thinking), `textMs` (the answer text), and `toolArgMs` (the tool-call
  * arguments). Each marker owns the interval up to the next one (the last one
- * up to the assistant message), so the three tile the marker span and together
- * account for essentially all of `genMs` — the span opens at the first marker,
- * which can sit marginally before the first token, so it is not an exact
- * partition. They are ADDITIVE-OPTIONAL: cached projection rows written before
+ * up to the assistant message), so the three tile the marker span — exactly
+ * `genMs` when the first marker leads the first token (the window opens
+ * there); when the first marker sits marginally PAST the token the lead-in
+ * gap stays inside `genMs` unattributed, so the buckets never exceed it.
+ * They are ADDITIVE-OPTIONAL: cached projection rows written before
  * the split carry `genMs` without them, so the card falls back to the
  * un-split shape instead of the cache row being discarded (the
  * stateVersion-15 rationale in host/timeline.ts).
@@ -529,9 +535,9 @@ export interface ToolTimingTotals {
 export interface TimingTotals {
   /** Summed wall time of completed steps (the session's active time). */
   wallMs: number
-  /** Summed step-start → first-token time (the model wait, TTFT). */
+  /** Summed step-start → decode-start time (the model wait, TTFT). */
   ttftMs: number
-  /** Summed first-token → assistant-message time (the generation). */
+  /** Summed decode-start → assistant-message time (the generation). */
   genMs: number
   /** Reasoning-decode slice of `genMs` (the model's thinking). */
   reasoningMs?: number
@@ -557,7 +563,9 @@ export interface TimingTotals {
    * output tokens and `speedMs` the first-token → assistant-message
    * windows, over the calls that carried BOTH a first-token stamp and a
    * usage report — a subset of `genMs`, which counts every token-stamped
-   * call regardless of usage. Additive-optional: cached rows written before
+   * call regardless of usage. `speedMs` KEEPS the first-token anchor (not
+   * the marker-aware decode start): it is the harness-parity figure.
+   * Additive-optional: cached rows written before
    * the seat existed lack them, and the card falls back to no chip.
    */
   speedTokens?: number

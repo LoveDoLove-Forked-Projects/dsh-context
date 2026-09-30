@@ -81,9 +81,10 @@ describe('spans — the step flush', () => {
   test('a redacted reasoning block still paints: the marker tiles its window even though no chunk stamps a token', () => {
     // The provider's durable stream carries the reasoning BLOCK markers but
     // packs no reasoning chunks (the content is redacted): the first token
-    // lands on a tool-call fragment at 952. Metering (ttftMs) keeps the
-    // first-token definition — but the strip must not let the wait swallow
-    // the 588ms of reasoning the legend's own tally reports.
+    // lands on a tool-call fragment at 952. Metering (ttftMs) opens the
+    // decode window at the MARKER — anchoring the wait at the token would
+    // charge the 588ms the legend's own tally reports to the wait as well,
+    // and the rows would double-count it past 100%.
     const { state } = driveTimeline([
       stepStart(1, { time: 0 }),
       assistantMessage(2, {
@@ -98,8 +99,14 @@ describe('spans — the step flush', () => {
       toolResult(4, { callId: 'c1', content: text('ok'), time: 1_095 }),
       stepEnd(5, { time: 1_095 }),
     ])
-    assert.equal(state.timing?.ttftMs, 952, 'metering keeps the first-token definition')
+    assert.equal(state.timing?.ttftMs, 364, 'the wait ends at the first marker, not the first token')
+    assert.equal(state.timing?.genMs, 699, 'the generation window opens at the same marker')
     assert.equal(state.timing?.reasoningMs, 588, 'the tally tiles the marker window regardless')
+    assert.equal(
+      (state.timing?.reasoningMs ?? 0) + (state.timing?.textMs ?? 0) + (state.timing?.toolArgMs ?? 0),
+      state.timing?.genMs,
+      'the decode buckets partition the generation window exactly — no double count',
+    )
     assert.deepEqual(state.spans, [
       { kind: 'ttft', start: 0, end: 364 },
       { kind: 'reasoning', start: 364, end: 952 },
