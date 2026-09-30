@@ -1,7 +1,7 @@
 // The timing strip's span fold (src/host/fold.ts): every completed step
 // flushes its painted time slices — the TTFT wait, the decode blocks in
 // stream order, the tool-run windows, and the in-step residue — into the
-// persisted `spans` collection the client lays out on one true time axis.
+// persisted `spans` collection the client packs gapless by duration share.
 // Pinned here: the step/end tiling (clamp into the step window, first-wins
 // de-overlap, residue gap-fill, so the step always tiles gapless while IDLE
 // time between steps carries no span), the supersede/consume lifecycle of
@@ -264,20 +264,26 @@ describe('spans — the step flush', () => {
 
 describe('spans — retention, wire, and schema faces', () => {
   test('the collection keeps the newest tail past the 2_000-span cap', () => {
-    // 1_001 steps × 2 spans each: the cap must drop the oldest step whole.
+    // 41 steps × 50 spans each (a 48-marker decode run): 2_050 spans — the
+    // cap must drop the oldest step whole. Fewer, denser steps keep the fold
+    // cheap enough for a CI runner's 5s test timeout.
     const events: TimelineEvent[] = []
-    for (let i = 0; i < 1_001; i++) {
+    for (let i = 0; i < 41; i++) {
       const start = i * 10_000
+      const stream: unknown[] = [chunkRec(start + 100, { type: 'text-delta', text: 'x' })]
+      for (let m = 0; m < 48; m++) {
+        stream.push(chunkRec(start + 100 + m * 10, { type: 'block-start', index: 0, blockType: m % 2 === 0 ? 'text' : 'reasoning' }))
+      }
       events.push(
         stepStart(i * 3 + 1, { time: start }),
-        assistantMessage(i * 3 + 2, { time: start + 1_000, stream: [chunkRec(start + 100, { type: 'text-delta', text: 'x' })] }),
+        assistantMessage(i * 3 + 2, { time: start + 1_000, stream }),
         stepEnd(i * 3 + 3, { time: start + 1_400 }),
       )
     }
     const { state } = driveTimeline(events)
     assert.equal(state.spans.length, 2_000)
     assert.deepEqual(state.spans[0], { kind: 'ttft', start: 10_000, end: 10_100 }, 'the oldest step left the window')
-    assert.deepEqual(state.spans.at(-1), { kind: 'other', start: 10_000_100, end: 10_001_400 })
+    assert.deepEqual(state.spans.at(-1), { kind: 'other', start: 401_000, end: 401_400 })
   })
 
   test('the inline wire view serves COPIES; the slim head omits the collection whole', () => {
