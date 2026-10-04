@@ -164,6 +164,9 @@ export type DefaultPlacement = 'all' | 'tab' | 'sidebar'
 /** Whether the Context Insights panel's sidebar entry is offered at all. */
 export type InsightsEntry = 'show' | 'hide'
 
+/** Whether the trend chart mounts with the per-request duration curve overlaid. */
+export type DefaultDurationCurve = 'show' | 'hide'
+
 export interface PluginSettings {
   defaultPlacement: DefaultPlacement
   defaultGranularity: DefaultGranularity
@@ -172,6 +175,7 @@ export interface PluginSettings {
   defaultToolSort: DefaultToolSort
   defaultFileSort: DefaultFileSort
   insightsEntry: InsightsEntry
+  defaultDurationCurve: DefaultDurationCurve
 }
 
 /** The section fields the settings card edits, as the Host schema names them. */

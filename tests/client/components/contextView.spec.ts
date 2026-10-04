@@ -514,9 +514,9 @@ describe('ContextView — interactions', () => {
     assert.equal(group.getAttribute('title'), DICT_EN['trend.durationTip'])
     const adaptiveGroup = buttonByText(m.container, DICT_EN['trend.adaptive']).parentElement as HTMLElement
     assert.equal(group.previousElementSibling, adaptiveGroup, 'Duration rides right of the adaptive switch')
-    // The overlay mounts ON by default: the curve spans the two stamped bars and the right axis reads
-    // the 2s peak (jsdom's zero-width viewport keeps the whole-log scale, adaptive off anyway).
-    assert.ok(msBtn().className.includes('lc-gran-on'), 'on at mount')
+    // The settings default (show) mounts the overlay ON: the curve spans the two stamped bars and the
+    // right axis reads the 2s peak (jsdom's zero-width viewport keeps the whole-log scale, adaptive off anyway).
+    assert.ok(msBtn().className.includes('lc-gran-on'), 'on at mount (the settings default)')
     assert.equal(queryAll(m.container, '.lc-duration polyline').length, 1)
     assert.equal(text(query(m.container, '.lc-axis-r .lc-axis-top')), '2.0s')
     assert.equal(text(query(m.container, '.lc-axis-r .lc-axis-mid')), '1.0s')
@@ -1201,7 +1201,7 @@ describe('ContextView — locale and settings', () => {
       getSnapshot: () => ({
         status: 'ready',
         writable: true,
-        value: { defaultGranularity: 'turn', defaultTrendMode: 'delta', defaultFileSort: 'path' },
+        value: { defaultGranularity: 'turn', defaultTrendMode: 'delta', defaultFileSort: 'path', defaultDurationCurve: 'hide' },
       }),
       subscribe: () => () => {},
       set: async () => {},
@@ -1229,6 +1229,8 @@ describe('ContextView — locale and settings', () => {
     }))
     assert.ok(buttonByText(m.container, DICT_EN['gran.turn']).className.includes('lc-gran-on'))
     assert.ok(buttonByText(m.container, DICT_EN['gran.delta']).className.includes('lc-gran-on'))
+    // The 'hide' curve preference mounts the Duration toggle off (the schema default mounts it on).
+    assert.ok(!buttonByText(m.container, DICT_EN['trend.duration']).className.includes('lc-gran-on'))
     // Turn aggregation applies at mount: two bars (turn 1 aggregate + turn-less).
     assert.equal(queryAll(m.container, '.lc-bar').length, 2)
     // The File Activity card opens sorted by the 'path' preference, not by op count.

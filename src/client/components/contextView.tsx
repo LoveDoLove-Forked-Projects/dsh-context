@@ -119,8 +119,9 @@ export function makeContextView(
     // toggles above, mount-local and never written back.
     const [adaptive, setAdaptive] = useState(false)
     // The duration overlay (the title-adjacent toggle): each bar's step active time as a curve over the
-    // bars, read off the right-hand quartile axis; like the two toggles above, mount-local and never written back.
-    const [durationCurve, setDurationCurve] = useState(true)
+    // bars, read off the right-hand quartile axis. The settings card's `defaultDurationCurve` seeds the mount
+    // state (default on); in-chart toggling stays mount-local and never writes back.
+    const [durationCurve, setDurationCurve] = useState(() => settings.defaultDurationCurve() === 'show')
     // Strip-clicked turn: chart switches to turn granularity and scroll-centers that turn's bar, then clears via onFocusTurnHandled.
     const [focusTurn, setFocusTurn] = useState<number | null>(null)
     // Chat → Context jump: the assistant-action relay's one-shot request, held until the projection data is in, then resolved into a
