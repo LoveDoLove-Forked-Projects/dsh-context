@@ -455,15 +455,11 @@ describe('ContextView — interactions', () => {
     const segs = queryAll(m.container, '.lc-bar .lc-bar-stack > .lc-cat-seg')
     assert.equal(segs.length, 3)
     for (const s of segs) assert.equal(s.getAttribute('data-cat'), 'assistant')
-    assert.ok(text(m.container).includes(DICT_EN['trend.focus'].replace('{cat}', DICT_EN['cat.assistant'])),
-      'the card subtitle names the focused category')
 
-    // Collapsing the category restores the whole composition and drops the subtitle.
+    // Collapsing the category restores the whole composition.
     await click(queryAll(m.container, '.lc-br-cat-row')[5])
     assert.equal(text(query(m.container, '.lc-axis-top')), '420')
     assert.equal(queryAll(m.container, '.lc-bar[data-seq="4"] .lc-bar-stack > .lc-cat-seg').length, 5)
-    const trendCard = queryAll(m.container, '.lc-card').find(c => text(c).includes(DICT_EN['trend.title']))
-    assert.ok(trendCard !== undefined && trendCard.querySelector('.lc-card-sub') === null, 'unfocused: no subtitle')
     await m.unmount()
   })
 

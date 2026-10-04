@@ -486,9 +486,6 @@ export function makeContextView(
               onClick={() => { setDurationCurve(on => !on) }}
             >{t('trend.duration')}</button>
           </span>
-          {focusCat !== null
-            ? <span className="lc-card-sub">{t('trend.focus', { cat: kit.catLabel(focusCat) })}</span>
-            : null}
           <div className="lc-trend-ctl">
             <div className="lc-gran">
               <button
