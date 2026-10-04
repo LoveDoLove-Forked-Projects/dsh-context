@@ -118,6 +118,9 @@ export function makeContextView(
     // Adaptive scale (the title-adjacent toggle): the trend bars rescale to the visible window; like the two
     // toggles above, mount-local and never written back.
     const [adaptive, setAdaptive] = useState(false)
+    // The duration overlay (the title-adjacent toggle): each bar's step active time as a curve over the
+    // bars, read off the right-hand quartile axis; like the two toggles above, mount-local and never written back.
+    const [durationCurve, setDurationCurve] = useState(true)
     // Strip-clicked turn: chart switches to turn granularity and scroll-centers that turn's bar, then clears via onFocusTurnHandled.
     const [focusTurn, setFocusTurn] = useState<number | null>(null)
     // Chat → Context jump: the assistant-action relay's one-shot request, held until the projection data is in, then resolved into a
@@ -473,6 +476,15 @@ export function makeContextView(
               onClick={() => { setAdaptive(on => !on) }}
             >{t('trend.adaptive')}</button>
           </span>
+          {/* The duration overlay switch rides with the other title-adjacent toggles: each bar's step
+              active time as a curve over the bars, read off the right-hand quartile axis. */}
+          <span className="lc-gran lc-trend-duration" role="group" title={t('trend.durationTip')}>
+            <button
+              type="button"
+              className={'lc-gran-btn' + (durationCurve ? ' lc-gran-on' : '')}
+              onClick={() => { setDurationCurve(on => !on) }}
+            >{t('trend.duration')}</button>
+          </span>
           {focusCat !== null
             ? <span className="lc-card-sub">{t('trend.focus', { cat: kit.catLabel(focusCat) })}</span>
             : null}
@@ -524,6 +536,7 @@ export function makeContextView(
                 hoverCat={trendHoverCat}
                 focusCat={focusCat}
                 adaptive={adaptive}
+                durationCurve={durationCurve}
                 dna={dnaBands}
                 onPickBand={revealBand}
                 onSelect={setSelectedSeq}
