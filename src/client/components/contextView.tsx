@@ -458,31 +458,28 @@ export function makeContextView(
       <div className="lc-card">
         <div className="lc-card-title">
           <span className="lc-card-title-text">{t('trend.title')}</span>
-          {/* The DNA toggle rides the title text's right, left of the adaptive switch (the browser
-              card's DNA toggle idiom): each bar becomes that request's per-item context fingerprint;
-              combined with Delta, each band shows that item's change against the previous bar. */}
-          <span className="lc-gran lc-trend-dna" role="group" title={t('trend.dnaTip')}>
+          {/* The three display modifiers ride the title text's right as ONE multi-toggle segmented group
+              (the browser card's DNA toggle idiom), each segment lighting independently: DNA draws every
+              bar as that request's per-item context fingerprint (with Delta, per-item changes against the
+              previous bar); Adaptive rescales the axis to the visible bars, following the scroll; Duration
+              overlays each bar's step active time as a curve read off the right-hand quartile axis. */}
+          <span className="lc-gran lc-trend-mods" role="group">
             <button
               type="button"
               className={'lc-gran-btn' + (dna ? ' lc-gran-on' : '')}
+              title={t('trend.dnaTip')}
               onClick={() => { setDna(v => !v) }}
             >{t('trend.dna')}</button>
-          </span>
-          {/* The adaptive switch rides the title's right (the browser card's DNA toggle idiom): bars rescale
-              to the bars currently on screen instead of the whole retained log. */}
-          <span className="lc-gran lc-trend-adaptive" role="group" title={t('trend.adaptiveHint')}>
             <button
               type="button"
               className={'lc-gran-btn' + (adaptive ? ' lc-gran-on' : '')}
+              title={t('trend.adaptiveHint')}
               onClick={() => { setAdaptive(on => !on) }}
             >{t('trend.adaptive')}</button>
-          </span>
-          {/* The duration overlay switch rides with the other title-adjacent toggles: each bar's step
-              active time as a curve over the bars, read off the right-hand quartile axis. */}
-          <span className="lc-gran lc-trend-duration" role="group" title={t('trend.durationTip')}>
             <button
               type="button"
               className={'lc-gran-btn' + (durationCurve ? ' lc-gran-on' : '')}
+              title={t('trend.durationTip')}
               onClick={() => { setDurationCurve(on => !on) }}
             >{t('trend.duration')}</button>
           </span>

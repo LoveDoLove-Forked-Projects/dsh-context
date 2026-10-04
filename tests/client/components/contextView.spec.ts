@@ -470,14 +470,15 @@ describe('ContextView — interactions', () => {
     const titleText = query(card, '.lc-card-title-text')
     assert.equal(text(titleText), DICT_EN['trend.title'])
 
-    // The switch is the DNA toggle's NEXT sibling — the pair rides the title text's right, left of the
+    // The three display modifiers ride the title text's right as ONE segmented group, left of the
     // card's right-hand control cluster.
     const toggleOf = () => buttonByText(m.container, DICT_EN['trend.adaptive'])
-    const dnaGroupOf = () => buttonByText(m.container, DICT_EN['trend.dna']).parentElement as HTMLElement
-    assert.ok(dnaGroupOf().className.includes('lc-trend-dna'))
-    assert.equal(dnaGroupOf().previousElementSibling, titleText)
-    assert.equal(toggleOf().parentElement?.previousElementSibling, dnaGroupOf())
-    assert.equal(toggleOf().parentElement?.getAttribute('title'), DICT_EN['trend.adaptiveHint'])
+    const modsGroupOf = () => buttonByText(m.container, DICT_EN['trend.dna']).parentElement as HTMLElement
+    assert.ok(modsGroupOf().className.includes('lc-trend-mods'))
+    assert.equal(modsGroupOf().previousElementSibling, titleText)
+    assert.equal(toggleOf().parentElement, modsGroupOf())
+    assert.equal(toggleOf().previousElementSibling, buttonByText(m.container, DICT_EN['trend.dna']), 'Adaptive rides right of DNA inside the group')
+    assert.equal(toggleOf().getAttribute('title'), DICT_EN['trend.adaptiveHint'])
     assert.ok(!toggleOf().className.includes('lc-gran-on'), 'off at mount')
 
     // Toggling is mount-local: the chart keeps rendering (jsdom has no layout, so the zero-width viewport falls
@@ -503,13 +504,12 @@ describe('ContextView — interactions', () => {
       })),
     }))
 
-    // The switch rides the title's right, next after the adaptive one.
+    // The switch rides inside the title-adjacent modifier group, after the adaptive one.
     const msBtn = () => buttonByText(m.container, DICT_EN['trend.duration'])
     const group = msBtn().parentElement as HTMLElement
-    assert.ok(group.className.includes('lc-trend-duration'))
-    assert.equal(group.getAttribute('title'), DICT_EN['trend.durationTip'])
-    const adaptiveGroup = buttonByText(m.container, DICT_EN['trend.adaptive']).parentElement as HTMLElement
-    assert.equal(group.previousElementSibling, adaptiveGroup, 'Duration rides right of the adaptive switch')
+    assert.ok(group.className.includes('lc-trend-mods'))
+    assert.equal(msBtn().getAttribute('title'), DICT_EN['trend.durationTip'])
+    assert.equal(msBtn().previousElementSibling, buttonByText(m.container, DICT_EN['trend.adaptive']), 'Duration rides right of the adaptive switch')
     // The settings default (show) mounts the overlay ON: the curve spans the two stamped bars and the
     // right axis reads the 2s peak (jsdom's zero-width viewport keeps the whole-log scale, adaptive off anyway).
     assert.ok(msBtn().className.includes('lc-gran-on'), 'on at mount (the settings default)')
@@ -534,9 +534,9 @@ describe('ContextView — interactions', () => {
     const dnaBtn = () => buttonByText(m.container, DICT_EN['trend.dna'])
     assert.ok(!dnaBtn().className.includes('lc-gran-on'), 'off at mount')
     const dnaGroup = dnaBtn().parentElement as HTMLElement
-    assert.ok(dnaGroup.className.includes('lc-trend-dna'))
-    assert.equal(dnaGroup.getAttribute('title'), DICT_EN['trend.dnaTip'])
-    assert.ok((dnaGroup.nextElementSibling as HTMLElement | null)?.className.includes('lc-trend-adaptive'), 'DNA rides left of the adaptive switch')
+    assert.ok(dnaGroup.className.includes('lc-trend-mods'))
+    assert.equal(dnaBtn().getAttribute('title'), DICT_EN['trend.dnaTip'])
+    assert.equal(dnaBtn().nextElementSibling, buttonByText(m.container, DICT_EN['trend.adaptive']), 'DNA rides left of the adaptive switch')
 
     // DNA on: the bars become per-item fingerprints and the axis reads totals.
     await click(dnaBtn())
@@ -568,7 +568,7 @@ describe('ContextView — interactions', () => {
 
   test('the trend and browser DNA toggles move as one', async () => {
     const m = await mountRich('sv-dna-link')
-    const trendDna = () => query(m.container, '.lc-trend-dna .lc-gran-btn')
+    const trendDna = () => buttonByText(m.container, DICT_EN['trend.dna'])
     const browserDna = () => query(m.container, '.lc-br-dna-ctl .lc-gran-btn')
     assert.ok(!trendDna().className.includes('lc-gran-on') && !browserDna().className.includes('lc-gran-on'), 'both off at mount')
 
