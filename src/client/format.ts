@@ -33,11 +33,14 @@ export function cacheHitPercent(reads: number, billed: number, decimals = 2): st
   return `${Math.floor(scaled / factor)}.${String(scaled % factor).padStart(decimals, '0')}`
 }
 
+/** One shared formatter: building an Intl formatter per call costs ~50x the format itself (issue #116). */
+const TIME_FMT = new Intl.DateTimeFormat('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
 export function fmtTime(t: number): string {
-  // en-GB 24-hour clock zero-pads HH:MM:SS without a helper; invalid dates must show '—' (toLocaleTimeString throws RangeError).
+  // en-GB 24-hour clock zero-pads HH:MM:SS without a helper; invalid dates must show '—' (DateTimeFormat.format throws RangeError).
   const d = new Date(t)
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleTimeString('en-GB', { hour12: false })
+  return TIME_FMT.format(d)
 }
 
 /**

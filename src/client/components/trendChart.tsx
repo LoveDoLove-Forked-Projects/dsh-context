@@ -739,6 +739,12 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     // has to compare against the width as it was BEFORE the new bar landed — by the time the layout effect runs,
     // `el.scrollWidth` is already the new (wider) value, so a near-edge check against it would miss the auto-follow.
     const prevScrollWidthRef = useRef(0)
+    // Cached viewport width / scroll offset for the hover path (issue #116): syncTip runs after every commit, and
+    // reading clientWidth/scrollLeft there would force a synchronous layout flush of whatever that commit just
+    // dirtied (page-wide on a hover-linked update). The commit effect, the scroll handler and the resize observer
+    // keep these refs fresh instead, so the per-hover pass touches no document-scope layout state.
+    const cwRef = useRef(0)
+    const slRef = useRef(0)
     /**
      * Keep each turn label centered within its block's VISIBLE slice, then thin colliding labels: a label wider
      * than its block overflows it, so consecutive narrow turns would smear into each other — walking left→right
@@ -813,6 +819,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
       }
       lastSeqRef.current = newestSeq
       prevScrollWidthRef.current = el.scrollWidth
+      slRef.current = el.scrollLeft
+      cwRef.current = el.clientWidth
       updateTurnLabels(el)
       syncTip(el)
       measureVisible(el)
@@ -832,7 +840,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
          attaches refs before layout effects run; el is never null here. */
       if (el === null) return
       if (typeof ResizeObserver !== 'function') return
-      const observer = new ResizeObserver(() => { measureRef.current(el) })
+      const observer = new ResizeObserver(() => { cwRef.current = el.clientWidth; measureRef.current(el) })
       observer.observe(el)
       return () => { observer.disconnect() }
     }, [])
@@ -930,8 +938,9 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
      * Glue the hover tip to its bar's VISIBLE slice. The tip deliberately does NOT live inside the scrolling
      * content: an absolutely-positioned child of a scroller contributes to its scrollable overflow, so a wide
      * reply preview on a right-edge bar used to inflate scrollWidth on every hover and flap the horizontal
-     * scrollbar open/closed — jumping the whole card. Reads (offsetWidth/clientWidth) batch before the single
-     * style write; unchanged transforms write nothing.
+     * scrollbar open/closed — jumping the whole card. The only layout read left is the tip's own width (its
+     * subtree is the thing that just changed); the scroller's width/offset ride the cached refs, so this never
+     * forces a document-scope layout flush on the hover path. Unchanged transforms write nothing.
      */
     const syncTip = (el: HTMLDivElement): void => {
       /* v8 ignore next 1 -- the scroll div renders unconditionally while mounted, so its parent exists. */
@@ -939,17 +948,18 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
       // No hover, nothing to place.
       if (tip === null) return
       const lw = tip.offsetWidth
-      const cw = el.clientWidth
+      const cw = cwRef.current
       // Center over the bar's visible slice, clamped so the tip never hangs past either edge nor gets cut off; a tip
       // wider than the viewport centers over it instead of picking a bogus side on an inverted clamp window.
       const half = Math.min(lw / 2, cw / 2)
-      const cx = Math.min(Math.max(tipColRef.current - el.scrollLeft, half), cw - half)
+      const cx = Math.min(Math.max(tipColRef.current - slRef.current, half), cw - half)
       const next = `translate(${Math.round(cx - lw / 2)}px, 0)`
       if (tip.style.transform !== next) tip.style.transform = next
     }
 
     // Position (and re-position after EVERY commit — the tip mounts on hover changes, which touch no other
-    // effect dependency here) from the committed hovered column before paint.
+    // effect dependency here) from the committed hovered column before paint. All document-scope reads ride
+    // the cached refs, so an unrelated commit makes this a cheap arithmetic pass that writes nothing.
     useLayoutEffect(() => {
       /* v8 ignore next 1 -- the scroll div renders unconditionally and React attaches refs before
          layout effects run; el is never null here. */
@@ -995,6 +1005,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
             className={'lc-chart-scroll' + (props.activeTurn !== null ? ' lc-chart-dim' : '')}
             ref={scrollRef}
             onScroll={(e: UIEvent<HTMLDivElement>) => {
+              slRef.current = e.currentTarget.scrollLeft
+              cwRef.current = e.currentTarget.clientWidth
               updateTurnLabels(e.currentTarget)
               syncTip(e.currentTarget)
               measureVisible(e.currentTarget)
