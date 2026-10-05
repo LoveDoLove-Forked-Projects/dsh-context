@@ -73,14 +73,17 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
  closing a fixed right column, and the secondary line drops the absolute
  quantity (plus a qualifier like the call count) under the name in muted
  small print. The name takes the whole primary line and only ellipsizes as
- a last resort; a zero-figure row dims — the ring already carries the share.
- The rows flow into as many ≥160px columns as the card offers (the
- composition legend's own auto-fill idiom): one in a narrow pane, two on a
- classic 1280px viewport where the row halves are ~456px, more on ultrawide
- — so the classic size reads in the same paired order as the composition
- card below.
+ a last resort (the full text stays on the row's `title`); a zero-figure row
+ dims — the ring already carries the share.
+ The rows flow into as many ≥150px columns as the card offers (the
+ composition legend's own auto-fill idiom, floored at the container itself
+ so a narrower legend never clips its share column): one in a narrow pane,
+ two once the legend reaches 308px (the Insights page's ~440px stats cards
+ ride this), more on ultrawide or the page's folded single-column row — so
+ the classic size reads in the same paired order as the composition card
+ below.
  */
-.lc-sl { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 4px 20px; min-width: 0; overflow: hidden; }
+.lc-sl { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 4px 8px; min-width: 0; overflow: hidden; }
 /* The pill tint spreads 6px past the text column (negative margins) so the
    hovered row reads as one lit surface without shifting the columns. */
 .lc-sl-row { display: flex; flex-direction: column; gap: 1px; font-size: 12px; min-width: 0; border-radius: 6px; padding: 1px 6px; margin: 0 -6px; transition: background-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
@@ -89,7 +92,7 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
 .lc-sl-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .lc-sl-dot { flex: none; width: 8px; height: 8px; border-radius: 2px; }
 .lc-sl-label { flex: 1 1 auto; min-width: 0; line-height: 1.25; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lc-sl-pct { flex: none; min-width: 34px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lc-sl-pct { flex: none; min-width: 30px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .lc-sl-sub { margin-left: 14px; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1.3; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lc-pi-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
 /* The settings-entry row is a button wearing the link-row chrome — reset the button chrome the shared row style doesn't cover. */
