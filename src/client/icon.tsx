@@ -7,11 +7,11 @@
  * it to the Plugins page's package cards. The client bundle inlines the
  * file's markup at build time (the `?raw` channel in tsdown.config.ts) and
  * re-renders it at every requested size. The identity seats (tab chip,
- * command, sidebar registration, panel head) keep the sheet's fixed fills —
+ * command, sidebar registration) keep the sheet's fixed fills —
  * deliberately polychrome on both light and dark chrome — while the
- * sidebar-foot entry seat (overviewButton.tsx) opts into `mono`, trading
- * every fill for `currentColor` so the glyph sits quietly beside the
- * harness's own footer rows (Settings and friends).
+ * sidebar's panel-list seat (insightPage.ts) opts into `mono`, trading
+ * every fill for `currentColor` so the glyph follows the shell-owned row's
+ * own state colors, exactly as the shipped panel glyphs do.
  */
 
 import sheetMarkup from '../../icon.svg?raw'
@@ -33,7 +33,7 @@ export interface ContextIconProps {
   size?: number
   /** Extra class for layout placement. */
   className?: string
-  /** Render in the surrounding text colour instead of the palette (the sidebar-foot entry seat). */
+  /** Render in the surrounding text colour instead of the palette (the sidebar panel-list seat). */
   mono?: boolean
 }
 
@@ -50,6 +50,17 @@ export function ContextIcon({ size = 20, className, mono = false }: ContextIconP
       dangerouslySetInnerHTML={{ __html: mono ? SHEET_MARKUP_MONO : SHEET_MARKUP }}
     />
   )
+}
+
+/**
+ * The sidebar panel-list glyph (`sidebar.panellist`): the emblem in `mono` at
+ * the size the shell asks for, so the shell-owned row's hover/active colors
+ * paint it like the shipped panel glyphs. The shell owns the row's label,
+ * and the row's selected state its own styling, so — as on the shipped
+ * glyphs — the owner props' `active` goes unread.
+ */
+export function InsightPanelIcon({ size = 18 }: { size?: number }): ReactElement {
+  return <ContextIcon size={size} mono />
 }
 
 /**

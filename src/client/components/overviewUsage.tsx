@@ -8,7 +8,8 @@
  * cell — never a whole session's spend dumped on the day it was last
  * active. The two series scale on their OWN window maxima (a $2 week must
  * not flatten under a 169M-token week), so each bar reads as a share of its
- * series' peak; the tooltip carries the exact figures. The window is fixed
+ * series' peak; the tooltip (the page's portaled hover tip, off the column's
+ * `data-lc-tip`) carries the exact figures. The window is fixed
  * to the last 7 days — the range selector above scopes the KPI figures, not
  * this calendar.
  *
@@ -19,7 +20,6 @@
  * prices.
  */
 
-import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ReactElement } from 'react'
 import { formatCost, type CostCurrency } from '../cost'
 import { type DayTotals } from '../overview'
@@ -103,20 +103,18 @@ export function makeOverviewUsage(kit: ViewKit): (props: OverviewUsageProps) => 
                       // qualifier ("仅含支持计价映射的模型") stays off the bubble.
                       const label = `${c.key}\n${t('ov.usage.tokens')} ${fmt(tokens)}\n${t('ov.usage.costTip')} ${cost === null ? '—' : formatCost(cost, props.currency)}`
                       return (
-                        <Tooltip key={c.key} label={label} side="top">
-                          <div className="lc-ov-usage-col">
-                            <div className="lc-ov-usage-bars">
-                              <span
-                                className="lc-ov-usage-bar lc-ov-usage-tokens"
-                                style={{ height: heightOf(tokens, maxTokens) }}
-                              />
-                              <span
-                                className="lc-ov-usage-bar lc-ov-usage-cost"
-                                style={{ height: cost === null ? '0%' : heightOf(cost, maxCost) }}
-                              />
-                            </div>
+                        <div key={c.key} className="lc-ov-usage-col" data-lc-tip={label}>
+                          <div className="lc-ov-usage-bars">
+                            <span
+                              className="lc-ov-usage-bar lc-ov-usage-tokens"
+                              style={{ height: heightOf(tokens, maxTokens) }}
+                            />
+                            <span
+                              className="lc-ov-usage-bar lc-ov-usage-cost"
+                              style={{ height: cost === null ? '0%' : heightOf(cost, maxCost) }}
+                            />
                           </div>
-                        </Tooltip>
+                        </div>
                       )
                     })}
                   </div>

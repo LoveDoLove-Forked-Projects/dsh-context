@@ -6,7 +6,7 @@ import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import { gridOf, makeHeatmap, todayKey } from '../../../src/client/components/heatmap'
-import { click, hover, makeKit, mount, query, queryAll, text, unhover } from '../helpers/kit'
+import { click, makeKit, mount, query, queryAll, text } from '../helpers/kit'
 
 const kit = makeKit()
 const Heatmap = makeHeatmap(kit)
@@ -135,20 +135,18 @@ describe('Heatmap', () => {
     await m.unmount()
   })
 
-  test('cells tip through the harness Tooltip: the bubble mounts on hover and drops on leave', async () => {
+  test('cells carry the page hover tip in data attributes (date, sessions, steps; an empty day the bare date)', async () => {
     const m = await mount(h(Heatmap, {
       days: { '2026-09-16': { tokens: 10, requests: 1, sessions: 3, cost: null } },
       today: TODAY,
       weeks: 2,
     }))
-    const cell = query<HTMLButtonElement>(m.container, 'button.lc-heat-cell')
-    await hover(cell)
-    assert.equal(query(m.container, '[role="tooltip"]').textContent, '2026-09-16\n3 active sessions\n1 steps')
-    await unhover(cell)
-    assert.equal(queryAll(m.container, '[role="tooltip"]').length, 0, 'the bubble drops when the pointer leaves')
+    assert.equal(
+      query<HTMLButtonElement>(m.container, 'button.lc-heat-cell').getAttribute('data-lc-tip'),
+      '2026-09-16\n3 active sessions\n1 steps',
+    )
     // An empty day tips too — the bare date, one line.
-    await hover(query(m.container, 'span.lc-heat-0'))
-    assert.match(query(m.container, '[role="tooltip"]').textContent ?? '', /^\d{4}-\d{2}-\d{2}$/)
+    assert.match(query(m.container, 'span.lc-heat-0').getAttribute('data-lc-tip') ?? '', /^\d{4}-\d{2}-\d{2}$/)
     await m.unmount()
   })
 

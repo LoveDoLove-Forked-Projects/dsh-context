@@ -63,6 +63,22 @@ export interface ClientSeam {
     sessionsOpen: boolean
   }
   /**
+   * The Context Insights page's first-level panel seam: the layout's keyed
+   * `main` slot (the page's seat — also the conversation panel's own) and
+   * the sidebar's `sidebar.panellist` list (the entry's seat), addressed by
+   * one shared id. Both spellings shipped with the sidebar/layout split and
+   * are present on every supported line; probed presence-as-declared so a
+   * rename names the seam instead of silently orphaning the page.
+   */
+  insightPage: {
+    /** The panellist contract's declaring source, plus the slot's spelling in it. */
+    panellistFile: string
+    panellistNeedle: string
+    /** The layout's main-slot declaring source, plus the keyed declaration's spelling. */
+    mainFile: string
+    mainNeedle: string
+  }
+  /**
    * The right Sidebar's tab seam — every supported generation ships it
    * (0.1.5-rc.1 introduced it). The plugin's registration stays an OPTIONAL
    * deferred inject: a below-baseline host (the gate's fallback composition)
@@ -254,6 +270,12 @@ export const BASELINES: readonly Baseline[] = [
         sessionsFile: 'packages/api/session-controller/src/client/contract/sessions.ts',
         sessionsOpen: true,
       },
+      insightPage: {
+        panellistFile: 'packages/client/ui-sidebar/src/client/contract/slots.ts',
+        panellistNeedle: "'sidebar.panellist'",
+        mainFile: 'packages/client/ui-layout/src/client/index.ts',
+        mainNeedle: "'main': { kind: 'keyed'",
+      },
     },
     settings: {
       serviceFile: 'packages/settings/settings/src/index.ts',
@@ -353,6 +375,12 @@ export const BASELINES: readonly Baseline[] = [
         workspaceNeedle: 'openSession(target: SessionTarget): void',
         sessionsFile: 'packages/api/session-controller/src/client/contract/sessions.ts',
         sessionsOpen: false,
+      },
+      insightPage: {
+        panellistFile: 'packages/client/ui-sidebar/src/client/contract/slots.ts',
+        panellistNeedle: "'sidebar.panellist'",
+        mainFile: 'packages/client/ui-layout/src/client/index.ts',
+        mainNeedle: "'main': { kind: 'keyed'",
       },
     },
     settings: {
@@ -458,6 +486,12 @@ export const BASELINES: readonly Baseline[] = [
         workspaceNeedle: 'openSession(target: SessionTarget): void',
         sessionsFile: 'packages/api/session-controller/src/client/contract/sessions.ts',
         sessionsOpen: false,
+      },
+      insightPage: {
+        panellistFile: 'packages/client/ui-sidebar/src/client/contract/slots.ts',
+        panellistNeedle: "'sidebar.panellist'",
+        mainFile: 'packages/client/ui-layout/src/client/index.ts',
+        mainNeedle: "'main': { kind: 'keyed'",
       },
     },
     settings: {

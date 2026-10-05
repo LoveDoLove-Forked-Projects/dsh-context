@@ -9,7 +9,7 @@
 **The best [DeepSeek Harness plugin](https://www.deepseek.com/harness/) for Agent's context insights and management.**
 
 [`dsh-context`](https://www.npmjs.com/package/dsh-context) provides full context lifecycle management features.
-- **Context Dashboard** — the cross-session overview above Settings on the sidebar foot: KPI band with a 7-day token/cost usage chart, activity heatmap, aggregate composition ring, and filterable session cards that jump straight into any session.
+- **Context Insights page** — the cross-session overview as a first-level sidebar panel (beside Plugins and Automation tasks): KPI band with a 7-day token/cost usage chart, activity heatmap, aggregate composition ring, and filterable session cards that jump straight into any session.
 - **Context tab** — an UI context dashboard for DeepSeek Harness's context stats, composition, trend, events, and messages.
 - **Context panel** — the same dashboard as a right-sidebar tab (dsh 0.1.5-rc.1+): pick **Context** on the sidebar's guide page and the panel opens beside the chat.
 - **`/context` command** — the slash command shows the context model for current context composition and recent context evolution.
@@ -44,16 +44,16 @@ Four surfaces, one story — what your agent is carrying, how it got there, and 
 
 | Where | What you get |
 | --- | --- |
-| **Context Dashboard** | Every session at a glance: usage, cost, cache hit, daily activity, and per-session context profiles — filtered by range, day, group, or search, one click to jump in. |
+| **Context Insights page** | Every session at a glance: usage, cost, cache hit, daily activity, and per-session context profiles — filtered by range, day, group, or search, one click to jump in. |
 | **Context tab** | The full dashboard: stats, composition, per-request trend, events, file activity, and the agent network — in every session. |
 | **`/context` command** | A centered modal with the same composition and context browser, without leaving the chat. |
 | **Preferences card** | Per-user defaults: view placement, trend granularity & mode, File Activity sort, and more. |
 
-## 🗂️ The Context Dashboard
+## 🗂️ The Context Insights page
 
-Click **Context Dashboard / 上下文仪表盘** at the bottom-left of the sidebar, right above **Settings**:
+Click **Context Insights / 上下文洞察** in the sidebar's panel list — the same row level as **Plugins** and **Automation tasks** — and the page opens as a full center-column panel:
 
-![Context Dashboard](https://raw.githubusercontent.com/bowenliang123/dsh-context/main/docs/context-dashboard.png)
+![The Context Insights page](https://raw.githubusercontent.com/bowenliang123/dsh-context/main/docs/context-dashboard.png)
 
 | Section | The question it answers |
 | --- | --- |

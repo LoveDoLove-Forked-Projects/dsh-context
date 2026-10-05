@@ -1,46 +1,44 @@
 /*
- * The Context Insights panel: the sidebar-foot entry button (stacked above
- * Settings by the harness's own foot layout) and the frame-wide overlay
- * panel it opens — the first row (a 1:1 pair: the KPI metrics band, the
- * range's six figures three per row, beside the last-7-days usage chart's
- * token/cost bar columns) over the aggregate stats row (Token Stats |
- * Timing Stats, the range's sessions folded into the per-session tab's two
- * donut cards) over a 3:7 body of insight column (the activity heatmap,
- * then the preferences entry row) beside the session column (search, chips,
- * card grid).
- * The backdrop is the `lc-ov` query container (it spans the viewport, and
- * the card sizes off the viewport too), so the column fold keys off the
- * viewport width. Inline-size containment is safe here: the backdrop IS the
- * viewport rectangle, so the heat cells' fixed-position Tooltip bubbles
- * keep their viewport coordinates.
+ * The Context Insights page: the plugin's first-level panel (the sidebar
+ * panel-list entry opens it in the shell's center column), a sibling of the
+ * shipped Plugins and Automation tasks pages. The chrome mirrors those
+ * pages: one scroll region whose centered content column (the Plugins
+ * page's 960px frame) opens with the page heading — the title beside the
+ * range group and the balance capsule — then the first row (a 1:1 pair: the
+ * KPI metrics band, the range's six figures three per row, beside the
+ * last-7-days usage chart's token/cost bar columns) over the aggregate
+ * stats row (Token Stats | Timing Stats, the range's sessions folded into
+ * the per-session tab's two donut cards) over a 3:7 body of insight column
+ * (the activity heatmap, then the preferences entry row) beside the session
+ * column (search, chips, card grid).
+ *
+ * The page element is the `lc-ov` query container: every fold below keys
+ * off the pane's own width (the pane follows the shell's sidebar state, per
+ * the harness's container-query idiom). Inline-size containment makes the
+ * page the containing block for fixed descendants, so the page's hover tips
+ * CANNOT live in-tree — hoverTip.tsx portals the one bubble to <body> (the
+ * image lightbox's precedent in base.css).
  */
 
-/* ---- the sidebar-foot entry ---- */
-/* Geometry mirrors the harness's own Settings trigger (ui-settings-general's
-   .trigger): the 42px row, 12px radius, 14px/22px label, and its shared hover
-   fill, so the plugin entry reads as a native foot control, not a visitor. */
-.lc-ov-entry { display: flex; align-items: center; gap: 8px; width: calc(100% + 4px); height: 42px; box-sizing: border-box; margin: 0 -2px; border: 0; padding: 0 10px 0 8px; overflow: hidden; background: transparent; border-radius: 12px; color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 14px; line-height: 22px; cursor: pointer; }
-.lc-ov-entry:hover { background: var(--dsw-alias-interactive-bg-hover); }
-/* The collapsed rail takes the native foot controls' 36x36 circle, icon only. */
-.lc-ov-entry-rail { flex: none; justify-content: center; gap: 0; width: 36px; height: 36px; margin: 0; padding: 0; border-radius: 50%; }
-.lc-ov-entry-icon { flex: none; }
-.lc-ov-entry-label { flex: 1 1 auto; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ---- the overlay chrome ---- */
-/* The backdrop carries the `lc-ov` container: it spans the viewport exactly,
-   so queries against it track the card's own sizing basis (the card is
-   min(1120px, 100vw - 32px)) without making the card unable to query itself. */
-.lc-ov-backdrop { position: fixed; inset: 0; z-index: 200; background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.45)); display: flex; align-items: center; justify-content: center; container: lc-ov / inline-size; }
-/* The card is a flex column at a FIXED height: the viewport minus a 40px
-   band top and bottom (the width keeps its 16px side frame), so the panel's
-   footprint never wobbles with the content. The backdrop is a definite-
-   height flex box, so the percentage resolves without viewport units. The
-   head stays put; the scroll region fills the rest and is the panel's one
-   scroller — the KPI band, the stats row, and the body scroll as one. */
-.lc-ov-card { display: flex; flex-direction: column; width: min(1120px, calc(100vw - 32px)); height: calc(100% - 80px); overflow: hidden; box-sizing: border-box; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; box-shadow: var(--dsw-shadow-lv3, 0 12px 32px rgba(0, 0, 0, 0.4)); padding: 16px 18px 18px; color: var(--dsw-alias-label-primary); font-size: 13px; }
-.lc-ov-head { flex: none; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.lc-ov-head-icon { flex: none; }
-.lc-ov-title { font-weight: 600; font-size: 15px; white-space: nowrap; }
+/* ---- the page chrome (the shipped first-level pages' own frame) ---- */
+.lc-ov-page { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; box-sizing: border-box; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-size: 13px; container: lc-ov / inline-size; }
+/* The one scroller: everything — heading, stats, body — scrolls as one. */
+.lc-ov-pagescroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+/* The Plugins page's centered column: the same 960px cap and clamp(24-48px)
+   inline / 48px bottom inset, so sibling first-level pages share one content
+   frame at every width. */
+.lc-ov-pagecontent { max-width: 960px; margin: 0 auto; padding: 0 clamp(24px, 4vw, 48px) 48px; }
+/* The heading row: title beside the range group (and the balance capsule
+   when it serves), wrapping under width pressure. The 28px top inset
+   belongs to the row, so the whole strip above the heading is its own box. */
+.lc-ov-pagehead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 28px; margin-bottom: 24px; }
+/* macOS hiddenInset titlebar: the shipped pages' heads carry the frame's top
+   clearance above their own 28px inset, so first-level pages align. */
+[data-platform='darwin'] .lc-ov-pagehead { padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px)); }
+/* The first-level page title on the shipped pages' own step (20px/28px/500);
+   the theme carries no size token for it, so every first-level page states
+   the same literal. */
+.lc-ov-pagetitle { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 20px; line-height: 28px; font-weight: 500; }
 /* The DeepSeek balance pill (balanceCapsule.tsx): a quiet chip between the
    title and the range group, one link to the platform's usage console —
    flex: none keeps the figure intact and the head's own wrap carries it to
@@ -49,14 +47,13 @@
 .lc-ov-balance:hover .lc-ov-balance-value { text-decoration: underline; }
 .lc-ov-balance-label { color: var(--dsw-alias-label-secondary); white-space: nowrap; }
 .lc-ov-balance-value { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
-.lc-ov-head .lc-modal-close { margin-left: 0; flex: none; }
 
-/* The panel's one scroller: everything under the head. It inherits the
-   scrollbar discipline the columns used to own — the harness 8px bar with a
-   stable gutter, so cards never reflow by the bar's width, and the right
-   padding keeps the thumb clear of the card edges instead of riding on
-   them. */
-.lc-ov-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding-right: 8px; }
+/* ---- the page's hover tip (hoverTip.tsx): one fixed bubble portaled to
+   <body> — containment-safe by construction. The shared `.lc-tip` chrome
+   supplies the face; these rules supply the fixed seat, the pre-line wrap
+   (labels carry \n rows), and the width cap. Opacity stays inline (the
+   measure-then-show two-phase), so no reveal class exists here. ---- */
+.lc-hovertip { position: fixed; z-index: 300; max-width: min(320px, 50vw); white-space: pre-line; }
 
 /* ---- the panel's first row: a 1:1 column pair — the KPI metrics band
    (the range's six figures, three per row — the row pair is the tallened
@@ -135,7 +132,7 @@
 
 /* ---- the body: a 3:7 column pair — the insight column (the heat over the
    preferences entry) beside the session column. Neither column scrolls on
-   its own — the panel's `.lc-ov-scroll` owns the one bar — and `align-items:
+   its own — the page's `.lc-ov-pagescroll` owns the one bar — and `align-items:
    start` keeps each column at its natural height, so the heat card never
    stretches to the paged grid's height. Under width pressure the pair folds
    to one full-width column. ---- */
