@@ -21,7 +21,7 @@
 import type { PartsPart } from './categories'
 import type { ContextTimeline, SessionCostUsage } from '../shared/types'
 import { mergeCostUsage } from './cost'
-import { headlineOf, type Headline } from './headline'
+import { headlineOf, occupancyPercent, type Headline } from './headline'
 import { asRecord, contextBreakdownOf, contextPressureOf, numOf, timelineOf, tokenUsageOf } from './services'
 
 /**
@@ -191,7 +191,7 @@ export function agentStatsOf(values: Record<string, unknown> | undefined): Agent
       head = {
         tokens,
         window,
-        pct: window !== undefined ? Math.min(100, Math.round(tokens / window * 100)) : null,
+        pct: window !== undefined ? occupancyPercent(tokens, window) : null,
         parts: [],
       }
     }

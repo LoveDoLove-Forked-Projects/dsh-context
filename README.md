@@ -83,7 +83,7 @@ Open any session and click the **Context / 上下文** tab:
 | **File Activity** | What the agent *did* to your files. |
 | **Agent Network** | The whole agent family, live. |
 
-The headline occupancy and composition read the **same official token-meter projections as the chat composer's context ring** (`contextPressure` / `contextBreakdown`), so the figures always match what the ring tells you.
+The headline occupancy and composition read the **same official token-meter projections as the chat composer's context ring** (`contextPressure` / `contextBreakdown`), so the figures always match what the ring tells you — the card's percentage is that same occupancy, printed with one decimal.
 
 ### Context Stats
 

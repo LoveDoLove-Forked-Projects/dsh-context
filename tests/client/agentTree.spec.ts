@@ -145,6 +145,9 @@ describe('agentStatsOf', () => {
   test('pressure-only rows still yield an occupancy head without slices', () => {
     const projected = agentStatsOf({ contextPressure: { projectedTokens: 250, contextWindow: 1000 } })
     assert.deepEqual(projected.head, { tokens: 250, window: 1000, pct: 25, parts: [] })
+    // The same one-decimal occupancy grid the overview card reads (headline.ts).
+    const fractional = agentStatsOf({ contextPressure: { projectedTokens: 833, contextWindow: 1000 } })
+    assert.equal(fractional.head?.pct, 83.3)
     // Falls back to the raw sample when no projection exists.
     const sampled = agentStatsOf({ contextPressure: { pressureTokens: 100 } })
     assert.deepEqual(sampled.head, { tokens: 100, window: undefined, pct: null, parts: [] })

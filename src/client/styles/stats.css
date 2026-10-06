@@ -38,7 +38,11 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
 .lc-stat-tip-band i { font-style: normal; }
 .lc-stat-tip-by { display: block; margin-top: 3px; color: var(--dsw-alias-label-secondary); }
 .lc-card-sub { font-weight: 400; color: var(--dsw-alias-label-secondary); font-size: 12px; margin-left: auto; }
-.lc-overview-num { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+/* The occupancy reading row: the one-decimal percent (currentComposition.tsx)
+   is wider than the integer it replaced, so the row wraps — the percent block
+   drops to its own right-aligned line below the width floor instead of
+   spilling past the card edge. */
+.lc-overview-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .lc-overview-num > b { font-size: 20px; }
 .lc-overview-num span { color: var(--dsw-alias-label-secondary); }
 .lc-overview-pct { margin-left: auto; font-size: 11px; }
