@@ -24,11 +24,13 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
 .lc-stat-tip { top: calc(100% + 6px); left: 0; max-width: 280px; line-height: 1.5; font-weight: 400; }
 .lc-stat-tip-prices { display: block; margin-top: 5px; border-top: 1px dashed var(--dsw-alias-border-l1); padding-top: 5px; }
 .lc-stat-tip-head { display: block; font-weight: 600; }
-/* The timing card's throughput chip (statsTiming.tsx): a quiet figure pinned
-   to the title row's right end — the same harness session-stats pairing, so
-   the two figures never disagree. `margin-left: auto` parks it at the row's
-   end; the title row's own wrap carries it below the title under pressure. */
-.lc-timing-tps { flex: none; margin-left: auto; padding: 1px 8px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; cursor: default; }
+/* The donut cards' right-corner rate figure (statsTiming.tsx's decode TPS,
+   statsTokens.tsx's session cache hit): plain text pinned to the title row's
+   right end, regular weight against the 600 title — no pill chrome; the
+   native `title` tooltip explains it on hover. `margin-left: auto` parks it
+   at the row's end; the title row's own wrap carries it below the title
+   under pressure. */
+.lc-card-rate { flex: none; margin-left: auto; font-weight: 400; font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; cursor: default; }
 .lc-stat-tip-row { display: block; margin-top: 2px; }
 /* One billed model's block: the four bucket rates as label/price rows, the
    listing line beneath naming the registry face the rates resolved from. */

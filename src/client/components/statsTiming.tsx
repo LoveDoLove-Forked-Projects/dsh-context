@@ -70,10 +70,10 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
     const [hoverKey, setHoverKey] = useState<string | null>(null)
     const timing = props.timing
     const wall = timing !== null && Number.isFinite(timing.wallMs) && timing.wallMs > 0 ? timing.wallMs : 0
-    // The throughput chip: the host paired provider output tokens with decode
-    // windows exactly as the harness session-stats fold does, so the two
-    // figures can never disagree. An unreadable or absent pairing (an older
-    // cached row) renders no chip.
+    // The throughput figure: the host paired provider output tokens with
+    // decode windows exactly as the harness session-stats fold does, so the
+    // two figures can never disagree. An unreadable or absent pairing (an
+    // older cached row) renders no figure.
     const tps = timing !== null
       && typeof timing.speedMs === 'number' && Number.isFinite(timing.speedMs) && timing.speedMs > 0
       && typeof timing.speedTokens === 'number' && Number.isFinite(timing.speedTokens) && timing.speedTokens >= 0
@@ -187,7 +187,7 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
         <div className="lc-card-title">
           <span className="lc-card-title-text">{t('timing.title')}</span>
           {tps !== null && (
-            <span className="lc-timing-tps" title={t('timing.tpsTip')}>{t('timing.tps', { tps })}</span>
+            <span className="lc-card-rate" title={t('timing.tpsTip')}>{t('timing.tps', { tps })}</span>
           )}
         </div>
         {rows.length === 0
