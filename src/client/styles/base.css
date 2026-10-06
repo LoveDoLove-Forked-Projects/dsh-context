@@ -125,10 +125,9 @@
  drops the context stats / plugin info row — see contextView.tsx); the same
  wrap then stacks the pair in the narrow pane.
  */
-/* The context card's cell grid stretches to the plugin card's height, so the row reads as one level band. */
+/* The context card's flow diagram stretches to the plugin card's height, so the row reads as one level band. */
 .lc-head > .lc-card:has(.lc-stats) { display: flex; flex-direction: column; }
-.lc-head .lc-stats { flex: 1; align-content: stretch; }
-.lc-head .lc-stat { justify-content: center; }
+.lc-head .lc-stats { flex: 1; }
 .lc-empty { color: var(--dsw-alias-label-secondary); padding: 18px 0; text-align: center; }
 .lc-error { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 16px; }
 .lc-error-msg { font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; color: var(--dsw-alias-state-error-primary); background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; padding: 4px 8px; max-width: 100%; overflow-wrap: anywhere; }

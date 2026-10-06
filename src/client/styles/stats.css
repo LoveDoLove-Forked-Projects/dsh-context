@@ -10,9 +10,6 @@
    card it visually is, with the pointer as the only affordance. */
 a.lc-stat { color: inherit; text-decoration: none; cursor: pointer; }
 a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
-/* The stats grid shares a half-width head-row card with a sibling, so its cells are moderate: tighter padding plus a corner-pinned '?' (out of the label's line) keep the longest labels on one line. */
-.lc-stats .lc-stat { padding: 6px 3px; }
-.lc-stats .lc-stat-q { position: absolute; top: 3px; right: 4px; margin: 0; }
 .lc-stat-label { color: var(--dsw-alias-label-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lc-stat-value { color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 .lc-stat-sub { color: var(--dsw-alias-label-secondary); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -114,9 +111,70 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
  an ellipsis; without it a narrow card pushes the value over the label.
  */
 .lc-pi-value { min-width: 0; color: var(--dsw-alias-label-primary); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
-/* The stats grid's cell count is intrinsic (`repeat(auto-fit, minmax(108px,1fr))` on the element, see
-   statsContext.tsx); the donut row's 320px gap fold and 240px stack still ride
-   `@max-[…]/lc-card` utilities — statsTokens.tsx / statsTiming.tsx / sliceList.tsx / donut.tsx. */
+/*
+ ---- Context stats flow (statsContext.tsx): the session as a flow diagram.
+ The two source nodes (left) feed the session node, which drains into the two
+ effect nodes (right); measured bezier ribbons connect them — the component
+ measures the node boxes and flips the geometry at the same width the
+ container query below folds the three zones into a top→bottom stack. ----
+ */
+.lc-flow { position: relative; display: flex; align-items: stretch; }
+.lc-flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Two layers per link: a wide, near-transparent ribbon carries the Sankey
+   mass, and a dashed hairline of the same hue travels along it — the agent
+   network's flow pulse (`animate-lc-agent-flow`; the element sets
+   `motion-reduce:animate-none`) — so the direction of travel reads without
+   arrowheads. The link color rides the `stroke` attribute per element. */
+.lc-flow-ribbon { fill: none; stroke-width: 14px; stroke-opacity: 0.13; stroke-linecap: round; }
+.lc-flow-dash { fill: none; stroke-width: 1.5px; stroke-opacity: 0.55; stroke-linecap: round; stroke-dasharray: 2 7; }
+/* The three zones sit above the connector overlay; the mid zone's side
+   margins are the horizontal gutters the ribbons travel through. */
+.lc-flow-col { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+.lc-flow-mid { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; margin: 0 30px; }
+.lc-flow-node { background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* A corner card's header: the title left, the bold total right (tabular so a
+   ticking count never jiggles the row). */
+.lc-flow-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+/* The clickable cost header: the same row as an anchor opening the models.dev
+   listing in a new tab — reset the link chrome so it reads as the text it
+   visually is; the label's brighten is the only affordance. */
+a.lc-flow-head { color: inherit; text-decoration: none; cursor: pointer; }
+a.lc-flow-head:hover .lc-flow-label { color: var(--dsw-alias-label-primary); }
+.lc-flow-label { color: var(--dsw-alias-label-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lc-flow-total { margin-left: auto; flex: none; color: var(--dsw-alias-label-primary); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* The pills: a wrapping breadcrumb of rounded chips under the header, each a
+   muted label with a bold tally. A zero pill dims (the card's total already
+   reads); a tinted pill (the events card's kind colors) keeps its tally on
+   the tint's own hue. */
+.lc-flow-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.lc-flow-pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-secondary); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lc-flow-pill-label { min-width: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.lc-flow-pill b { font-weight: 700; color: var(--dsw-alias-label-primary); }
+.lc-flow-pill-tint b { color: inherit; }
+.lc-flow-pill-dim { opacity: 0.45; }
+/* The session node: the diagram's pivot — raised surface, brand-tinted edge
+   and halo, the two shape figures centered under the label. */
+.lc-flow-self { background: var(--dsw-alias-bg-layer-1); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent); padding: 8px 14px; align-items: center; gap: 4px; }
+.lc-flow-self-stats { display: flex; gap: 18px; }
+.lc-flow-kv { display: flex; flex-direction: column; align-items: center; }
+.lc-flow-kv b { font-size: 17px; font-weight: 700; line-height: 1.2; color: var(--dsw-alias-label-primary); font-variant-numeric: tabular-nums; }
+.lc-flow-kv i { font-style: normal; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+/* Right-column tips open leftward so the wide bubble never spills past the card edge. */
+.lc-flow .lc-flow-col-r .lc-stat-tip { left: auto; right: 0; }
+/* The narrow fold — paired with the component's FLOW_FOLD_PX (the container's
+   content box is exactly the flow root's width): the zones stack sources →
+   session → effects and the ribbons run top to bottom; the side nodes pair up
+   on one row and the session node centers between the two ribbon gutters. */
+@container lc-card (max-width: 559px) {
+  .lc-flow { flex-direction: column; }
+  .lc-flow-col { flex-direction: row; align-items: stretch; }
+  .lc-flow-col > .lc-flow-node { flex: 1 1 0; }
+  .lc-flow-mid { margin: 26px 0; }
+}
+/*
+ The donut row's 320px gap fold and 240px stack still ride `@max-[…]/lc-card`
+ utilities — statsTokens.tsx / statsTiming.tsx / sliceList.tsx / donut.tsx.
+ */
 /*
  ---- Timing card's session-time strip (timingStrip.tsx): the fold's painted
  spans packed gapless in occurrence order — each band's width is its share of

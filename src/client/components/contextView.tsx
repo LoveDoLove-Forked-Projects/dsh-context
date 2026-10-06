@@ -30,7 +30,7 @@ import { makeFileCard } from './fileCard'
 import { makePluginInfo } from './pluginInfo'
 import { makeUpgradeGate } from './upgradeGate'
 import { makeRequestDetail } from './requestDetail'
-import { countsOfRecords, makeStatsContext, makeSubagentCost } from './statsContext'
+import { countsOfRecords, makeStatsContext, makeSubagentCost, toolTallyOf } from './statsContext'
 import { makeStatsTiming } from './statsTiming'
 import { makeStatsTokens } from './statsTokens'
 import { makeLegend, makeStackedBar } from './stackedBar'
@@ -338,6 +338,20 @@ export function makeContextView(
       },
       [data, briefList, convOf, filesBefore],
     )
+    // The stats card's pill tallies: the WHOLE-session file-op counts (null
+    // bound, off the same derivations the FileCard rides) for the I/O card,
+    // and the live-surface per-tool tally (toolTallyOf — the head's own
+    // `toolCalls` predicate) for the tool card's most-called pills.
+    const ioTotals = useMemo(
+      () => {
+        const totals = (data !== null && data.fileOps !== undefined
+          ? activityOfOps(data.fileOps, data.archive, null)
+          : activityOf(briefList, convOf, null)).totals
+        return { reads: totals.read.ops, writes: totals.write.ops, searches: totals.search.ops, images: totals.image.ops }
+      },
+      [data, briefList, convOf],
+    )
+    const toolTally = useMemo(() => (data ? toolTallyOf(data.nodes) : []), [data])
     // The session's workspace root — './'-relative row paths when known; read per
     // render (an observable snapshot), so the next projection push re-renders with it.
     const workspace = typeof ctx.get === 'function' ? workspaceOf(ctx, typeof sessionId === 'string' ? sessionId : undefined) : undefined
@@ -592,6 +606,7 @@ export function makeContextView(
         {inSidebar ? null : (
           <div className="lc-cols lc-head">
             <StatsContext counts={counts} humanInputs={data.humanInputs} toolCalls={data.toolCalls}
+              files={ioTotals} tools={toolTally}
               cost={data.cost} locale={activeLocale} sessionId={typeof sessionId === 'string' ? sessionId : undefined} />
             <PluginInfo />
           </div>
