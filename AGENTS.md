@@ -23,26 +23,27 @@ A DeepSeek Harness plugin for context insight, actions, and management.
     - Available on GitHub topic `dsh-plugin`: https://github.com/topics/dsh-plugin
 
 ## Coding
-- Always consider the minimal change and the most performance efficient implementation.
-- Try best to use the existing classes, utilities, styles, style tokens, events, presets and lifecycles provided by DeepSeek Harness.ess.
-- Use English in code comments, documentation, Pull Request description, and commit messages.
-- Smaller, less-coupling and modulized code and tests are preferred for better maintainability and testability.
-- Avoid adding unnecessary code comments (unless for the pinned major decision or for those provide significant value) and code duplication.
-- Update or remove the outdated or unhelpful code comments when modifying the code.
-- Before any commit, MUST ALWAYS do ALL the following checks:
-  - Check the to-do list, and ensure all the items are properly completed or closed.
-  - Carefully independently review and simplify all the diffs and all code changes, to ensure they are necessary, correct and not over-engineered. 
-  - Cleanup the generated temporary files. Cleanup temporary or unhelpful comments.
-  - MUST Run `pnpm run lint:fix && pnpm run test && pnpm run build` in single command and capture FULL output, to ensure:
-    - passing all the linting and test
-    - the per-file code coverage MUST BE literally 100%.
-      - The coverage table lists ONLY the files below 100% (`coverage.skipFull` in `vitest.config.ts`): a passing run prints an empty table (headers only, no `All files` row), and the run also fails the `coverage.thresholds` gate when any file drops below 100 — the offending files then appear in the table.
-      - Example passing output (nothing below 100%):
-        - % Coverage report from v8
-          -------------------|---------|----------|---------|---------|-------------------
-          File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
-          -------------------|---------|----------|---------|---------|-------------------
-          -------------------|---------|----------|---------|---------|-------------------
+- Make the minimal change that fully solves the problem, with the most efficient implementation.
+- Reuse the classes, utilities, styles, style tokens, events, presets, and lifecycles that DeepSeek Harness already provides.
+- Keep code and tests small, loosely coupled, and modular; avoid duplication.
+- Add comments only for major decisions or significant value, and update or delete outdated ones when modifying the code.
+- Write comments, documentation, PR descriptions, and commit messages in English.
+
+## Pre-commit checks
+
+Complete ALL of these before ANY commit:
+
+- Close out the to-do list, ensuring every item is completed or closed.
+- Review the full diff independently: every change necessary, correct, and not over-engineered.
+- Clean up generated temporary files and temporary or unhelpful comments.
+- Run `pnpm run lint:fix && pnpm run test && pnpm run build` as a single command and capture the FULL output:
+    ```
+    % Coverage report from v8
+    -------------------|---------|----------|---------|---------|-------------------
+    File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+    -------------------|---------|----------|---------|---------|-------------------
+    -------------------|---------|----------|---------|---------|-------------------
+    ```
 
 ## Layout & responsive
 
