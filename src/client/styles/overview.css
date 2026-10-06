@@ -86,20 +86,27 @@
    (tokens left, cost right — the cost rail reads '—' while nothing
    prices). ---- */
 .lc-ov-usage { flex: 1 1 auto; display: flex; flex-direction: column; margin-bottom: 0; min-width: 0; box-sizing: border-box; }
-.lc-ov-usage .lc-card-title { margin-bottom: 4px; }
-.lc-ov-usage-plot { flex: 1 1 auto; display: flex; align-items: stretch; gap: 6px; min-height: 0; }
+/* The plot is a 3×2 grid: tick rail | chart | tick rail, with the day strip
+   as row 2 of the chart's own column — the labels center under their columns
+   by construction, whatever the rails' width. The 6px gap doubles as the
+   rail gutter and the chart-to-labels breathing room; the card title's base
+   margin (and that gap) absorb the tick labels' half-height overhang past
+   the plot's top/bottom edges (each tick centers on its gridline). */
+.lc-ov-usage-plot { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; grid-template-rows: minmax(56px, 1fr) auto; gap: 6px; }
+.lc-ov-usage-rail-l { grid-area: 1 / 1; }
+.lc-ov-usage-grid { grid-area: 1 / 2; position: relative; min-width: 0; display: flex; }
+.lc-ov-usage-rail-r { grid-area: 1 / 3; }
 /* The rails hold absolutely-positioned ticks (top = 100% peak, bottom = 0);
    a fixed width keeps both sides symmetric and the columns' geometry stable
    across tick widths ("169.2M" vs "$0.0075"). */
-.lc-ov-usage-rail { position: relative; flex: none; width: 42px; font-size: 9px; line-height: 1.2; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.lc-ov-usage-rail { position: relative; width: 42px; font-size: 9px; line-height: 1.2; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
 .lc-ov-usage-rail-l .lc-ov-usage-tick { right: 0; }
 .lc-ov-usage-rail-r .lc-ov-usage-tick { left: 0; }
 .lc-ov-usage-tick { position: absolute; transform: translateY(-50%); white-space: nowrap; }
-/* The grid spans the bars' region only — the day strip renders as its own
-   row below, so the gridlines never cross the labels. The min-height floor
+/* The grid spans the bars' region only, so the gridlines never cross the
+   labels (they live in the plot's own row 2). The row template's 56px floor
    keeps percentage-height bars alive on the folded single-column row, where
    the card sizes to its own content. */
-.lc-ov-usage-grid { position: relative; flex: 1 1 auto; min-width: 0; min-height: 56px; display: flex; }
 .lc-ov-usage-line { position: absolute; left: 0; right: 0; height: 1px; background: color-mix(in srgb, var(--dsw-alias-border-l2) 70%, transparent); }
 .lc-ov-usage-line-0 { background: var(--dsw-alias-border-l2); }
 .lc-ov-usage-cols { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch; gap: 6px; }
@@ -110,8 +117,15 @@
 .lc-ov-usage-cost { background: color-mix(in srgb, var(--color-green-500) 72%, transparent); }
 /* Same flex geometry as .lc-ov-usage-cols, so every label centers under its
    own column. */
-.lc-ov-usage-days { flex: none; display: flex; gap: 6px; padding-top: 3px; }
+.lc-ov-usage-days { grid-area: 2 / 2; display: flex; gap: 6px; }
 .lc-ov-usage-day { flex: 1 1 0; min-width: 0; text-align: center; font-size: 9px; line-height: 1.2; color: var(--dsw-alias-label-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Under ~400px of container a full seven-label strip crushes: each column
+   is ~19px wide but an "MM-DD" label needs ~26px. Thin to every other label
+   instead — visibility (not display) keeps every slot in the columns'
+   geometry, so the shown labels stay centered under their own columns. */
+@container lc-ov (max-width: 400px) {
+  .lc-ov-usage-day:nth-child(even) { visibility: hidden; }
+}
 .lc-ov-usage-key { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding-top: 5px; }
 .lc-ov-usage-swatch { flex: none; width: 10px; height: 8px; border-radius: 2px; }
 .lc-ov-usage-key-label { font-size: 9px; color: var(--dsw-alias-label-secondary); }

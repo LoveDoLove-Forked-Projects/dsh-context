@@ -122,11 +122,12 @@ export function makeOverviewUsage(kit: ViewKit): (props: OverviewUsageProps) => 
                 <div className="lc-ov-usage-rail lc-ov-usage-rail-r" aria-hidden="true">
                   {TICKS.map(p => <span key={p} className="lc-ov-usage-tick" style={{ top: `${100 - p}%` }}>{costTickOf(p)}</span>)}
                 </div>
-              </div>
-              {/* The day strip mirrors the columns' flex geometry (same flex
-                  basis, same gap), so every label sits under its column. */}
-              <div className="lc-ov-usage-days" aria-hidden="true">
-                {columns.map(c => <span key={c.key} className="lc-ov-usage-day">{c.key.slice(5)}</span>)}
+                {/* The day strip is the plot grid's row 2 in the chart's own
+                    column, so every label centers under its column by
+                    construction — no mirrored geometry to keep in sync. */}
+                <div className="lc-ov-usage-days" aria-hidden="true">
+                  {columns.map(c => <span key={c.key} className="lc-ov-usage-day">{c.key.slice(5)}</span>)}
+                </div>
               </div>
             </>
           )}
