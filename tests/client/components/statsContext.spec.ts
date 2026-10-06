@@ -1,9 +1,8 @@
 // StatsContext (src/client/components/statsContext.tsx) rendered with real
-// React: the seven-cell grid — session shape with the whole-session
-// human-input tally, the chat-line cache-hit cell with its whole-session
-// share tip, the family-scope priced cost cell (current agent + subagents)
-// with its per-model rate tooltip, and the subagents' own share — in both
-// locales, against an injected model-price
+// React: the six-cell grid — session shape with the whole-session
+// human-input tally, the family-scope priced cost cell (current agent +
+// subagents) with its per-model rate tooltip, and the subagents' own share —
+// in both locales, against an injected model-price
 // book (the store never reaches the network). The context-event tallies live
 // on the events card's kind filters (contextView.spec.ts); `countsOfRecords`
 // still derives every count the split generation's wire head carries, pinned
@@ -15,7 +14,7 @@ import { afterEach, describe, test, vi, beforeEach } from 'vitest'
 import { countsOfRecords, makeStatsContext, makeSubagentCost } from '../../../src/client/components/statsContext'
 import { makeAgentHeads } from '../../../src/client/agentHeads'
 import { resetModelPrices, setModelPricesLoader } from '../../../src/client/modelPrices'
-import type { ContextEventRecord, ContextTimeline, RequestRecord, SessionCostUsage, TokenUsage } from '../../../src/shared/types'
+import type { ContextEventRecord, ContextTimeline, RequestRecord, SessionCostUsage } from '../../../src/shared/types'
 import { TestClientCtx, asClientCtx } from '../helpers/harness'
 import { flush, makeKit, mount, queryAll, text } from '../helpers/kit'
 
@@ -34,8 +33,6 @@ const PROVIDERS = {
 const COST: SessionCostUsage = {
   'deepseek-official': { 'deepseek-v4-flash': { peak: { uncached: 1_000_000, cacheRead: 0, cacheWrite: 0, output: 0 } } },
 }
-// Prompt-side billed input 300 (100 uncached + 200 read) → hit 66.66% truncated.
-const USAGE: TokenUsage = { uncachedInputTokens: 100, outputTokens: 50, cacheReadTokens: 200, cacheWriteTokens: 0 }
 
 function req(turn?: number): RequestRecord {
   return {
@@ -82,60 +79,46 @@ describe('countsOfRecords (the inline generation derivation)', () => {
 })
 
 describe('StatsContext', () => {
-  test('folds the seven-cell grid: shape stats, the cache-hit cell, and the two cost cells', async () => {
+  test('folds the six-cell grid: the shape stats and the two cost cells', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 3, steps: 4, injects: 3, compactions: 2, prunes: 1 },
       humanInputs: 7,
       toolCalls: 3,
-      usage: USAGE,
       cost: COST,
       locale: 'en',
     }))
     await flush()
     assert.ok(text(m.container).includes('Context Stats'))
     const { labels, values } = cells(m.container)
-    assert.equal(labels.length, 7)
-    assert.deepEqual(labels, ['Turns', 'Steps', 'Human Inputs?', 'Tool Calls', 'Cache Hit?', 'Cost?', 'Subagent Cost?'])
+    assert.equal(labels.length, 6)
+    assert.deepEqual(labels, ['Turns', 'Steps', 'Human Inputs?', 'Tool Calls', 'Cost?', 'Subagent Cost?'])
     // 1M uncached input at the doubled peak miss rate (2 × $0.15); no subagent usage → the sub cell dashes.
-    assert.deepEqual(values, ['3', '4', '7', '3', '66.66%', '$0.30', '—'])
+    assert.deepEqual(values, ['3', '4', '7', '3', '$0.30', '—'])
     await m.unmount()
   })
 
-  test('absent counters, usage, and cost degrade to zeros and the dash', async () => {
+  test('absent counters and cost degrade to zeros and the dash', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
     }))
     await flush()
-    assert.deepEqual(cells(m.container).values, ['0', '0', '0', '0', '—', '—', '—'])
+    assert.deepEqual(cells(m.container).values, ['0', '0', '0', '0', '—', '—'])
     await m.unmount()
-    // A usage report with nothing billed prompt-side dashes the hit too.
-    const zero: TokenUsage = { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
-    const m2 = await mount(h(StatsContext, {
-      counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: zero,
-      locale: 'en',
-    }))
-    await flush()
-    assert.deepEqual(cells(m2.container).values, ['0', '0', '0', '0', '—', '—', '—'])
-    await m2.unmount()
   })
 
   test('the cost bubble lists the billed models with their billed rates', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: COST,
       locale: 'en',
     }))
     await flush()
-    assert.equal(queryAll(m.container, '.lc-stat-tip').length, 4)
-    assert.equal(queryAll(m.container, '.lc-stat-q').length, 4)
+    assert.equal(queryAll(m.container, '.lc-stat-tip').length, 3)
+    assert.equal(queryAll(m.container, '.lc-stat-q').length, 3)
     const tips = queryAll(m.container, '.lc-stat-tip').map(el => text(el))
     assert.ok(tips[0].includes('question answerings'), 'the human-inputs tip explains its tally')
-    assert.ok(tips[1].includes('Cumulative cache-read'), 'the cache-hit tip names the whole-session share')
-    const costTip = tips[2]
+    const costTip = tips[1]
     assert.ok(costTip.includes('this agent and all its subagents'), 'the cost tip names the family scope')
     assert.ok(costTip.includes('Per-1M-token rates:'))
     assert.ok(costTip.includes('Priced as listed on models.dev for deepseek · deepseek-v4-flash.'), 'the listing line names the resolved registry face')
@@ -146,19 +129,18 @@ describe('StatsContext', () => {
     assert.ok(costTip.includes('Output $0.60'))
     assert.ok(costTip.includes('peak windows'), 'a DeepSeek session explains the peak/off-peak scheme')
     assert.ok(!costTip.includes('|'), 'no peak|off pairs — the footnotes carry the scheme')
-    assert.ok(tips[3].includes('every subagent session'), 'the sub cell explains its own scope')
+    assert.ok(tips[2].includes('every subagent session'), 'the sub cell explains its own scope')
     await m.unmount()
   })
 
   test('a non-DeepSeek session never sees DeepSeek-specific notes', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: { 'zai-coding-cn': { 'glm-5.3-flash': { peak: { uncached: 1_000_000, cacheRead: 0, cacheWrite: 0, output: 0 } } } },
       locale: 'en',
     }))
     await flush()
-    const costTip = text(queryAll(m.container, '.lc-stat-tip')[2])
+    const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('Priced as listed on models.dev for zhipuai · glm-5.3-flash.'))
     assert.ok(!costTip.includes('DeepSeek'), 'the DeepSeek scheme note stays out of other providers’ bubbles')
     // glm-5.3-flash lists cache_write at 0 — the zero band drops from the table.
@@ -170,7 +152,6 @@ describe('StatsContext', () => {
   test('the cost cell links to the models.dev provider listing when one provider priced the scope', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: COST,
       locale: 'en',
     }))
@@ -191,7 +172,6 @@ describe('StatsContext', () => {
     }
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: two,
       locale: 'en',
     }))
@@ -207,12 +187,11 @@ describe('StatsContext', () => {
     }
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: two,
       locale: 'en',
     }))
     await flush()
-    const costTip = text(queryAll(m.container, '.lc-stat-tip')[2])
+    const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('for deepseek · deepseek-v4-flash.'))
     assert.ok(costTip.includes('for zhipuai · glm-5.3-flash.'))
     // 1M × $0.15 × 2 (the DeepSeek peak) + 2M × $0.075 = $0.45.
@@ -223,18 +202,16 @@ describe('StatsContext', () => {
   test('the zh locale localizes labels and prices the cost in CNY at 1 CNY = 0.15 USD', async () => {
     const m = await mount(h(StatsContextZh, {
       counts: { turns: 1, steps: 1, injects: 0, compactions: 1, prunes: 0 },
-      usage: USAGE,
       cost: COST,
       locale: 'zh',
     }))
     await flush()
     assert.ok(text(m.container).includes('上下文统计'))
     const { labels, values } = cells(m.container)
-    assert.deepEqual(labels, ['轮次', '步数', '用户输入?', '工具调用', '缓存命中?', '费用?', '子 Agent 费用?'])
+    assert.deepEqual(labels, ['轮次', '步数', '用户输入?', '工具调用', '费用?', '子 Agent 费用?'])
     // $0.30 / 0.15 = ¥2; the rates convert through the same fixed rate.
-    assert.deepEqual(values, ['1', '1', '0', '0', '66.66%', '¥2.00', '—'])
-    assert.ok(text(queryAll(m.container, '.lc-stat-tip')[1]).includes('整个会话累计'), 'the cache-hit tip localizes too')
-    const costTip = text(queryAll(m.container, '.lc-stat-tip')[2])
+    assert.deepEqual(values, ['1', '1', '0', '0', '¥2.00', '—'])
+    const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('含当前智能体及所有子智能体'), 'the cost tip names the family scope too')
     assert.ok(costTip.includes('每百万 Token 价格'))
     assert.ok(costTip.includes('按 deepseek · deepseek-v4-flash 在 models.dev 的刊登价格如上。'))
@@ -244,15 +221,14 @@ describe('StatsContext', () => {
     assert.ok(costTip.includes('未缓存输入 ¥1.00'))
     assert.ok(costTip.includes('缓存写入 ¥1.00'))
     assert.ok(costTip.includes('输出 ¥4.00'))
-    assert.ok(text(queryAll(m.container, '.lc-stat-tip')[3]).includes('子 Agent 会话'), 'the sub tip localizes too')
+    assert.ok(text(queryAll(m.container, '.lc-stat-tip')[2]).includes('子 Agent 会话'), 'the sub tip localizes too')
     await m.unmount()
   })
 
-  test('usage with no book yet stays a dash until the fetch lands', async () => {
+  test('a book that has not landed yet keeps the cost cell dashed', async () => {
     setModelPricesLoader(() => new Promise(() => {}))
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: USAGE,
       cost: COST,
       locale: 'en',
     }))
@@ -266,13 +242,12 @@ describe('StatsContext', () => {
     setModelPricesLoader(() => Promise.reject(new Error('down')))
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: USAGE,
       cost: COST,
       locale: 'en',
     }))
     await flush()
     assert.ok(cells(m.container).values.at(-2) === '—')
-    const costTip = text(queryAll(m.container, '.lc-stat-tip')[2])
+    const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('unavailable'))
     assert.ok(!costTip.includes('Per-1M-token rates'))
     await m.unmount()
@@ -289,14 +264,13 @@ describe('StatsContext', () => {
     }
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: split,
       locale: 'en',
     }))
     await flush()
     // 1M at the doubled $0.3 peak miss rate + 2M at the $0.15 off-peak (book) rate.
     assert.ok(cells(m.container).values.at(-2) === '$0.60')
-    const costTip = text(queryAll(m.container, '.lc-stat-tip')[2])
+    const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('Cache input $0.00'), 'the table lists the book rates once, whatever the billed buckets')
     assert.ok(costTip.includes('Uncached input $0.15'))
     assert.ok(costTip.includes('peak windows'), 'the peak-window footnote explains the bucket split')
@@ -307,13 +281,12 @@ describe('StatsContext', () => {
   test('a session whose models the book cannot price notes the outage too', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: USAGE,
       cost: { 'future-provider': { 'mystery-model': { peak: { uncached: 1, cacheRead: 0, cacheWrite: 0, output: 0 } } } },
       locale: 'en',
     }))
     await flush()
     assert.ok(cells(m.container).values.at(-2) === '—')
-    assert.ok(text(queryAll(m.container, '.lc-stat-tip')[2]).includes('unavailable'))
+    assert.ok(text(queryAll(m.container, '.lc-stat-tip')[1]).includes('unavailable'))
     await m.unmount()
   })
 
@@ -329,12 +302,11 @@ describe('StatsContext', () => {
     } as unknown as SessionCostUsage
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: USAGE,
       cost: hostile,
       locale: 'en',
     }))
     await flush()
-    const costTip = text(queryAll(m.container, '.lc-stat-tip')[2])
+    const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('glm-5.3-flash'))
     assert.ok(!costTip.includes('junk'))
     // No row may show the peak|off-peak pair — that is DeepSeek's alone.
@@ -355,7 +327,6 @@ describe('StatsContext — the subagent-cost cell (injected seat)', () => {
     const Stats = makeStatsContext(kit, () => SUB)
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: COST,
       locale: 'en',
     }))
@@ -364,10 +335,10 @@ describe('StatsContext — the subagent-cost cell (injected seat)', () => {
     assert.deepEqual(cells(m.container).values.slice(-2), ['$0.45', '$0.15'])
     const tips = queryAll(m.container, '.lc-stat-tip').map(el => text(el))
     // The rate table covers BOTH sides' models in either tip.
-    assert.ok(tips[2].includes('for deepseek · deepseek-v4-flash.'))
-    assert.ok(tips[2].includes('for zhipuai · glm-5.3-flash.'))
-    assert.ok(tips[3].includes('every subagent session'))
-    assert.ok(tips[3].includes('for zhipuai · glm-5.3-flash.'), 'the sub tip carries its own price table')
+    assert.ok(tips[1].includes('for deepseek · deepseek-v4-flash.'))
+    assert.ok(tips[1].includes('for zhipuai · glm-5.3-flash.'))
+    assert.ok(tips[2].includes('every subagent session'))
+    assert.ok(tips[2].includes('for zhipuai · glm-5.3-flash.'), 'the sub tip carries its own price table')
     await m.unmount()
   })
 
@@ -375,7 +346,6 @@ describe('StatsContext — the subagent-cost cell (injected seat)', () => {
     const Stats = makeStatsContext(kit, () => SUB)
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
     }))
     await flush()
@@ -390,15 +360,14 @@ describe('StatsContext — the subagent-cost cell (injected seat)', () => {
     const Stats = makeStatsContext(kit, () => deepseekSub)
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
     }))
     await flush()
     // The off bucket bills at book: 1M × $0.15.
     assert.deepEqual(cells(m.container).values.slice(-2), ['$0.15', '$0.15'])
     const tips = queryAll(m.container, '.lc-stat-tip').map(el => text(el))
-    assert.ok(tips[2].includes('peak windows'))
-    assert.ok(tips[3].includes('peak windows'), 'the sub tip explains the scheme its own figure rides')
+    assert.ok(tips[1].includes('peak windows'))
+    assert.ok(tips[2].includes('peak windows'), 'the sub tip explains the scheme its own figure rides')
     await m.unmount()
   })
 
@@ -406,7 +375,6 @@ describe('StatsContext — the subagent-cost cell (injected seat)', () => {
     const Stats = makeStatsContext(kit, () => ({ future: { 'mystery-model': { peak: { uncached: 1, cacheRead: 0, cacheWrite: 0, output: 0 } } } }))
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       cost: COST,
       locale: 'en',
     }))
@@ -416,14 +384,13 @@ describe('StatsContext — the subagent-cost cell (injected seat)', () => {
     // total — the sub cell dashes.
     assert.deepEqual(cells(m.container).values.slice(-2), ['$0.30', '—'])
     const tips = queryAll(m.container, '.lc-stat-tip').map(el => text(el))
-    assert.ok(tips[3].includes('unavailable'))
+    assert.ok(tips[2].includes('unavailable'))
     await m.unmount()
   })
 
   test('a null seat keeps both cells dashed with no outage notes', async () => {
     const m = await mount(h(StatsContext, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
     }))
     await flush()
@@ -498,7 +465,6 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     const Stats = makeStatsContext(kit, seat)
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
       sessionId: 'root',
     }))
@@ -552,7 +518,6 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     const Stats = makeStatsContext(kit, seat)
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
       sessionId: 'root',
     }))
@@ -588,7 +553,6 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     const Stats = makeStatsContext(kit, seat)
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
       sessionId: 'root',
     }))
@@ -614,7 +578,6 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     const Stats = makeStatsContext(kit, makeSubagentCost(asClientCtx(ctx), makeAgentHeads(asClientCtx(ctx))))
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
       sessionId: 'root',
     }))
@@ -634,7 +597,6 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     const Stats = makeStatsContext(kit, makeSubagentCost(asClientCtx(ctx), makeAgentHeads(asClientCtx(ctx))))
     const m = await mount(h(Stats, {
       counts: { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 },
-      usage: null,
       locale: 'en',
     }))
     await flush()

@@ -1,16 +1,15 @@
 /**
  * The Context card: what the session's context IS and how it evolved — a
- * seven-cell grid of the session's shape (turns / steps / human inputs /
- * live tool calls), the whole-session cache-hit rate, and the cost estimate
- * at two scopes: the family total (the current agent plus every subagent
- * session) and the subagents' own share.
+ * six-cell grid of the session's shape (turns / steps / human inputs /
+ * live tool calls) and the cost estimate at two scopes: the family total
+ * (the current agent plus every subagent session) and the subagents' own
+ * share.
  * Count figures only: nothing here is part of a spendable whole, so no pie —
- * proportions live in the composition card, and the context-event tallies
- * live on the events card's kind filters (contextView.tsx). The cache-hit
- * cell reads the official `tokenUsage` projection — the same source and
- * formula as the harness chat stats line under the composer, shown with one
- * decimal — and dashes until a provider reports usage. The cost cells price
- * the host-folded cumulative billed totals (complete session logs, never
+ * proportions live in the composition card, the context-event tallies live
+ * on the events card's kind filters (contextView.tsx), and the token figures
+ * (the session's cache-hit share among them) live on the Token card. The
+ * cost cells price the host-folded cumulative billed totals (complete
+ * session logs, never
  * trimmed; the subagents' usage folds out of the session-list snapshot,
  * `makeSubagentCost` below) from the models.dev price book (modelPrices.ts)
  * in the locale's currency; their hover bubbles (a '?' marker + styled DOM
@@ -26,15 +25,14 @@
  */
 
 import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
-import type { ContextEventRecord, ContextTimeline, RequestRecord, SessionCostUsage, TimelineCounts, TokenUsage } from '../../shared/types'
+import type { ContextEventRecord, ContextTimeline, RequestRecord, SessionCostUsage, TimelineCounts } from '../../shared/types'
 import { estimateSessionCost, formatCost, formatPriceRate, mergeCostUsage, priceFaceOf, toCurrency } from '../cost'
 import type { CostCurrency, ModelBook, PriceFace } from '../cost'
 import { sessionsFaceOf, subagentCostFoldOf } from '../agentTree'
 import type { AgentHeads } from '../agentHeads'
 import { useSessionsSnapshot } from '../agentHeads'
-import { cacheHitPercent } from '../format'
 import { useModelPrices } from '../modelPrices'
-import { asRecord, numOf, type ClientCtx } from '../services'
+import { asRecord, type ClientCtx } from '../services'
 import { isDeepSeekProvider } from '../../shared/providers'
 import type { ViewKit } from '../viewkit'
 
@@ -139,8 +137,6 @@ export function makeStatsContext(
   humanInputs?: number
   /** Tool calls with a result live in the current context (absent on older hosts). */
   toolCalls?: number
-  /** The official tokenUsage projection — the cache-hit cell's source (null until a provider reports). */
-  usage: TokenUsage | null
   cost?: SessionCostUsage
   locale: string
   /** The current session id, anchoring the subagent-cost fold (absent = nothing to fold). */
@@ -151,7 +147,6 @@ export function makeStatsContext(
     counts: TimelineCounts
     humanInputs?: number
     toolCalls?: number
-    usage: TokenUsage | null
     cost?: SessionCostUsage
     locale: string
     sessionId?: string
@@ -223,14 +218,6 @@ export function makeStatsContext(
       ...notes(subDeepseek),
       subUnpriced ? <span key="unavailable">{t('stats.costUnavailable')}</span> : null,
     ]
-    // The harness chat stats line's own formula, shown two decimals deep:
-    // prompt-side cache reads over the whole billed input (output excluded),
-    // dashed until reported.
-    const hit = props.usage === null ? null
-      : cacheHitPercent(
-        numOf(props.usage.cacheReadTokens),
-        numOf(props.usage.uncachedInputTokens) + numOf(props.usage.cacheReadTokens) + numOf(props.usage.cacheWriteTokens),
-      )
     const cell = (label: string, value: string | number, tip?: ReactNode, href?: string): ReactElement => {
       // The framed cell body, as a div — or as an anchor opening the models.dev
       // provider listing in a new tab when the caller hands a destination (the
@@ -269,7 +256,6 @@ export function makeStatsContext(
           {cell(t('stats.steps'), props.counts.steps)}
           {cell(t('stats.humanInputs'), props.humanInputs ?? 0, t('stats.humanInputsTip'))}
           {cell(t('stats.toolCalls'), props.toolCalls ?? 0)}
-          {cell(t('stats.cacheHit'), hit === null ? '—' : `${hit}%`, t('stats.cacheHitTip'))}
           {cell(t('stats.cost'), cost === null ? '—' : formatCost(cost, currency), costTip, costHref)}
           {cell(t('stats.subCost'), subCost === null ? '—' : formatCost(subCost, currency), subTip)}
         </div>

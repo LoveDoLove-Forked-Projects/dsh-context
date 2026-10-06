@@ -10,7 +10,7 @@
    card it visually is, with the pointer as the only affordance. */
 a.lc-stat { color: inherit; text-decoration: none; cursor: pointer; }
 a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
-/* The 5-cell stats grid shares a half-width head-row card with a sibling, so its cells are moderate: tighter padding plus a corner-pinned '?' (out of the label's line) keep the longest labels on one line. */
+/* The stats grid shares a half-width head-row card with a sibling, so its cells are moderate: tighter padding plus a corner-pinned '?' (out of the label's line) keep the longest labels on one line. */
 .lc-stats .lc-stat { padding: 6px 3px; }
 .lc-stats .lc-stat-q { position: absolute; top: 3px; right: 4px; margin: 0; }
 .lc-stat-label { color: var(--dsw-alias-label-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

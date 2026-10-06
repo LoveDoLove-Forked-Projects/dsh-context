@@ -94,7 +94,7 @@ export function makeContextView(
     // no longer mirrors it. Absent → derived fallback.
     const pressure = projectionOf(props, 'contextPressure', contextPressureOf)
     // Official token-meter `tokenUsage` projection — the same data the chat stats line below the input box reads for its '缓存命中' figure, so
-    // the stats board's cache-hit cell reuses it verbatim; absent → the cell drops to a dash instead of estimating.
+    // the Token card's figures reuse it verbatim; absent → the card drops them instead of estimating.
     const usage = projectionOf(props, 'tokenUsage', tokenUsageOf)
     // Official token-meter `contextBreakdown` projection — the exact rows the chat ring's click-open panel shows, so the overview legend
     // reads identically by construction; absent → the fold's own same-estimator sums inside headlineOf.
@@ -591,7 +591,7 @@ export function makeContextView(
             pair in a narrow pane at the cards' min-width floors. */}
         {inSidebar ? null : (
           <div className="lc-cols lc-head">
-            <StatsContext counts={counts} humanInputs={data.humanInputs} toolCalls={data.toolCalls} usage={usage}
+            <StatsContext counts={counts} humanInputs={data.humanInputs} toolCalls={data.toolCalls}
               cost={data.cost} locale={activeLocale} sessionId={typeof sessionId === 'string' ? sessionId : undefined} />
             <PluginInfo />
           </div>

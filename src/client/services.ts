@@ -545,10 +545,10 @@ export function contextBreakdownOf(value: unknown): ContextBreakdown | null {
  * Narrow a delivered projection value to the official token-meter
  * `tokenUsage` projection (durable cumulative provider usage). Absent key or
  * value = the meter's projection is not composed (or no request has reported
- * usage yet) — callers drop the cache-hit cell to a dash. The wire schema is
- * strict with all four buckets REQUIRED (dsh token-meter's projectionSchema),
- * so a partial/corrupt value degrades the whole value to null instead of
- * undercounting the billed total.
+ * usage yet) — callers drop the affected figures instead of estimating. The
+ * wire schema is strict with all four buckets REQUIRED (dsh token-meter's
+ * projectionSchema), so a partial/corrupt value degrades the whole value to
+ * null instead of undercounting the billed total.
  */
 export function tokenUsageOf(value: unknown): TokenUsage | null {
   const data = asRecord(value)
