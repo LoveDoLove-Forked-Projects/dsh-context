@@ -209,6 +209,7 @@ function TextSection(props: {
 }): ReactElement {
   const { rich } = props
   const [mode, setMode] = rich.useRichMode()
+  const find = rich.useRichFind(props.text, mode)
   const lineCount = useMemo(() => lineCountOf(props.text), [props.text])
   return (
     <Section
@@ -217,10 +218,15 @@ function TextSection(props: {
       actions={<>
         <rich.RichSwitch mode={mode} onPick={setMode} />
         <rich.RichCopy text={props.text} />
+        {find.button}
       </>}
       meta={<span className="lc-ts-card-meta">{props.lines(lineCount)}</span>}
     >
-      <rich.RichText text={props.text} mode={mode} />
+      {find.bar}
+      {/* Keyed by the text itself: a content change remounts the body outright, so React never diffs over the find bar's DOM marks. */}
+      <div key={find.bodyKey} ref={find.bodyRef}>
+        <rich.RichText text={props.text} mode={mode} />
+      </div>
     </Section>
   )
 }
