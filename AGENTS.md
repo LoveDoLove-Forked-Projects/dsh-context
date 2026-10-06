@@ -31,7 +31,15 @@ Complete ALL of these before ANY commit:
 - Close out the to-do list, ensuring every item is completed, cleaned up or explicitly closed.
 - Review the full diff independently: every change necessary, correct, and not over-engineered.
 - Clean up generated temporary files and temporary or unhelpful comments.
-- Run `pnpm run lint:fix && pnpm run test && pnpm run build` as a single command and capture the FULL output, including the v8 coverage report.
+- Run `pnpm run lint:fix && pnpm run test && pnpm run build` as a single command and capture the FULL output.
+  - Example for per-file 100% coverage output:
+    ```
+    % Coverage report from v8
+    -------------------------|---------|----------|---------|---------|-------------------
+    File                     | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+    -------------------------|---------|----------|---------|---------|-------------------
+    -------------------------|---------|----------|---------|---------|-------------------
+    ```
 
 ## Layout & responsive
 
