@@ -2,8 +2,8 @@
  * The Context Insights page: the plugin's first-level panel (the sidebar
  * panel-list entry opens it in the shell's center column), a sibling of the
  * shipped Plugins and Automation tasks pages. The chrome mirrors those
- * pages: one scroll region whose centered content column (the Plugins
- * page's 960px frame) opens with the page heading — the title beside the
+ * pages: one scroll region whose content column spans the pane's own
+ * width and opens with the page heading — the title beside the
  * range group and the balance capsule — then the first row (a 1:1 pair: the
  * KPI metrics band, the range's six figures three per row, beside the
  * last-7-days usage chart's token/cost bar columns) over the aggregate
@@ -24,10 +24,11 @@
 .lc-ov-page { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; box-sizing: border-box; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-size: 13px; container: lc-ov / inline-size; }
 /* The one scroller: everything — heading, stats, body — scrolls as one. */
 .lc-ov-pagescroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
-/* The Plugins page's centered column: the same 960px cap and clamp(24-48px)
-   inline / 48px bottom inset, so sibling first-level pages share one content
-   frame at every width. */
-.lc-ov-pagecontent { max-width: 960px; margin: 0 auto; padding: 0 clamp(24px, 4vw, 48px) 48px; }
+/* Full-bleed content column: no width cap — the dashboard's grids, legends,
+   and charts adapt to the pane (the shipped first-level pages keep their own
+   960px frame), with the shipped pages' clamp(24-48px) inline / 48px bottom
+   inset. */
+.lc-ov-pagecontent { padding: 0 clamp(24px, 4vw, 48px) 48px; }
 /* The heading row: title beside the range group (and the balance capsule
    when it serves), wrapping under width pressure. The 28px top inset
    belongs to the row, so the whole strip above the heading is its own box. */

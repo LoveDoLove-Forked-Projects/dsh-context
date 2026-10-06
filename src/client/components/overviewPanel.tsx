@@ -8,13 +8,15 @@
  * (every list row's host-cached projection values), so the page draws every
  * session's insight without opening one log.
  *
- * The chrome mirrors the shipped first-level pages: one scroll region whose
- * centered content column (the Plugins page's 960px frame) opens with the
- * page heading — the title beside the range group (and the DeepSeek balance
- * capsule when it serves) — and the page element is the `lc-ov` query
- * container, so every fold keys off the pane's own width. Hover tips portal
- * to <body> (hoverTip.tsx) because the container would otherwise capture
- * their fixed positioning.
+ * The chrome keeps the shipped first-level pages' discipline — one scroll
+ * region that opens with the page heading, the title beside the range group
+ * (and the DeepSeek balance capsule when it serves) — but the content column
+ * spans the pane's full width rather than the shipped pages' centered 960px
+ * frame: the dashboard's grids and legends adapt to the pane, so the width
+ * reads as more dashboard, not wider lines. The page element is the `lc-ov`
+ * query container, so every fold keys off the pane's own width. Hover tips
+ * portal to <body> (hoverTip.tsx) because the container would otherwise
+ * capture their fixed positioning.
  *
  * The body's first row is a 1:1 column pair: the KPI metrics band (the
  * range's six figures — sessions, billed tokens, cost, cache hit, tool
