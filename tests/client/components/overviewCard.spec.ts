@@ -52,7 +52,7 @@ describe('OverviewCard', () => {
     // The three mini stats: turns+steps lead, then the team's billed, then its cost.
     const labels = queryAll(m.container, '.lc-ov-mini-label').map(el => el.textContent)
     const values = queryAll(m.container, '.lc-ov-mini-value').map(el => el.textContent)
-    assert.deepEqual(labels, ['Turns', 'Team Usage', 'Team Cost'])
+    assert.deepEqual(labels, ['Turns', 'Total Tokens', 'Total Est. Cost'])
     assert.deepEqual(values, ['9 turns · 12 steps', '1.8k', '$0.02'])
     await m.unmount()
   })
@@ -174,7 +174,7 @@ describe('OverviewCard', () => {
     const ZhCard = makeOverviewCard(makeKit('zh'))
     const m = await mount(h(ZhCard, { row: rowOf({ timeline: TIMELINE }), costLabel: '¥0.13', now: NOW, onOpen: () => {} }))
     const labels = queryAll(m.container, '.lc-ov-mini-label').map(el => el.textContent)
-    assert.deepEqual(labels, ['轮次', '团队用量', '团队费用'])
+    assert.deepEqual(labels, ['轮次', 'Token 总用量', '总预估费用'])
     const values = queryAll(m.container, '.lc-ov-mini-value').map(el => el.textContent)
     assert.equal(values[0], '9 轮 12 步')
     assert.equal(query(m.container, '.lc-ov-session-time').textContent, '3 小时前')
