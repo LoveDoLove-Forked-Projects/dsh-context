@@ -48,7 +48,6 @@ a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
  ---- Stats cards' shared anatomy: a small section heading, the donut+list
  row, and the token card's cost line (the '.lc-tip' bubble pattern). ----
  */
-.lc-stat-head { font-size: 11px; font-weight: 600; color: var(--dsw-alias-label-secondary); margin: 12px 0 8px; }
 /* The ring hugs the left edge; the legend fills the rest of the card with its quantity and share columns
    right-aligned. The donut cards stretch the donut+legend row over their full height (`flex: 1` below), so
    the head row's extra space sits around the chart instead of pooling under it; the row's own flex layout
