@@ -44,7 +44,7 @@
     "watch": "bash scripts/watch.sh",
     "web": "bash scripts/web.sh",
     "register": "bash scripts/register.sh",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "typecheck": "tsc --noEmit & tsc --noEmit -p tsconfig.tests.json & wait",
     "test": "pnpm run typecheck && vitest run --coverage",
     "coverage": "vitest run --coverage",
     "release": "bash scripts/publish.sh",
