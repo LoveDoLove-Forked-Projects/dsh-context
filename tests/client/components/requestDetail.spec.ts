@@ -10,7 +10,7 @@ import { makeStackedBar } from '../../../src/client/components/stackedBar'
 import type { RequestRecord, ContextEventRecord, SurfaceNode } from '../../../src/shared/types'
 import type { ConversationNodeLike } from '../../../src/client/services'
 import type { StepBrief } from '../../../src/client/brief'
-import { makeKit, mount, click, queryAll, query, text } from '../helpers/kit'
+import { makeKit, mount, click, queryAll, query, surfaceNode, text } from '../helpers/kit'
 
 const kit = makeKit()
 const RequestDetail = makeRequestDetail(kit, makeStackedBar(kit))
@@ -23,9 +23,6 @@ function req(over: Partial<RequestRecord>): RequestRecord {
   }
 }
 
-function node(over: Partial<SurfaceNode> & { seq: number }): SurfaceNode {
-  return { cat: 'user', tokens: 5, ...over }
-}
 
 /** Full-category fixture so every row renders a non-zero figure. */
 const FULL = { system: 100, tools: 200, user: 300, inject: 50, assistant: 400, tool: 250, total: 1300 }
@@ -265,14 +262,14 @@ describe('RequestDetail brief section', () => {
 
   test('opener, inputs with overflow, and reply rows render with tags and previews', async () => {
     const brief: StepBrief = {
-      opener: node({ seq: 1, cat: 'user', text: 'please refactor this' }),
+      opener: surfaceNode({ seq: 1, cat: 'user', text: 'please refactor this' }),
       inputs: [
-        node({ seq: 21, cat: 'tool', tool: 'bash' }),
-        node({ seq: 22, cat: 'inject', form: 'snapshot', text: 'state v2' }),
-        node({ seq: 23, cat: 'user', text: 'extra note', imgs: 3 }),
-        node({ seq: 24, cat: 'inject', form: 'notice' }),
+        surfaceNode({ seq: 21, cat: 'tool', tool: 'bash' }),
+        surfaceNode({ seq: 22, cat: 'inject', form: 'snapshot', text: 'state v2' }),
+        surfaceNode({ seq: 23, cat: 'user', text: 'extra note', imgs: 3 }),
+        surfaceNode({ seq: 24, cat: 'inject', form: 'notice' }),
       ],
-      response: node({ seq: 25, cat: 'assistant', calls: ['bash', 'write'], text: 'done' }),
+      response: surfaceNode({ seq: 25, cat: 'assistant', calls: ['bash', 'write'], text: 'done' }),
     }
     const m = await mount(h(RequestDetail, {
       request: req({}), brief,
@@ -308,12 +305,12 @@ describe('RequestDetail brief section', () => {
       calls.push({ seq: n.seq, isResponse })
     }
     const brief: StepBrief = {
-      opener: node({ seq: 1, cat: 'user', text: 'open' }),
+      opener: surfaceNode({ seq: 1, cat: 'user', text: 'open' }),
       inputs: [
-        node({ seq: 21, cat: 'tool', tool: 'bash', err: true }),
-        node({ seq: 22, cat: 'inject', form: 'catalog', text: 'tools changed' }),
+        surfaceNode({ seq: 21, cat: 'tool', tool: 'bash', err: true }),
+        surfaceNode({ seq: 22, cat: 'inject', form: 'catalog', text: 'tools changed' }),
       ],
-      response: node({ seq: 25, cat: 'assistant', text: 'reply text' }),
+      response: surfaceNode({ seq: 25, cat: 'assistant', text: 'reply text' }),
     }
     const m = await mount(h(RequestDetail, {
       request: req({}), brief, onLocate,
@@ -342,27 +339,27 @@ describe('RequestDetail brief section', () => {
   test('chipParts cascade: tool/assistant/inject/user kinds and the skill-inject fallback', async () => {
     const inputs: SurfaceNode[] = [
       // skill: a `skill`-tool load — name tag wins, call summary through the join.
-      node({ seq: 30, cat: 'skill', skill: 'code-review', tool: 'skill' }),
+      surfaceNode({ seq: 30, cat: 'skill', skill: 'code-review', tool: 'skill' }),
       // tool: name tag, no join → no text.
-      node({ seq: 31, cat: 'tool', tool: 'read' }),
+      surfaceNode({ seq: 31, cat: 'tool', tool: 'read' }),
       // tool: no name, no join → untagged Tool Result placeholder.
-      node({ seq: 32, cat: 'tool' }),
+      surfaceNode({ seq: 32, cat: 'tool' }),
       // assistant: text + call list breadcrumb.
-      node({ seq: 33, cat: 'assistant', calls: ['bash'], text: 'looking' }),
+      surfaceNode({ seq: 33, cat: 'assistant', calls: ['bash'], text: 'looking' }),
       // assistant: textless, block summary through the join.
-      node({ seq: 34, cat: 'assistant', calls: ['write'] }),
+      surfaceNode({ seq: 34, cat: 'assistant', calls: ['write'] }),
       // assistant: no own calls; the breadcrumb is recovered from the join.
-      node({ seq: 35, cat: 'assistant' }),
+      surfaceNode({ seq: 35, cat: 'assistant' }),
       // assistant: truly empty reply.
-      node({ seq: 36, cat: 'assistant', calls: [] }),
+      surfaceNode({ seq: 36, cat: 'assistant', calls: [] }),
       // inject: plain form with text.
-      node({ seq: 37, cat: 'inject', form: 'relay', text: 'from agent' }),
+      surfaceNode({ seq: 37, cat: 'inject', form: 'relay', text: 'from agent' }),
       // inject: form absent → Context Injection.
-      node({ seq: 38, cat: 'inject', text: 'plain' }),
+      surfaceNode({ seq: 38, cat: 'inject', text: 'plain' }),
       // user: single image, no text.
-      node({ seq: 39, cat: 'user', imgs: 1 }),
+      surfaceNode({ seq: 39, cat: 'user', imgs: 1 }),
       // user: plain text.
-      node({ seq: 40, cat: 'user', text: 'hi' }),
+      surfaceNode({ seq: 40, cat: 'user', text: 'hi' }),
     ]
     const convs: Record<number, ConversationNodeLike> = {
       30: { kind: 'tool-result', seq: 30, call: { name: 'bash', argsRaw: '{"description":"load skill"}' } },
@@ -408,37 +405,37 @@ describe('RequestDetail brief section', () => {
     await m4.unmount()
 
     // The skill bucket names itself; an invocation message previews its text.
-    const m5 = await render([node({ seq: 41, cat: 'skill', skill: 'ponytail' })])
+    const m5 = await render([surfaceNode({ seq: 41, cat: 'skill', skill: 'ponytail' })])
     assert.equal(chipText(m5, 0), 'Skill · ponytail', 'a text-less skill row tags the name')
     await m5.unmount()
-    const m6 = await render([node({ seq: 42, cat: 'skill', skill: 'ponytail', text: 'notes inside' })])
+    const m6 = await render([surfaceNode({ seq: 42, cat: 'skill', skill: 'ponytail', text: 'notes inside' })])
     assert.ok(chipText(m6, 0).includes('Skill · ponytail') && chipText(m6, 0).includes('notes inside'))
     await m6.unmount()
 
     // A category outside the fold's vocabulary (host drift) degrades into the
     // user tail — a plain text row, never a throw.
-    const m7 = await render([node({ seq: 43, cat: 'mystery' as never, text: 'survivor' })])
+    const m7 = await render([surfaceNode({ seq: 43, cat: 'mystery' as never, text: 'survivor' })])
     assert.equal(chipText(m7, 0), 'survivor', 'hostile cat renders its text plainly')
     await m7.unmount()
-    const m8 = await render([node({ seq: 44, cat: 'mystery' as never, calls: ['bash', 'read'] })])
+    const m8 = await render([surfaceNode({ seq: 44, cat: 'mystery' as never, calls: ['bash', 'read'] })])
     assert.equal(chipText(m8, 0), '', 'hostile cat with no text renders an inert chip')
     await m8.unmount()
 
     // A text-less skill row without a join: the name tag carries the chip alone.
-    const m11 = await render([node({ seq: 47, cat: 'skill', skill: 'grilling', tool: 'skill' })])
+    const m11 = await render([surfaceNode({ seq: 47, cat: 'skill', skill: 'grilling', tool: 'skill' })])
     assert.equal(chipText(m11, 0), 'Skill · grilling')
     await m11.unmount()
     // The catalog digest tags its form; a nameless, formless skill row
     // degrades to the context label.
     const m11b = await render([
-      node({ seq: 471, cat: 'skill', form: 'catalog' }),
-      node({ seq: 472, cat: 'skill' }),
+      surfaceNode({ seq: 471, cat: 'skill', form: 'catalog' }),
+      surfaceNode({ seq: 472, cat: 'skill' }),
     ])
     assert.equal(chipText(m11b, 0), 'Catalog Update')
     assert.equal(chipText(m11b, 1), 'Context Injection')
     await m11b.unmount()
     // Textless injection: the form tag carries the chip alone.
-    const m12 = await render([node({ seq: 48, cat: 'inject', form: 'notice' })])
+    const m12 = await render([surfaceNode({ seq: 48, cat: 'inject', form: 'notice' })])
     assert.equal(chipText(m12, 0), 'Notice')
     await m12.unmount()
   })
@@ -450,7 +447,7 @@ describe('RequestDetail brief section', () => {
     }
     // A turn's opening step: opener known, zero inputs — the In row still occupies its line.
     const brief: StepBrief = {
-      opener: node({ seq: 1, cat: 'user' }),
+      opener: surfaceNode({ seq: 1, cat: 'user' }),
       inputs: [],
     }
     const m = await mount(h(RequestDetail, { request: req({}), brief, onLocate }))
@@ -466,7 +463,7 @@ describe('RequestDetail brief section', () => {
 
     const m2 = await mount(h(RequestDetail, {
       request: req({}),
-      brief: { inputs: [node({ seq: 5, cat: 'user', text: 'just input' })] },
+      brief: { inputs: [surfaceNode({ seq: 5, cat: 'user', text: 'just input' })] },
     }))
     const rows2 = queryAll(m2.container, '.lc-brief-row')
     assert.equal(rows2.length, 1)
@@ -477,7 +474,7 @@ describe('RequestDetail brief section', () => {
     // Opener carrying an image upload: the fact tag shows on the opener row.
     const m3 = await mount(h(RequestDetail, {
       request: req({}),
-      brief: { opener: node({ seq: 7, cat: 'user', text: 'see attached', imgs: 2 }), inputs: [] },
+      brief: { opener: surfaceNode({ seq: 7, cat: 'user', text: 'see attached', imgs: 2 }), inputs: [] },
     }))
     const fact = query(m3.container, '.lc-brief-fact')
     assert.equal(text(fact), 'Image ×2')

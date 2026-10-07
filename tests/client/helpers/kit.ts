@@ -8,6 +8,17 @@ import { createRoot, type Root } from 'react-dom/client'
 import { DICT_EN, DICT_ZH } from '../../../src/client/i18n'
 import type { Translate } from '../../../src/client/i18n'
 import { makeViewKit, type ViewKit } from '../../../src/client/viewkit'
+import type { SurfaceNode } from '../../../src/shared/types'
+
+/** A user-category surface node fixture with a non-trivial token figure — the card specs' shared shape. */
+export function surfaceNode(over: Partial<SurfaceNode> & { seq: number }): SurfaceNode {
+  return { cat: 'user', tokens: 5, ...over }
+}
+
+/** A minimal user-category surface node fixture, seq first — the assemble/brief specs' shared shape. */
+export function surfaceNodeAt(seq: number, over: Partial<SurfaceNode> = {}): SurfaceNode {
+  return { seq, cat: 'user', tokens: 1, ...over }
+}
 
 /**
  * The harness locale chain: active-locale dictionary → en → the key itself,
