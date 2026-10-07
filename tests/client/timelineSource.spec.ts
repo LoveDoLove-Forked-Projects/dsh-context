@@ -7,7 +7,6 @@
 import { act, createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test, vi, afterEach } from 'vitest'
-import type { ClientCtx } from '../../src/client/services'
 import {
   DetailStore,
   detailOf,
@@ -17,7 +16,6 @@ import {
   useTimelineSource,
 } from '../../src/client/timelineSource'
 import type { ContextTimeline, ContextTimelineDetail } from '../../src/shared/types'
-import { TestClientCtx, asClientCtx } from './helpers/harness'
 import { mount, text, until } from './helpers/kit'
 
 afterEach(() => {
@@ -53,18 +51,13 @@ function slimHead(rev: number, over: Record<string, unknown> = {}): Record<strin
   }
 }
 
-/**
- * Stub the global fetch with a programmable detail reply (the transport the
- * detail reader POSTs) and return a bare ctx — the reader never touches the
- * ctx's services for the read itself.
- */
-function ctxWithCall(behavior: () => { status?: number; body?: unknown }): ClientCtx {
+/** Stub the global fetch with a programmable detail reply (the transport the detail reader POSTs). */
+function stubDetailFetch(behavior: () => { status?: number; body?: unknown }): void {
   vi.stubGlobal('fetch', async () => {
     const outcome = await behavior()
     const status = outcome.status ?? 200
     return { ok: status === 200, status, json: async () => outcome.body }
   })
-  return asClientCtx(new TestClientCtx())
 }
 
 describe('detailOf', () => {
@@ -130,26 +123,31 @@ describe('detailOf', () => {
 
 describe('makeDetailFetcher', () => {
   test('no session id yields no fetcher', () => {
-    assert.equal(makeDetailFetcher(ctxWithCall(() => ({ body: null })), ''), undefined)
+    assert.equal(makeDetailFetcher(''), undefined)
   })
 
   test('the envelope contract: not-ok rejects, null value means absent, malformed value rejects', async () => {
-    const failed = makeDetailFetcher(ctxWithCall(() => ({ body: { ok: false, error: { code: 'x', message: 'm', details: {} } } })), 's1')!
+    stubDetailFetch(() => ({ body: { ok: false, error: { code: 'x', message: 'm', details: {} } } }))
+    const failed = makeDetailFetcher('s1')!
     await assert.rejects(() => failed(), /detail read failed/)
 
-    const absent = makeDetailFetcher(ctxWithCall(() => ({ body: { ok: true, value: null } })), 's1')!
+    stubDetailFetch(() => ({ body: { ok: true, value: null } }))
+    const absent = makeDetailFetcher('s1')!
     assert.equal(await absent(), null)
 
-    const malformed = makeDetailFetcher(ctxWithCall(() => ({ body: { ok: true, value: { no: 'rev' } } })), 's1')!
+    stubDetailFetch(() => ({ body: { ok: true, value: { no: 'rev' } } }))
+    const malformed = makeDetailFetcher('s1')!
     await assert.rejects(() => malformed(), /detail read malformed/)
 
-    const transport = makeDetailFetcher(ctxWithCall(() => {
+    stubDetailFetch(() => {
       throw new Error('offline')
-    }), 's1')!
+    })
+    const transport = makeDetailFetcher('s1')!
     await assert.rejects(() => transport(), /offline/)
 
     // A non-200 answer (the route absent on an inline-generation host) rejects.
-    const missing = makeDetailFetcher(ctxWithCall(() => ({ status: 404, body: 'not found' })), 's1')!
+    stubDetailFetch(() => ({ status: 404, body: 'not found' }))
+    const missing = makeDetailFetcher('s1')!
     await assert.rejects(() => missing(), /HTTP 404/)
   })
 
@@ -160,7 +158,7 @@ describe('makeDetailFetcher', () => {
       seen.body = JSON.parse(String(init.body))
       return { ok: true, status: 200, json: async () => ({ ok: true, value: detail(4) }) }
     })
-    const d = await makeDetailFetcher(asClientCtx(new TestClientCtx()), 's1')!()
+    const d = await makeDetailFetcher('s1')!()
     assert.equal(d?.rev, 4)
     assert.equal(seen.url, '/api/dsh-context/detail')
     assert.deepEqual(seen.body, { sessionId: 's1' })
@@ -455,19 +453,19 @@ describe('DetailStore', () => {
 
 describe('detailStoreOf', () => {
   test('one store per session, shared by every consumer; reset drops the cache', () => {
-    const ctx = ctxWithCall(() => ({ body: { ok: true, value: detail(1) } }))
-    const a = detailStoreOf(ctx, 's1')
-    assert.equal(a, detailStoreOf(ctxWithCall(() => ({ body: { ok: true, value: null } })), 's1'), 'the session key wins, the first fetcher keeps serving')
-    assert.notEqual(a, detailStoreOf(ctx, 's2'))
+    stubDetailFetch(() => ({ body: { ok: true, value: detail(1) } }))
+    const a = detailStoreOf('s1')
+    assert.equal(a, detailStoreOf('s1'), 'the session key wins, the first fetcher keeps serving')
+    assert.notEqual(a, detailStoreOf('s2'))
     resetTimelineDetailStores()
-    assert.notEqual(detailStoreOf(ctx, 's1'), a, 'a reset store is a fresh instance')
+    assert.notEqual(detailStoreOf('s1'), a, 'a reset store is a fresh instance')
   })
 })
 
 /** A probe component rendering the source's observable surface as text. */
-function SourceProbe(props: { ctx: ClientCtx; sessionId: string; value?: unknown; useProjection?: (key: string) => unknown }): ReactElement {
+function SourceProbe(props: { sessionId: string; value?: unknown; useProjection?: (key: string) => unknown }): ReactElement {
   const useProjection = props.useProjection ?? ((key: string) => (key === 'contextTimeline' ? props.value : undefined))
-  const source = useTimelineSource(props.ctx, {
+  const source = useTimelineSource({
     sessionId: props.sessionId,
     useProjection,
   })
@@ -499,11 +497,10 @@ describe('useTimelineSource', () => {
       calls++
       return calls === 1 ? first : Promise.resolve(response(detail(2)))
     })
-    const ctx = asClientCtx(new TestClientCtx())
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(5) }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: slimHead(5) }))
     try {
       await act(async () => { await vi.advanceTimersByTimeAsync(300) })
-      await m.update(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(2) }))
+      await m.update(h(SourceProbe, { sessionId: 's1', value: slimHead(2) }))
       await act(async () => { await vi.advanceTimersByTimeAsync(300) })
       await act(async () => {
         resolve(response(detail(5)))
@@ -515,7 +512,7 @@ describe('useTimelineSource', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(300) })
       assert.equal(calls, 2)
       assert.equal(probeRead(m.container, 'state'), 'ready')
-      assert.equal(detailStoreOf(ctx, 's1').getSnapshot().detail?.rev, 2)
+      assert.equal(detailStoreOf('s1').getSnapshot().detail?.rev, 2)
     } finally {
       await m.unmount()
     }
@@ -523,7 +520,7 @@ describe('useTimelineSource', () => {
 
   test('the inline generation passes through untouched and never fetches', async () => {
     let calls = 0
-    const ctx = ctxWithCall(() => {
+    stubDetailFetch(() => {
       calls++
       return { body: { ok: true, value: detail(1) } }
     })
@@ -537,7 +534,7 @@ describe('useTimelineSource', () => {
       droppedNodes: 0,
       archive: [],
     }
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: inline }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: inline }))
     await new Promise(resolve => setTimeout(resolve, 350))
     assert.equal(probeRead(m.container, 'state'), 'legacy')
     assert.equal(probeRead(m.container, 'steps'), '1')
@@ -552,11 +549,11 @@ describe('useTimelineSource', () => {
 
   test('the cold start: no pushed value opens the channel itself and renders from the read', async () => {
     let calls = 0
-    const ctx = ctxWithCall(() => {
+    stubDetailFetch(() => {
       calls++
       return { body: { ok: true, value: detail(2, { head: slimHead(2) }) } }
     })
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: undefined }))
     // The first paint waits on the cold read — then the read's own slim head
     // stands in for the never-pushed projection value.
     assert.equal(probeRead(m.container, 'state'), 'loading')
@@ -573,13 +570,11 @@ describe('useTimelineSource', () => {
     // production route folds the requested session at its current watermark.
     let servedRev = 1
     vi.stubGlobal('fetch', async () => ({ ok: true, status: 200, json: async () => ({ ok: true, value: detail(servedRev, { head: slimHead(servedRev, { model: servedRev === 1 ? 'cold-m' : 'pushed-m' }) }) }) }))
-    const ctx = asClientCtx(new TestClientCtx())
     // The probe reads `useProjection` through a mutable capture so an update
     // rerender sees the freshly pushed head (the real seat reads per render).
     let pushed: unknown = undefined
     function PushProbe(): ReactElement {
       return h(SourceProbe, {
-        ctx,
         sessionId: 's1',
         useProjection: (key: string) => (key === 'contextTimeline' ? pushed : undefined),
       })
@@ -594,17 +589,17 @@ describe('useTimelineSource', () => {
     await m.update(h(PushProbe, null))
     assert.equal(probeRead(m.container, 'model'), 'pushed-m', 'the pushed head wins at once')
     assert.equal(probeRead(m.container, 'rev'), '2', 'the pushed revision renders')
-    await until(() => detailStoreOf(ctx, 's1').getSnapshot().detail?.rev === 2, 'the pushed head never trailed the channel')
+    await until(() => detailStoreOf('s1').getSnapshot().detail?.rev === 2, 'the pushed head never trailed the channel')
     await m.unmount()
   })
 
   test('the cold read failing arms the retry affordance instead of stalling', async () => {
     let online = false
-    const ctx = ctxWithCall(() => {
+    stubDetailFetch(() => {
       if (!online) throw new Error('offline')
       return { body: { ok: true, value: detail(1, { head: slimHead(1) }) } }
     })
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: undefined }))
     await until(() => probeRead(m.container, 'state') === 'failed', 'the cold failure never surfaced')
     assert.equal(probeRead(m.container, 'steps'), 'null')
     online = true
@@ -616,29 +611,29 @@ describe('useTimelineSource', () => {
   })
 
   test('a cold payload without its head types the failure (nothing renderable, no stall)', async () => {
-    const ctx = ctxWithCall(() => ({ body: { ok: true, value: detail(1) } }))
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    stubDetailFetch(() => ({ body: { ok: true, value: detail(1) } }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: undefined }))
     await until(() => probeRead(m.container, 'state') === 'failed', 'the headless payload never surfaced')
     await m.unmount()
   })
 
   test('an absent cold answer (the session left the live set) surfaces the failed note', async () => {
-    const ctx = ctxWithCall(() => ({ body: { ok: true, value: null } }))
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: undefined }))
+    stubDetailFetch(() => ({ body: { ok: true, value: null } }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: undefined }))
     await until(() => probeRead(m.container, 'state') === 'failed', 'absence never surfaced')
     await m.unmount()
   })
 
   test('no session id to read for: the cold start types the failure, not an eternal spinner', async () => {
-    const ctx = ctxWithCall(() => ({ body: { ok: true, value: detail(1, { head: slimHead(1) }) } }))
-    const m = await mount(h(SourceProbe, { ctx, sessionId: '', value: undefined }))
+    stubDetailFetch(() => ({ body: { ok: true, value: detail(1, { head: slimHead(1) }) } }))
+    const m = await mount(h(SourceProbe, { sessionId: '', value: undefined }))
     await until(() => probeRead(m.container, 'state') === 'failed', 'the empty-id cold start never surfaced')
     await m.unmount()
   })
 
   test('the split generation: counters render off the head immediately, the detail lands through the channel', async () => {
     let calls = 0
-    const ctx = ctxWithCall(() => {
+    stubDetailFetch(() => {
       calls++
       return {
         body: {
@@ -653,7 +648,7 @@ describe('useTimelineSource', () => {
         },
       }
     })
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(3) }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: slimHead(3) }))
     // The first paint: the head's counters with the detail still pending.
     assert.equal(probeRead(m.container, 'state'), 'loading')
     assert.equal(probeRead(m.container, 'turns'), '1', 'the head counters render before the detail lands')
@@ -671,28 +666,28 @@ describe('useTimelineSource', () => {
 
   test('a rev bump on the pushed head refetches the detail', async () => {
     let served = 3
-    const ctx = ctxWithCall(() => ({ body: { ok: true, value: detail(served) } }))
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(3) }))
+    stubDetailFetch(() => ({ body: { ok: true, value: detail(served) } }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: slimHead(3) }))
     await until(() => probeRead(m.container, 'state') === 'ready', 'the first read never landed')
-    assert.equal(detailStoreOf(ctx, 's1').getSnapshot().detail?.rev, 3)
+    assert.equal(detailStoreOf('s1').getSnapshot().detail?.rev, 3)
     served = 4
-    await m.update(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(4) }))
+    await m.update(h(SourceProbe, { sessionId: 's1', value: slimHead(4) }))
     // The probe's rev cell reads the HEAD's marker (4 as pushed); the store's
     // served detail proves the refetch.
     assert.equal(probeRead(m.container, 'rev'), '4')
-    await until(() => detailStoreOf(ctx, 's1').getSnapshot().detail?.rev === 4, 'the refetch never landed')
+    await until(() => detailStoreOf('s1').getSnapshot().detail?.rev === 4, 'the refetch never landed')
     await m.unmount()
   })
 
   test('the failed read arms the retry affordance, which refires the read', async () => {
     let online = false
     let calls = 0
-    const ctx = ctxWithCall(() => {
+    stubDetailFetch(() => {
       calls++
       if (!online) throw new Error('offline')
       return { body: { ok: true, value: detail(1) } }
     })
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(1) }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: slimHead(1) }))
     await until(() => probeRead(m.container, 'state') === 'failed', 'the failure never surfaced')
     online = true
     await act(async () => {
@@ -704,8 +699,8 @@ describe('useTimelineSource', () => {
   })
 
   test('an absent answer (the session left the live set) surfaces the failed note', async () => {
-    const ctx = ctxWithCall(() => ({ body: { ok: true, value: null } }))
-    const m = await mount(h(SourceProbe, { ctx, sessionId: 's1', value: slimHead(1) }))
+    stubDetailFetch(() => ({ body: { ok: true, value: null } }))
+    const m = await mount(h(SourceProbe, { sessionId: 's1', value: slimHead(1) }))
     await until(() => probeRead(m.container, 'state') === 'failed', 'absence never surfaced')
     await m.unmount()
   })

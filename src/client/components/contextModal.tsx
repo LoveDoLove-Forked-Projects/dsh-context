@@ -44,7 +44,7 @@ export function makeContextModal(
     const open = typeof props.useContextModal === 'function' ? props.useContextModal(s => s) : false
     // The timeline source (timelineSource.ts) — shares the tab's per-session
     // detail store, so an open tab's detail serves the modal with no refetch.
-    const source = useTimelineSource(ctx, props)
+    const source = useTimelineSource(props)
     const data = source.data
     const pressure = projectionOf(props, 'contextPressure', contextPressureOf)
     const breakdown = projectionOf(props, 'contextBreakdown', contextBreakdownOf)

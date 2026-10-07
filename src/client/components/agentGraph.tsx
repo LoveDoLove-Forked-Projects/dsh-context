@@ -56,7 +56,7 @@ export function makeAgentGraph(
   ctx: ClientCtx,
   kit: ViewKit,
   /** The shared page-scope cold-head cache — the stats board's subagent-cost cell reads the same fetches. */
-  heads: AgentHeads = makeAgentHeads(ctx),
+  heads: AgentHeads = makeAgentHeads(),
 ): (props: AgentGraphProps) => ReactElement | null {
   const { t, fmt, catLabel } = kit
 

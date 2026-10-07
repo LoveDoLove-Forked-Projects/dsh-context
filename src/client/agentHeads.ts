@@ -14,7 +14,6 @@
 
 import { useCallback, useSyncExternalStore } from 'react'
 import type { ContextTimeline } from '../shared/types'
-import type { ClientCtx } from './services'
 import type { SessionsFaceLike } from './agentTree'
 import { makeDetailFetcher } from './timelineSource'
 
@@ -24,13 +23,13 @@ export interface AgentHeads {
 }
 
 /** One page-scope fetch cache, shared by every consumer the caller wires it into. */
-export function makeAgentHeads(ctx: ClientCtx): AgentHeads {
+export function makeAgentHeads(): AgentHeads {
   const heads = new Map<string, Promise<ContextTimeline | null>>()
   return {
     headOf(id: string): Promise<ContextTimeline | null> {
       const cached = heads.get(id)
       if (cached !== undefined) return cached
-      const fetcher = makeDetailFetcher(ctx, id)
+      const fetcher = makeDetailFetcher(id)
       const pending = fetcher !== undefined ? fetcher().then(d => d?.head ?? null) : Promise.resolve(null)
       heads.set(id, pending)
       return pending

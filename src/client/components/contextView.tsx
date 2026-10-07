@@ -66,7 +66,7 @@ export function makeContextView(
   // One page-scope cold-head cache serves both subagent-data readers: the
   // Agent network card's composition rings and the stats board's
   // subagent-cost cell fetch each relative once.
-  const heads = makeAgentHeads(ctx)
+  const heads = makeAgentHeads()
   const StatsContext = makeStatsContext(kit, makeSubagentCost(ctx, heads))
   const StatsTiming = makeStatsTiming(kit, Donut)
   const StatsTokens = makeStatsTokens(kit, Donut)
@@ -88,7 +88,7 @@ export function makeContextView(
     // generation, or the slim head merged with the on-demand detail on the
     // split generation. `detailState`/`retryDetail` drive the detail cards'
     // loading/failed notes.
-    const source = useTimelineSource(ctx, props)
+    const source = useTimelineSource(props)
     const data = source.data
     // Official token-meter `contextPressure` projection — the same key the chat's context ring reads; token-meter owns estimation, the Host
     // no longer mirrors it. Absent → derived fallback.

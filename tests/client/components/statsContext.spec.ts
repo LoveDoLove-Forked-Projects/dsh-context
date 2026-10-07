@@ -663,7 +663,7 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
   function makeSeat(byId: Record<string, unknown>): { seat: (sessionId: string | undefined) => SubagentStats; face: FakeSessions } {
     const face = new FakeSessions(byId)
     const ctx = new TestClientCtx({ services: { sessions: face } })
-    return { seat: makeSubagentCost(asClientCtx(ctx), makeAgentHeads(asClientCtx(ctx))), face }
+    return { seat: makeSubagentCost(asClientCtx(ctx), makeAgentHeads()), face }
   }
 
   afterEach(() => {
@@ -813,7 +813,7 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
 
   test('without the sessions face the seat prices nothing', async () => {
     const ctx = new TestClientCtx()
-    const Stats = makeStatsContext(kit, makeSubagentCost(asClientCtx(ctx), makeAgentHeads(asClientCtx(ctx))))
+    const Stats = makeStatsContext(kit, makeSubagentCost(asClientCtx(ctx), makeAgentHeads()))
     const m = await mount(h(Stats, {
       counts: NO_COUNTS,
       files: NO_FILES,
@@ -835,7 +835,7 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     })
     const face = new FakeSessions({ root: { running: false, updatedAt: 1 }, kid: { parentId: 'root', updatedAt: 2 } })
     const ctx = new TestClientCtx({ services: { sessions: face } })
-    const Stats = makeStatsContext(kit, makeSubagentCost(asClientCtx(ctx), makeAgentHeads(asClientCtx(ctx))))
+    const Stats = makeStatsContext(kit, makeSubagentCost(asClientCtx(ctx), makeAgentHeads()))
     const m = await mount(h(Stats, {
       counts: NO_COUNTS,
       files: NO_FILES,

@@ -37,7 +37,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { ContextTimeline, ContextTimelineDetail } from '../shared/types'
-import type { ClientCtx, SessionStandardProps } from './services'
+import type { SessionStandardProps } from './services'
 import { asRecord, collectionsOf, projectionOf, timelineOf } from './services'
 
 // The detail route of host/detail.ts — re-declared here: the client bundle
@@ -75,10 +75,8 @@ export function detailOf(value: unknown): ContextTimelineDetail | null {
  * store turns the two into the retryable state).
  */
 export function makeDetailFetcher(
-  ctx: ClientCtx,
   sessionId: string,
 ): (() => Promise<ContextTimelineDetail | null>) | undefined {
-  void ctx
   if (sessionId === '') return undefined
   return async () => {
     const response = await fetch(DETAIL_ROUTE, {
@@ -245,10 +243,10 @@ export class DetailStore {
 /** Page-lifetime per-session stores (the tab and the modal share one). */
 const stores = new Map<string, DetailStore>()
 
-export function detailStoreOf(ctx: ClientCtx, sessionId: string): DetailStore {
+export function detailStoreOf(sessionId: string): DetailStore {
   let store = stores.get(sessionId)
   if (store === undefined) {
-    store = new DetailStore(makeDetailFetcher(ctx, sessionId))
+    store = new DetailStore(makeDetailFetcher(sessionId))
     stores.set(sessionId, store)
   }
   return store
@@ -280,7 +278,7 @@ const noopRetry = (): void => {}
  * generation rules). Hook-order safe: every hook runs unconditionally, the
  * branches below only shape the returned record.
  */
-export function useTimelineSource(ctx: ClientCtx, props: SessionStandardProps): TimelineSource {
+export function useTimelineSource(props: SessionStandardProps): TimelineSource {
   const head = projectionOf(props, 'contextTimeline', timelineOf)
   const sessionId = typeof props.sessionId === 'string' ? props.sessionId : ''
   // The split marker: the slim head carries the detail revision; anything
@@ -295,8 +293,8 @@ export function useTimelineSource(ctx: ClientCtx, props: SessionStandardProps): 
   // result carries straight into the pushed generation's later refetches.
   const cold = head === null
   const store = useMemo(
-    () => (slim || cold ? detailStoreOf(ctx, sessionId) : null),
-    [ctx, sessionId, slim, cold],
+    () => (slim || cold ? detailStoreOf(sessionId) : null),
+    [sessionId, slim, cold],
   )
   const snap = useSyncExternalStore(
     store !== null ? store.subscribe : noopSubscribe,
