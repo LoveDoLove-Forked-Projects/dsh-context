@@ -123,13 +123,13 @@ export function makeRichText(kit: ViewKit): RichKit {
     const seg = (m: RichMode, label: string, tip: string) => (
       <button
         type="button"
-        className={'lc-rich-seg-btn' + (props.mode === m ? ' lc-rich-seg-on' : '')}
+        className={'lc-gran-btn' + (props.mode === m ? ' lc-gran-on' : '')}
         title={tip}
         onClick={() => { props.onPick(m) }}
       >{label}</button>
     )
     return (
-      <span className="lc-rich-seg">
+      <span className="lc-gran">
         {seg('raw', t('rich.raw'), t('rich.toRaw'))}
         {seg('md', t('rich.md'), t('rich.toMd'))}
       </span>

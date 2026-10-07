@@ -5,11 +5,6 @@
  * — section heading, donut, slice list, plugin-info rows.
  */
 .lc-stat { background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 6px 6px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-/* The clickable cost cell: the same framed cell as an anchor opening the
-   models.dev listing in a new tab — reset the link chrome so it reads as the
-   card it visually is, with the pointer as the only affordance. */
-a.lc-stat { color: inherit; text-decoration: none; cursor: pointer; }
-a.lc-stat:hover { border-color: var(--dsw-alias-label-secondary); }
 .lc-stat-label { color: var(--dsw-alias-label-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lc-stat-value { color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 .lc-stat-sub { color: var(--dsw-alias-label-secondary); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

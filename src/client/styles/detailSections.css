@@ -48,10 +48,6 @@
 .lc-ts-arg-val { color: var(--dsw-alias-label-primary); font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; scrollbar-width: thin; }
 .lc-ts-json { display: flex; flex-direction: column; gap: 4px; }
 .lc-ts-json-toggle { align-self: flex-start; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 11px; padding: 0; cursor: pointer; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
-.lc-rich-seg { margin-left: auto; display: flex; gap: 2px; background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; padding: 1px; }
-.lc-rich-seg-btn { border: 0; background: transparent; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 1; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
-.lc-rich-seg-btn:hover { color: var(--dsw-alias-label-primary); }
-.lc-rich-seg-on, .lc-rich-seg-on:hover { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
 .lc-rich-copy, .lc-find-btn { display: inline-flex; align-items: center; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); padding: 2px; border-radius: 5px; cursor: pointer; transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
 .lc-rich-copy:hover, .lc-find-btn:hover { color: var(--dsw-alias-label-primary); }
 .lc-rich-copy-on, .lc-rich-copy-on:hover { color: var(--dsw-alias-state-success-primary); }

@@ -461,7 +461,7 @@ export function makeStatsContext(
     const topTools = props.tools.slice(0, 3)
     const moreTools = props.tools.length - topTools.length
     return (
-      <div className="lc-card lc-col-stats flex-[3] min-w-[min(360px,100%)]">
+      <div className="lc-card flex-[3] min-w-[min(360px,100%)]">
         <div className="lc-card-title">
           <span className="lc-card-title-text">{t('stats.title')}</span>
         </div>

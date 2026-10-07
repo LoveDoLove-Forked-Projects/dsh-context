@@ -390,12 +390,14 @@ describe('ContextBrowser header epochs', () => {
     // The single system row is already expanded.
     assert.equal(queryAll(m.container, '.lc-br-content').length, 1)
     assert.ok(queryAll(m.container, '.lc-ts-desc-md').length >= 1, 'markdown view by default')
-    const rawBtn = queryAll(m.container, '.lc-rich-seg-btn')[0]
+    // Scope to the detail body: the header's own granularity toggles wear the
+    // same shared lc-gran classes.
+    const rawBtn = queryAll(body, '.lc-gran-btn')[0]
     assert.equal(text(rawBtn), 'Raw')
     await click(rawBtn)
     const lines = queryAll(m.container, '.lc-ts-line').map(line => line.textContent)
     assert.deepEqual(lines, ['SYS B', 'second line'])
-    await click(queryAll(m.container, '.lc-rich-seg-btn')[1])
+    await click(queryAll(body, '.lc-gran-btn')[1])
     assert.ok(queryAll(m.container, '.lc-ts-desc-md').length >= 1, 'markdown restored')
     await click(catRow(m, 'system'))
     assert.equal(queryAll(m.container, '.lc-br-body').length, 0)

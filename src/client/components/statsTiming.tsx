@@ -183,7 +183,7 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
       ].filter(row => !row.dim)
     }
     return (
-      <div className="lc-card lc-col-stats lc-col-donut flex-1 min-w-[min(360px,100%)]">
+      <div className="lc-card lc-col-donut flex-1 min-w-[min(360px,100%)]">
         <div className="lc-card-title">
           <span className="lc-card-title-text">{t('timing.title')}</span>
           {tps !== null && (
