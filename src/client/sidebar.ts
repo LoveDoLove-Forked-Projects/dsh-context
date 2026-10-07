@@ -1,5 +1,5 @@
 /**
- * The right Sidebar's Context tab (dsh 0.1.5-rc.1+).
+ * The right Sidebar's Context tab (dsh 0.1.7-rc.2+).
  *
  * The tab reuses the Context conversation-view component VERBATIM: the
  * `sidebar.right.pane.tab` seat is session-scoped and delivers the same
@@ -11,14 +11,15 @@
  * glyph, title, and description line, plus the chip-title seat that puts the
  * same glyph beside the label once the tab is open (`icon.tsx`).
  *
- * OPTIONAL BY CONTRACT. `ctx.sidebarRightTabs` and the seat ship only on the
- * 0.1.5 line (0.1.5-rc.1+ supported); the registration therefore rides a
- * DEFERRED inject (the plugin's hard injects stay `slots` + `locale`), so on
- * every older supported line the callback never fires, the plugin fiber never
- * pends, and nothing is registered. The registry is re-proved structurally and
- * the whole registration is guarded: a foreign or hostile registry (a throwing
- * `register`, a taken id/kind) leaves the sidebar without the tab instead of
- * taking the browser down.
+ * OPTIONAL BY CONTRACT. `ctx.sidebarRightTabs` and the seats ship on every
+ * supported line, but a deployment may strip them (and a below-baseline host,
+ * gated onto the fallback units, serves none of this half's seats); the
+ * registration therefore rides a DEFERRED inject (the plugin's hard injects
+ * stay `slots` + `locale`), so a composition without the service never fires
+ * the callback, the plugin fiber never pends, and nothing is registered. The
+ * registry is re-proved structurally and the whole registration is guarded: a
+ * foreign or hostile registry (a throwing `register`, a taken id/kind) leaves
+ * the sidebar without the tab instead of taking the browser down.
  *
  * @module dsh-context/client/sidebar
  */
@@ -87,9 +88,9 @@ export function watchSidebarContextTab(
         { name: 'sidebar.right.pane.tab', key: SIDEBAR_CONTEXT_ID, locale: ns },
         (props: { sessionId?: string } & Record<string, unknown>) => view({ ...props, host: 'sidebar' }),
       )))
-      // The chip title seat (0.1.5-rc.1+): the emblem beside the label, the
-      // files type's own idiom. Registered under the type id so the kit
-      // dispatches it for this type's tabs only.
+      // The chip title seat: the emblem beside the label, the files type's
+      // own idiom. Registered under the type id so the kit dispatches it for
+      // this type's tabs only.
       own(injected.slots.inject('sidebar.right.pane.tab.title', () => injected.slots.register(
         { name: 'sidebar.right.pane.tab.title', key: SIDEBAR_CONTEXT_ID },
         makeContextTabTitle(t),

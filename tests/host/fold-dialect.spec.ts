@@ -1,4 +1,4 @@
-// The supported log dialect (dsh 0.1.5-rc.1+, session formats V3/V4):
+// The supported log dialect (dsh 0.1.7-rc.2+, session format V4):
 // `system/message` surface nodes, the embedded assistant stream, the
 // `startSeq`/`endSeq` replacement endpoints, `tool/ptc-dispatch`, and
 // `assistant/attempt` — each case the seam the fold must read, plus the
@@ -43,7 +43,7 @@ describe('system/message — the system prompt as a surface node', () => {
     assert.equal(view.current.total, price + state.sums.user + state.sums.assistant, 'the prompt joins the composition total')
   })
 
-  test('a system-less request header never clears log-sourced nodes (V3 headers carry no prompt)', () => {
+  test('a system-less request header never clears log-sourced nodes (headers carry no prompt)', () => {
     const prompt = 'prompt '.repeat(10)
     const { state } = driveTimeline([
       { type: 'system/message', seq: 1, time: 1000, data: { message: { content: text(prompt) } }, surfaceOp: 'append' },

@@ -599,9 +599,9 @@ describe('ContextBrowser header epochs', () => {
     await m.unmount()
   })
 
-  test('a V3 system prompt rides the timeline systems list, fetched from its own event seq', async () => {
-    // The V3 generation: the header epoch carries NO system price (the prompt
-    // is a `system/message` surface node), so the section resolves the prompt
+  test('a system prompt rides the timeline systems list, fetched from its own event seq', async () => {
+    // The header epoch carries NO system price (the prompt is a
+    // `system/message` surface node), so the section resolves the prompt
     // from `data.systems` and reads its text off that node's seq.
     const headers: ContextHeaders = { headers: [{ seq: 15, time: 1500, tools: [{ name: 'x', tokens: 1 }] }] }
     const data = tl({
@@ -611,14 +611,14 @@ describe('ContextBrowser header epochs', () => {
     const asked: number[] = []
     const fetchHeader = (seq: number): Promise<HeaderEpochContent> => {
       asked.push(seq)
-      return Promise.resolve(seq === 7 ? { system: 'V3 PROMPT', tools: [] } : { tools: [] })
+      return Promise.resolve(seq === 7 ? { system: 'THE PROMPT', tools: [] } : { tools: [] })
     }
     const m = await mount(h(Browser, props({ data, headers, fetchHeader })))
     assert.ok(text(catRow(m, 'system')).includes(kit.t('browser.items', { n: 1 })))
     await click(catRow(m, 'system'))
     await flush()
     assert.deepEqual(asked, [7], 'the prompt is fetched from the system node, not the header epoch')
-    assert.ok(text(query(m.container, '.lc-br-body')).includes('V3 PROMPT'))
+    assert.ok(text(query(m.container, '.lc-br-body')).includes('THE PROMPT'))
     await m.unmount()
   })
 

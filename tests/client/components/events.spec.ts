@@ -108,12 +108,12 @@ describe('EventList', () => {
     assert.equal(down.textContent, '−100')
     assert.equal(queryAll(rows[2], '.lc-event-at').length, 0)
 
-    // Model switch: real IconBranchOutline16 svg.
+    // Model switch: real IconBranchOutlineRegular svg.
     assert.ok(query(rows[3], '.lc-event-icon svg') instanceof SVGElement)
     assert.ok(text(rows[3]).includes('Model switched: a → b'))
     assert.equal(query(rows[3], '.lc-kind').textContent, 'Switch')
 
-    // Inject: real IconPlusOutline16 svg, positive token delta, position, time.
+    // Inject: real IconPlusOutlineRegular svg, positive token delta, position, time.
     assert.ok(query(rows[4], '.lc-event-icon svg') instanceof SVGElement)
     const up = query(rows[4], '.lc-event-tokens')
     assert.ok(up.className.includes('lc-up'))

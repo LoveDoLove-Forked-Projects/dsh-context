@@ -11,7 +11,7 @@
 [`dsh-context`](https://www.npmjs.com/package/dsh-context) provides full context lifecycle management features.
 - **Context Insights page** — the cross-session overview as a first-level sidebar panel (beside Plugins and Automation tasks): KPI band with a 7-day token/cost usage chart, activity heatmap, aggregate composition ring, and filterable session cards that jump straight into any session.
 - **Context tab** — an UI context dashboard for DeepSeek Harness's context stats, composition, trend, events, and messages.
-- **Context panel** — the same dashboard as a right-sidebar tab (dsh 0.1.5-rc.1+): pick **Context** on the sidebar's guide page and the panel opens beside the chat.
+- **Context panel** — the same dashboard as a right-sidebar tab: pick **Context** on the sidebar's guide page and the panel opens beside the chat.
 - **`/context` command** — the slash command shows the context model for current context composition and recent context evolution.
 
 ## Install / Update
@@ -154,7 +154,7 @@ One row per touched file — read, written, or searched — aggregated up to whi
 - **Every mode counts** — native tools, the Minimal preset's `str_replace_editor`, and the nested calls inside PTC `run_code` programs are all folded into per-tool rows.
 - **Searches land on real files** — matched files get their own ops rows with hit counts.
 - **Click a row** to expand its full operation log — every op jumps straight to the exact tool result in the Context browser.
-- **Click a file name** to open its preview in the right Sidebar (dsh 0.1.5-rc.1+), exactly as the built-in Files sidebar does — the same viewer, the same tab-per-file behavior. On a harness without that column the name opens on your system as before.
+- **Click a file name** to open its preview in the right Sidebar, exactly as the built-in Files sidebar does — the same viewer, the same tab-per-file behavior. On a harness without that column the name opens on your system as before.
 
 ### 🕸 Agent Network — the family portrait
 
@@ -174,10 +174,7 @@ A centered dialog opens with the **Current Composition** card and the **Context 
 
 ## ⚙️ Settings
 
-The **Context** preferences card holds this plugin's per-user settings — default placement, trend granularity (Step/Turn), trend mode (Total/Delta), the trend duration curve (shown by default), tool and File Activity sort, and the sidebar insights entry. Where it lives depends on your dsh release:
-
-- **dsh 0.1.7+** — the sidebar **Plugins** entry → the **dsh-context** bundle's page → its **Configuration** section (the card is served by the entry's live Config form).
-- **older releases** — **Settings → Plugins → Plugin configuration** → the **Context** card.
+The **Context** preferences card holds this plugin's per-user settings — default placement, trend granularity (Step/Turn), trend mode (Total/Delta), the trend duration curve (shown by default), tool and File Activity sort, and the sidebar insights entry. It lives on the **Plugins** page: the sidebar **Plugins** entry → the **dsh-context** bundle's page → its **Configuration** section (the card is served by the entry's live Config form).
 
 In-chart and in-card toggles stay per-view and never overwrite the stored preference.
 
@@ -186,7 +183,7 @@ In-chart and in-card toggles stay per-view and never overwrite the stored prefer
 ## Good to know
 
 - **Estimates vs actuals** — category figures use dsh's own fixed-density heuristic (the same one as its built-in token meter); the pinned trend details show provider-reported actuals next to them, and the Token card pairs its ≈-estimated composition shares with the provider-exact billed total.
-- **Compatibility** — works on `@deepseek-ai/dsh` **0.1.5-rc.1+** (the `0.1.5` line from rc.1, the `0.1.7` line from rc.2, the `0.2.0` line from rc.2), across the V3 (`0.1.5-alpha.x+`) and V4 (`0.1.6/0.1.7/0.2.0+`) session-log generations, from one shape-driven code path. The per-release matrix and how it is verified: [docs/compatibility.md](docs/compatibility.md).
+- **Compatibility** — works on `@deepseek-ai/dsh` **0.1.7-rc.2+** (the `0.1.7` line from rc.2 and the `0.2.0` line from rc.2), the V4 session-log generation, from one shape-driven code path. The per-release matrix and how it is verified: [docs/compatibility.md](docs/compatibility.md).
 - **I18n** — UI in English and 简体中文.
 
 ## Like it?

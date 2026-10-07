@@ -8,18 +8,17 @@
  */
 .lc-root { padding: 16px 20px 32px; overflow-y: auto; height: 100%; box-sizing: border-box; color: var(--dsw-alias-label-primary); font-size: 13px; }
 /*
- Right Sidebar panel (dsh 0.1.5-rc.1+): the body draws NO padding of its own
- (dockkit leaves each tab its own insets), so the root keeps a 12px frame on
- all four sides — the harness's own body inset — instead of the wide shared
- chrome. The root KEEPS its own scroller: the 0.1.5 line renders the tab
- straight into the scrolling dockkit pane body, while the 0.1.7 line wraps it
- in a definite-height `.tabBody` whose `overflow: hidden` would clip a grown
- root out of reach — `height: 100%` resolves against whichever definite-height
- host the running generation provides (and degrades to the root growing under
- an auto-height one, where the pane scrolls instead: one scroller either way).
+ Right Sidebar panel: the body draws NO padding of its own (dockkit leaves
+ each tab its own insets), so the root keeps a 12px frame on all four sides —
+ the harness's own body inset — instead of the wide shared chrome. The root
+ KEEPS its own scroller: the supported lines wrap the tab in a
+ definite-height `.tabBody` whose `overflow: hidden` would clip a grown root
+ out of reach — `height: 100%` resolves against whichever definite-height
+ host the running shell provides (and degrades to the root growing under an
+ auto-height one, where the pane scrolls instead: one scroller either way).
  Scoped by the panel's own markers, which exist only inside the right column
- (the open panel and the 0.1.5 float host that carries a tab dragged out of
- it); the conversation tab and the /context modal are unaffected.
+ (the open panel and the float host that carries a tab dragged out of it);
+ the conversation tab and the /context modal are unaffected.
  */
 [data-sidebar-right-open] .lc-root,
 [data-sidebar-right-float-host] .lc-root { padding: 12px; }

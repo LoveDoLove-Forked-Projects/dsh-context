@@ -1,8 +1,8 @@
 // The shared token heuristics (src/shared/estimate.ts): the fixed-density
 // figures the host fold and the client boundary must agree on. The system
-// prompt is priced from EITHER generation's payload — the V0/V2 envelope's
-// rendered string or a V3 `system/message`'s content blocks — with the
-// harness token-meter's own no-per-block-overhead rule.
+// prompt is priced from a `system/message`'s content blocks (or a rendered
+// string, at the legacy-wire boundary) — with the harness token-meter's own
+// no-per-block-overhead rule.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

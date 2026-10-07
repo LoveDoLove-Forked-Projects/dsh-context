@@ -45,10 +45,10 @@ export function takeContextFocus(sessionId: string): number | null {
 /**
  * Open the Context tab on the right Sidebar over `ctx.sidebarRight.openTab`
  * (the column expands in the same step). OPTIONAL seam, re-proved at call
- * time: a harness without the service (every line older than 0.1.5-rc.1), a
- * placement that registered no tab type, no mounted session surface, or a
- * hostile face all report false so the caller keeps its conversation-tab
- * fallback.
+ * time: a harness without the service (a stripped deployment, a below-baseline
+ * gated host), a placement that registered no tab type, no mounted session
+ * surface, or a hostile face all report false so the caller keeps its
+ * conversation-tab fallback.
  */
 export function openContextSidebar(ctx: ClientCtx): boolean {
   try {

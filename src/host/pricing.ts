@@ -60,9 +60,6 @@ function estimateBlocks(blocks: unknown): number {
         tokens += Math.ceil((block.name || '').length / CHARS_PER_TOKEN)
           + Math.ceil((block.arguments || '').length / CHARS_PER_TOKEN) + BLOCK_OVERHEAD
         break
-      case 'tool-result':
-        tokens += estimateBlocks(block.content) + BLOCK_OVERHEAD
-        break
       case 'image': {
         const ref = block.attachment
         const priced = ref !== null && typeof ref === 'object'
@@ -99,9 +96,11 @@ export function estimateToolSchema(tool: unknown): number {
 }
 
 /**
-  * Count image blocks in a message payload, recursing into nested content (tool-result blocks carry their inner blocks) — seeds each node's
-  * `imgs`, which the stats board's image cell sums over the LIVE surface (compacted/pruned messages stop counting).
- */
+  * Count image blocks in a message payload, recursing into nested content
+  * (a producer extension block may carry inner blocks) — seeds each node's
+  * `imgs`, which the stats board's image cell sums over the LIVE surface
+  * (compacted/pruned messages stop counting).
+  */
 export function imageCountOf(blocks: unknown): number {
   let count = 0
   if (!Array.isArray(blocks)) return 0

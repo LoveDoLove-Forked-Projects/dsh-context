@@ -1,19 +1,19 @@
 /**
  * Shape-driven readers over the durable session-event vocabulary — the ONE
  * place the plugin's log spellings meet. The supported range (dsh
- * 0.1.5-rc.1+, session formats V3/V4) speaks ONE dialect:
+ * 0.1.7-rc.2+, session format V4) speaks ONE dialect:
  * `system/message` surface nodes, `assistant/message.data.stream` /
  * `assistant/attempt.data.stream` (packed delta runs plus raw chunk
  * records), `SurfaceOp { startSeq, endSeq }`, `tool/ptc-dispatch`.
  *
  * The fold still reads SHAPES, never a detected harness version: the raw log
- * is untrusted input at every layer, and the supported harness refuses —
- * never rewrites — a legacy-format log, so anything that reaches these
- * readers is current-dialect or hostile. Every reader is total over
- * untrusted input — a malformed record yields "nothing here", never a throw
- * (the projection registry drives the fold without an error boundary; one
- * throw stalls the unit's push feed and the browser waits on "loading"
- * forever).
+ * is untrusted input at every layer, and the supported harness migrates every
+ * older log to V4 on read (refusing — never serving raw — one it cannot
+ * convert), so anything that reaches these readers is current-dialect or
+ * hostile. Every reader is total over untrusted input — a malformed record
+ * yields "nothing here", never a throw (the projection registry drives the
+ * fold without an error boundary; one throw stalls the unit's push feed and
+ * the browser waits on "loading" forever).
  *
  * @module dsh-context/host/log-shapes
  */

@@ -296,16 +296,3 @@ for (const [index, baseline] of BASELINES.entries()) {
     })
   })
 }
-
-describe('registry contract — settings namespace seam', () => {
-  // The settings module enforces `/^[a-z][a-z0-9-]*$/` on registered
-  // namespaces (inside `settings.register` on the 0.1.5 line). The plugin
-  // registers the raw literal (branded cast; on the Config-form generations
-  // the namespace is the entry id), so the literal must pass the pattern.
-  const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/
-  const SETTINGS_NAMESPACE = 'dsh-context'
-
-  test('the plugin namespace passes the enforcement pattern of every baseline', () => {
-    assert.equal(NAMESPACE_PATTERN.test(SETTINGS_NAMESPACE), true)
-  })
-})

@@ -184,7 +184,7 @@ export function makeRichText(kit: ViewKit): RichKit {
 
   function RichText(props: { text: string; mode: RichMode }): ReactElement {
     // Reference-stable per locale: a fresh object identity would discard the
-    // renderer's cached elements on every render (0.1.2+ faces).
+    // renderer's cached elements on every render.
     const mdLabels = useMemo<MarkdownChrome>(() => ({
       code: { copyLabel: t('rich.md.copy'), copiedLabel: t('rich.md.copied') },
       footnotes: t('rich.md.footnotes'),

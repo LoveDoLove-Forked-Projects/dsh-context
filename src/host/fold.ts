@@ -502,20 +502,21 @@ interface SurfaceEventLike {
 interface MessageLike {
   content?: ContentBlock[]
   source?: MessageSource
-  error?: boolean
   /**
-   * The V4 tool-result error mark (`tool/result.message.isError`): V3 carried
-   * it inside the `tool-result` content wrapper block, V4 lifted it onto the
-   * message and made the event-level `data.error` identity optional — so the
-   * flag is read from BOTH spellings.
+   * The tool-result error mark (`tool/result.message.isError`): the V4 log
+   * generation's one spelling — the event-level `error` metadata (when
+   * present at all) is admitted only alongside it, and the harness's own
+   * admission validation refuses a row whose mark disagrees.
    */
   isError?: unknown
 }
 
 /**
  * A message nested under data.message. A structural read keeps malformed
- * payloads total and handles developer messages absent from the V3
- * dependency's deriveEventMessage. User messages instead live in data itself.
+ * payloads total, and — unlike the dependency's deriveEventMessage, which
+ * projects an empty-content message to null — keeps an empty developer
+ * message's surface position at zero tokens (the harness's message-projection
+ * rule the fold's surface mirrors). User messages instead live in data itself.
  */
 function messageOf(data: Record<string, unknown> | undefined): MessageLike | null {
   const message = data?.message
@@ -523,21 +524,16 @@ function messageOf(data: Record<string, unknown> | undefined): MessageLike | nul
 }
 
 /**
- * The first full text block, recursing through nested content blocks (a tool
- * result wraps its text in a `tool-result` block). Unlike `firstText` this
- * must NOT truncate/normalize: the skill name is matched off the raw
+ * The first full text block of a tool result's content. Unlike `firstText`
+ * this must NOT truncate/normalize: the skill name is matched off the raw
  * `<skill_content name="…">` wrapper.
  */
-function nestedText(blocks: unknown): string {
+function firstFullText(blocks: unknown): string {
   if (!Array.isArray(blocks)) return ''
   for (const item of blocks) {
     if (item === null || typeof item !== 'object') continue
     const block = item as ContentBlock
     if (block.type === 'text' && typeof block.text === 'string' && block.text !== '') return block.text
-    if (block.content !== undefined) {
-      const nested = nestedText(block.content)
-      if (nested !== '') return nested
-    }
   }
   return ''
 }
@@ -548,7 +544,7 @@ function nestedText(blocks: unknown): string {
  * is recovered from the content rather than trusted from the call envelope.
  */
 function skillNameOf(msg: MessageLike | null | undefined): string {
-  const text = nestedText(msg?.content)
+  const text = firstFullText(msg?.content)
   const match = text.match(/<skill_content\s+name="([^"]+)"/)
   return match === null ? '' : match[1]
 }
@@ -557,7 +553,6 @@ function applySurface(
   st: TimelineState,
   ev: SurfaceEventLike,
   type: string,
-  data: { error?: boolean } | undefined,
   message: MessageLike | null | undefined,
 ): SurfaceNode {
   const cat = categoryOf(type, message ?? undefined)
@@ -585,24 +580,16 @@ function applySurface(
     }
   } else if (type === 'tool/result') {
     // The call id rides the durable source authoritatively
-    // (`tool/result.message.source.callId`); the content block mirrors it as
-    // `toolCallId` (not `callId` — a shape earlier plugin builds misread).
+    // (`tool/result.message.source.callId` — the generation's admission
+    // validation requires it to match the message's own toolCallId).
     const srcId = (source as { callId?: unknown } | undefined)?.callId
-    const block = message?.content?.[0] as { toolCallId?: unknown } | undefined
-    const blockId = block?.toolCallId
     // The name is stamped only on a real map hit: an unpaired result (a call
     // event that aged out of the log, a foreign producer, a duplicate callId)
     // must not materialize an `undefined`-valued property — that one property
     // fails EVERY projection-cache write for the session (the plain-JSON
-    // precondition, see TimelineState).
-    const srcEntry = typeof srcId === 'string' ? st.callNames[srcId] : undefined
-    const blockEntry = srcEntry === undefined && typeof blockId === 'string'
-      ? st.callNames[blockId]
-      : undefined
-    // Price the completed call into the timing totals: the same entry that
-    // names the node carries the call's start instant; an unpaired result
-    // carries neither name nor duration.
-    const toolEntry = srcEntry ?? blockEntry
+    // precondition, see TimelineState). The same entry prices the completed
+    // call into the timing totals (it carries the call's start instant).
+    const toolEntry = typeof srcId === 'string' ? st.callNames[srcId] : undefined
     if (toolEntry !== undefined) {
       node.tool = toolEntry.name
       const timing = ensureTiming(st)
@@ -619,17 +606,17 @@ function applySurface(
       }
     }
     // Consume-once: the entry is never looked up again after its result
-    // folds in (see TimelineState.callNames). Rebuild without the used ids
+    // folds in (see TimelineState.callNames). Rebuild without the used id
     // (no dynamic delete, per repo lint) — consume-once holds the map at
     // pending-call size, so the copy is trivial.
-    if (typeof srcId === 'string' || typeof blockId === 'string') {
+    if (typeof srcId === 'string') {
       const kept: Record<string, { name: string; start: number }> = {}
       for (const k in st.callNames) {
-        if (k !== srcId && k !== blockId) kept[k] = st.callNames[k]
+        if (k !== srcId) kept[k] = st.callNames[k]
       }
       st.callNames = kept
     }
-    if (data?.error || message?.isError === true) node.err = true
+    if (message?.isError === true) node.err = true
   } else if (source?.kind === 'skill-invocation') {
     node.skill = typeof source.name === 'string' ? source.name : '?'
   } else if (source?.kind === 'plugin') {
@@ -1177,14 +1164,15 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
       }
       case 'user/message':
       case 'developer/message': {
-        // The V3 dependency's deriveEventMessage has no developer case;
-        // supported V4 logs nest that message under data.message.
+        // The dependency's deriveEventMessage projects an empty developer
+        // message to null; the structural read keeps its surface position at
+        // zero tokens (the harness's own message-projection rule).
         const developer = event.type === 'developer/message'
         const msg = developer ? messageOf(data) : deriveEventMessage(event as never) as MessageLike | null
         if (developer && (msg === null || !Array.isArray(msg.content))) return state
         const s = ensure(['surface', 'sums', 'archived', 'events'])
         bumpDetailRev(s)
-        const node = applySurface(s, event, event.type, data, msg)
+        const node = applySurface(s, event, event.type, msg)
         const source = msg?.source
         if (developer || isInjection(source)) {
           const rec: ContextEventRecord = {
@@ -1229,23 +1217,18 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
       }
       case 'tool/result': {
       // The model-visible message is data.message; `deriveEventMessage`
-      // returns that directly (the envelope also carries callId/error; pricing
-      // the envelope would miss all content).
+      // returns that directly (pricing the envelope would miss all content).
         const toolMsg = deriveEventMessage(event as never) as MessageLike | null
         // Read the pairing BEFORE applySurface consumes it (consume-once):
         // the armed call's name/arguments pair this result into file ops, and
         // the result's callId is the flush key for buffered Code-Mode ops.
         const msgSource = toolMsg?.source as { callId?: unknown } | undefined
         const srcId = msgSource?.callId
-        const firstBlock = toolMsg?.content?.[0] as { toolCallId?: unknown; isError?: unknown } | undefined
-        const blockId = firstBlock?.toolCallId
-        const pendingEntry = (typeof srcId === 'string' ? state.callNames[srcId] : undefined)
-          ?? (typeof blockId === 'string' ? state.callNames[blockId] : undefined)
-        const buffered = (typeof srcId === 'string' ? state.pendingCodeOps?.[srcId] : undefined)
-          ?? (typeof blockId === 'string' ? state.pendingCodeOps?.[blockId] : undefined)
+        const pendingEntry = typeof srcId === 'string' ? state.callNames[srcId] : undefined
+        const buffered = typeof srcId === 'string' ? state.pendingCodeOps?.[srcId] : undefined
         const s = ensure(['surface', 'sums', 'archived', 'events', 'fileOps', 'timing'])
         bumpDetailRev(s)
-        const node = applySurface(s, event, event.type, data, toolMsg)
+        const node = applySurface(s, event, event.type, toolMsg)
         // An answered question prompt is a human input too (whole-session
         // tally): the result only carries its tool name when it pairs with
         // the armed call, so an unpaired/foreign one counts nothing.
@@ -1268,7 +1251,7 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
             tool: pendingEntry.name,
             argsRaw: pendingEntry.argsRaw,
             meta: data?.meta,
-            err: Boolean(data?.error) || toolMsg?.isError === true || firstBlock?.isError === true,
+            err: toolMsg?.isError === true,
           })
           pushFileOps(s, ops)
         }
@@ -1283,7 +1266,7 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
           })))
           const kept: Record<string, FileOpRecord[]> = {}
           for (const k in s.pendingCodeOps) {
-            if (k !== srcId && k !== blockId) kept[k] = s.pendingCodeOps[k]
+            if (k !== srcId) kept[k] = s.pendingCodeOps[k]
           }
           if (Object.keys(kept).length > 0) s.pendingCodeOps = kept
           else delete s.pendingCodeOps
@@ -1453,7 +1436,7 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         // null when the content array is empty (usage-only events project to no
         // message — same rule as dsh's surface fold).
         const asstMsg = deriveEventMessage(event as never) as MessageLike | null
-        applySurface(s, event, event.type, data, asstMsg)
+        applySurface(s, event, event.type, asstMsg)
         break
       }
       case 'session/end-seed': {

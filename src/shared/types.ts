@@ -139,11 +139,12 @@ export interface ContextActivity {
 }
 
 /**
- * The per-user display-preference vocabulary of the `dsh-context` settings
- * namespace — the ONE declaration both halves share: the Host registers the
- * namespace schema against it (host/settings.ts), the Client binds the scope
- * and edits fields by name (client/settings.ts). Type-only, so both bundles
- * erase it.
+ * The per-user display-preference vocabulary of the `dsh-context` entry —
+ * the ONE declaration both halves share: the Host's entry Config schema
+ * carries the fields as `.volatile()` preferences (host/config.ts — the
+ * Config-form generation serves them live on the Plugins page), the Client
+ * binds the form and edits fields by name (client/settings.ts). Type-only,
+ * so both bundles erase it.
  */
 export type DefaultGranularity = 'step' | 'turn'
 

@@ -178,10 +178,12 @@ beforeAll(() => {
   // baseline release (the gate must still trip from the running anchor), and
   // a resolving-but-unreadable library (the trusted witness with no answer).
   writeScratchHome('running-supported', '@deepseek-ai/dsh-session',
-    JSON.stringify({ name: '@deepseek-ai/dsh-session', version: '0.1.5-rc.1', exports: { '.': './lib/index.js' } }),
+    JSON.stringify({ name: '@deepseek-ai/dsh-session', version: '0.1.7-rc.2', exports: { '.': './lib/index.js' } }),
     { path: 'lib/index.js' })
+  // The just-dropped line: below the baseline since the floor moved to
+  // 0.1.7-rc.2, so the gate must trip on it.
   writeScratchHome('running-old', '@deepseek-ai/dsh-session',
-    JSON.stringify({ name: '@deepseek-ai/dsh-session', version: '0.1.1-rc.2', exports: { '.': './lib/index.js' } }),
+    JSON.stringify({ name: '@deepseek-ai/dsh-session', version: '0.1.5-rc.1', exports: { '.': './lib/index.js' } }),
     { path: 'lib/index.js' })
   writeScratchHome('running-decoy', '@deepseek-ai/dsh-session',
     JSON.stringify({ name: '@deepseek-ai/dsh-decoy', version: '9.9.9', exports: { '.': './lib/index.js' } }),
@@ -199,13 +201,13 @@ describe('detectHarnessVersion — running anchor', () => {
   test('outranks a stale home mirror (issue #59: a healthy Desktop harness)', () => {
     // The mirror names an old global CLI while the running tree is a supported
     // release: the running anchor wins, so the gate never trips.
-    assert.equal(detectHarnessVersion(ctxWithHome(homeResolver('old')), runningResolver('running-supported', scratch), ELSEWHERE), '0.1.5-rc.1')
+    assert.equal(detectHarnessVersion(ctxWithHome(homeResolver('old')), runningResolver('running-supported', scratch), ELSEWHERE), '0.1.7-rc.2')
   })
 
   test('a below-baseline running tree still trips the gate over a newer mirror', () => {
     // The reverse direction must hold too: a genuinely old harness is reported
     // even when the mirror names something newer.
-    assert.equal(detectHarnessVersion(ctxWithHome(homeResolver('future')), runningResolver('running-old', scratch), ELSEWHERE), '0.1.1-rc.2')
+    assert.equal(detectHarnessVersion(ctxWithHome(homeResolver('future')), runningResolver('running-old', scratch), ELSEWHERE), '0.1.5-rc.1')
   })
 
   test('discards a witness inside this package own closure for the home anchor', () => {
@@ -214,14 +216,14 @@ describe('detectHarnessVersion — running anchor', () => {
     // default package root (the real one, which contains the repo's
     // node_modules) performs the discard.
     const ctx = ctxWithHome(homeResolver('old'))
-    assert.equal(detectHarnessVersion(ctx, runningResolver('module-skips-cli')), '0.1.1-rc.2')
+    assert.equal(detectHarnessVersion(ctx, runningResolver('module-skips-cli')), '0.1.5-rc.1')
   })
 
   test('never probes the CLI package from the running anchor', () => {
     // The fixture pins the CLI at 0.0.1 but the libraries at the baseline:
     // only a library answer may come back.
     const ctx = ctxWithHome(scratchResolver('empty'))
-    assert.equal(detectHarnessVersion(ctx, runningResolver('module-skips-cli'), ELSEWHERE), '0.1.5-rc.1')
+    assert.equal(detectHarnessVersion(ctx, runningResolver('module-skips-cli'), ELSEWHERE), '0.1.7-rc.2')
   })
 
   test('a resolving witness with no readable version falls through to home', () => {
@@ -248,8 +250,8 @@ describe('detectHarnessVersion — running anchor', () => {
 describe('detectHarnessVersion — home anchor', () => {
   test('reads the CLI package manifest of the running installation', () => {
     const ctx = (home: string) => ctxWithHome(homeResolver(home))
-    assert.equal(detectHarnessVersion(ctx('old'), NO_RUNNING), '0.1.1-rc.2')
-    assert.equal(detectHarnessVersion(ctx('baseline'), NO_RUNNING), '0.1.5-rc.1')
+    assert.equal(detectHarnessVersion(ctx('old'), NO_RUNNING), '0.1.5-rc.1')
+    assert.equal(detectHarnessVersion(ctx('baseline'), NO_RUNNING), '0.1.7-rc.2')
     assert.equal(detectHarnessVersion(ctx('future'), NO_RUNNING), '0.2.0')
     assert.equal(detectHarnessVersion(ctx('dev'), NO_RUNNING), '0.0.0-dev')
   })

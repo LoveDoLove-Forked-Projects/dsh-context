@@ -56,7 +56,7 @@ class FakeSessions {
     },
   }
 
-  open(id: string): void {
+  openSession(id: string): void {
     this.opened.push(id)
   }
 
@@ -73,7 +73,9 @@ class FakeSessions {
 }
 
 function makeView(sessions: unknown, options: { locale?: 'en' | 'zh' } = {}) {
-  const ctx = new TestClientCtx({ locale: options.locale, services: { sessions } })
+  // The session jump rides the view owner's verb (uiWorkspace.openSession).
+  const nav = { openSession: (id: string) => (sessions as { openSession?: (id: string) => void }).openSession?.(id) }
+  const ctx = new TestClientCtx({ locale: options.locale, services: { sessions, uiWorkspace: nav } })
   return makeAgentGraph(asClientCtx(ctx), options.locale === 'zh' ? makeKit('zh') : kit)
 }
 
@@ -307,7 +309,7 @@ describe('AgentGraph — the family tree', () => {
 
   test('a face without refreshSubagents still renders', async () => {
     const face = new FakeSessions(family())
-    const bare: unknown = { list: face.list, open: (id: string) => face.open(id) }
+    const bare: unknown = { list: face.list }
     const View = makeView(bare)
     const m = await mount(h(View, { sessionId: 'root' }))
     assert.equal(queryAll(m.container, 'g.lc-agent-node').length, 3)

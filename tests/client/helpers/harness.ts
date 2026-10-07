@@ -87,7 +87,7 @@ export class TestClientCtx {
 
   setService(name: string, service: unknown): void {
     this.services.set(name, service)
-    // Cordis surfaces services as context properties (ctx.settingsScope …).
+    // Cordis surfaces services as context properties (ctx.configForms …).
     if (!(name in this)) {
       Object.defineProperty(this, name, { get: () => this.services.get(name), configurable: true })
     }

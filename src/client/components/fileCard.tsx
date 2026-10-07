@@ -10,8 +10,8 @@
  * expands the file's own operation log; each operation is itself the click
  * target that jumps to (and reveals) the exact tool result in the browser.
  * The file name opens the file's right-Sidebar preview where that column
- * exists (dsh 0.1.5-rc.1+, the shipped files-sidebar idiom), and the system
- * opener where it does not.
+ * exists (the shipped files-sidebar idiom), and the system opener where it
+ * does not.
  */
 
 import { memo, useState, type ChangeEvent, type ComponentType, type MouseEvent, type ReactElement } from 'react'

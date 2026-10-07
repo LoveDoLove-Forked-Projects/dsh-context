@@ -1,13 +1,13 @@
 // Settings binding (src/client/settings.ts): defaults, the observable store,
-// scope attach/sync, preference parsing, and the local-echo set path.
+// form attach/sync, preference parsing, and the local-echo set path.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import { createContextSettings, type SettingsScopeLike } from '../../src/client/settings'
 
 /**
- * A faithful in-memory settings scope (the harness settingsScope.bind
- * contract: getSnapshot/subscribe/set), not a mock of plugin code.
+ * A faithful in-memory settings form (the harness configForms.get contract:
+ * getSnapshot/subscribe/set), not a mock of plugin code.
  */
 class TestSettingsScope implements SettingsScopeLike {
   private snapshot: { status: string; value: unknown; writable: boolean }

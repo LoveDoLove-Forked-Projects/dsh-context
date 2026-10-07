@@ -44,7 +44,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { interruptedTurnClosers, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
 
@@ -58,13 +58,12 @@ interface SessionQueryLike {
 
 /**
  * The cache's two cold-path verbs, as consumed (re-proved at runtime). The
- * cached-rows probe's face differs across the supported range — dsh
- * 0.1.5-rc.1 takes `(meta, inheritedEventCount, keys)` while dsh 0.1.7-rc.2
- * dropped the offset (`(meta, keys)`, the lifecycle identity riding the
- * header alone) — so {@link servesRows} re-proves the shape per call.
+ * cached-rows probe rides the current face — `(meta, keys?)`, the lifecycle
+ * identity riding the header alone (the offset parameter belonged to the
+ * dropped 0.1.5 line and never existed on a supported one).
  */
 interface ProjectionCacheLike {
-  cachedSnapshot(meta: SessionHeader, offsetOrKeys: unknown, keys?: readonly string[]): unknown
+  cachedSnapshot(meta: SessionHeader, keys?: readonly string[]): unknown
   coldSnapshot(header: SessionHeader, inheritedEventCount: unknown, events: readonly SessionEvent[]): unknown
 }
 
@@ -125,24 +124,6 @@ function headerOf(record: unknown): SessionHeader | null {
 /** The probe keys: the projection keys the cache must already serve. */
 const PROBE_KEYS = ['contextActivity', 'contextTimeline']
 
-/**
- * Probe the cache through the face the running generation serves. The older
- * spelling is tried first and the newer one answers the fallback: on a
- * 0.1.7-rc.2 cache the 3-arg call binds the branded offset onto `keys`,
- * where `new Set(0)` throws as soon as a served record is reached — while a
- * record-less session returns `undefined` without throwing, which is the
- * correct "not served" either way. On 0.1.5-rc.1 the 3-arg face answers
- * directly; if it ever throws there, the 2-arg retry degrades to the same
- * "not served" verdict through the caller's catch.
- */
-function cachedSnapshotOf(cache: ProjectionCacheLike, header: SessionHeader): unknown {
-  try {
-    return cache.cachedSnapshot(header, SessionLogOffset(0), PROBE_KEYS)
-  } catch {
-    return cache.cachedSnapshot(header, PROBE_KEYS)
-  }
-}
-
 /** Whether the cache already serves BOTH projection rows for this header (nothing to backfill). */
 function servesRows(cache: ProjectionCacheLike, header: SessionHeader): boolean {
   try {
@@ -151,8 +132,9 @@ function servesRows(cache: ProjectionCacheLike, header: SessionHeader): boolean 
     // misses and the session takes the cold-read path — correct either way.
     // Both keys must be served: a version-stale row (the timeline's head
     // gained `lastUser` at stateVersion 20) reads as absent here, so the
-    // session's stale rows get their one cold refold at startup.
-    const block = asRecord(cachedSnapshotOf(cache, header))
+    // session's stale rows get their one cold refold at startup. A hostile
+    // face's throw reads as "not served" the same way.
+    const block = asRecord(cache.cachedSnapshot(header, PROBE_KEYS))
     const values = asRecord(block?.values)
     return values !== null
       && values.contextActivity !== undefined

@@ -7,11 +7,11 @@
  * so the HOST reads it and serves the redacted figures. The connection facts
  * resolve per request, exactly as the DeepSeek provider serves its own
  * requests: its settings row carries the credential ref and the optional
- * endpoint override, read through whichever face the running line serves
- * (deepseekSectionOf), and the credentials service resolves the ref to the
- * key. Any missing fact — the provider absent, no settings service, no key —
- * answers a typed `null`, as does a failed or malformed platform read: the
- * capsule renders nothing rather than a stale figure.
+ * endpoint override (read off the Config-form projection, deepseekSectionOf),
+ * and the credentials service resolves the ref to the key. Any missing fact —
+ * the provider absent, no settings service, no key — answers a typed `null`,
+ * as does a failed or malformed platform read: the capsule renders nothing
+ * rather than a stale figure.
  *
  * The transport is Connection's fetch-route registry (the same authenticated
  * `/api` fence host/detail.ts mounts), registered through a deferred inject
@@ -29,12 +29,9 @@ import type { PlatformBalance, PlatformBalanceEntry } from '../shared/types'
 export const BALANCE_ROUTE = '/api/dsh-context/balance'
 
 /** The settings id the DeepSeek API-key provider has served its connection
- * section under: the V3 registered namespace, kept as the entry id on V4+
- * product profiles. */
+ * section under: the pre-Config-form registered namespace, kept as the entry
+ * id on product profiles. */
 const DEEPSEEK_SETTINGS_NS = 'llm-deepseek'
-
-/** llm-deepseek's default credential ref (the env-var name its section resolves). */
-const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY'
 
 /** The platform's public API root (llm-deepseek's PUBLIC_BASE_URL default). */
 const PUBLIC_BASE_URL = 'https://api.deepseek.com'
@@ -43,13 +40,12 @@ const PUBLIC_BASE_URL = 'https://api.deepseek.com'
 const FETCH_TIMEOUT_MS = 10_000
 
 /**
- * The harness `settings` service, as far as the route consumes it. The face
- * is generation-specific: V3 reads a registered section back (`get`), while
- * V4+ retired that face and projects every configurable entry instead
- * (`describe`) — the route folds over whichever the running line serves.
+ * The harness `settings` service, as far as the route consumes it: the
+ * Config-form generation's `describe()` projection of every configurable
+ * entry (the only face the supported lines serve — the registered-section
+ * `get(ns)` read retired with them).
  */
 interface SettingsHostFace {
-  get?(ns: string): unknown
   describe?(): unknown
 }
 
@@ -87,21 +83,17 @@ function amountOf(value: unknown): number | null {
 interface DeepSeekFacts { baseUrl: string; apiKey: string }
 
 /**
- * The DeepSeek API-key provider's settings section, read through whichever
- * face the running line serves. V3's `get` reads the registered
- * `llm-deepseek` section directly; V4+ retired that face, so its `describe()`
- * projection is folded instead — the provider's row is the one whose served
- * value declares the top-level `apiKeyEnv` credential ref (the volatile shape
- * only that provider declares at the section root), preferred under the entry
- * ids the generations have served it as (`llm-deepseek` on product profiles,
- * `llm-deepseek-api-key` elsewhere). Rows fold in isolation — a hostile row
- * drops whole, valid siblings keep serving — and a describe that throws is no
- * section at all.
+ * The DeepSeek API-key provider's settings section, folded from the
+ * Config-form `describe()` projection: the provider's row is the one whose
+ * served value declares the top-level `apiKeyEnv` credential ref (the
+ * volatile shape only that provider declares at the section root), preferred
+ * under the entry ids the generations have served it as (`llm-deepseek` on
+ * product profiles, `llm-deepseek-api-key` elsewhere). Rows fold in
+ * isolation — a hostile row drops whole, valid siblings keep serving — and a
+ * describe that throws is no section at all.
  */
 function deepseekSectionOf(ctx: Context): Record<string, unknown> | null {
   const settings = ctx.get('settings') as SettingsHostFace | undefined
-  const section = typeof settings?.get === 'function' ? asRecord(settings.get(DEEPSEEK_SETTINGS_NS)) : null
-  if (section !== null) return section
   if (typeof settings?.describe !== 'function') return null
   try {
     const rows = settings.describe()
@@ -134,9 +126,9 @@ function deepseekSectionOf(ctx: Context): Record<string, unknown> | null {
 async function resolveFacts(ctx: Context): Promise<DeepSeekFacts | null> {
   const section = deepseekSectionOf(ctx)
   if (section === null) return null
-  const apiKeyEnv = typeof section.apiKeyEnv === 'string' && section.apiKeyEnv !== ''
-    ? section.apiKeyEnv
-    : DEFAULT_API_KEY_ENV
+  // The matched row's apiKeyEnv is a proved non-empty string (the match rule),
+  // and the provider's schema defaults it anyway.
+  const apiKeyEnv = section.apiKeyEnv as string
   const baseUrl = typeof section.baseURL === 'string' && section.baseURL !== ''
     ? section.baseURL
     : PUBLIC_BASE_URL

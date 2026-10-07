@@ -41,9 +41,9 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', async () => {
     },
     // The rich-text copy control's glyphs and clipboard writer; the
     // Plugin Info card's settings gear.
-    IconCopyOutline16: () => React.createElement('span', null),
-    IconCheckOutline16: () => React.createElement('span', null),
-    IconSettingsOutline14: () => React.createElement('span', null),
+    IconCopyOutlineRegular: () => React.createElement('span', null),
+    IconCheckOutlineRegular: () => React.createElement('span', null),
+    IconSettingsOutlineMedium: () => React.createElement('span', null),
     writeClipboard: async () => true,
   }
 })

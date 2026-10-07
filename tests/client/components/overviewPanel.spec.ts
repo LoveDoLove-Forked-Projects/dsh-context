@@ -335,7 +335,7 @@ describe('OverviewPanel', () => {
 
   test('a card click opens the session through the harness verb', async () => {
     const opened: string[] = []
-    const ctx = makeCtx({ open: (id: string) => { opened.push(id) } })
+    const ctx = new TestClientCtx({ services: { uiWorkspace: { openSession: (id: string) => { opened.push(id) } } } })
     const { m } = await openPanel(ctx)
     await click(query<HTMLButtonElement>(m.container, '.lc-ov-grid > .lc-ov-session'))
     // The verb's own navigation returns the center column to the conversation

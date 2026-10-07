@@ -307,25 +307,27 @@ describe('tool/result skill tagging', () => {
     assert.equal(state.events.length, 0)
   })
 
-  test('skill content nested two tool-result levels deep still tags', () => {
+  test('skill content nested inside a foreign wrapper block never tags', () => {
+    // The skill wrapper rides the result's own text blocks (first-level); a
+    // nested foreign block is a hostile shape — unscanned, never a throw.
     const ev: TimelineEvent = {
       type: 'tool/result', seq: 1, time: at(),
       data: {
         message: {
-          content: [{ type: 'tool-result', content: [{ type: 'tool-result', content: skillBody('deep') }] }],
+          content: [{ type: 'foreign-wrapper', content: [{ type: 'text', text: '<skill_content name="deep">x</skill_content>' }] }],
         },
       },
       surfaceOp: 'append',
     }
     const { state } = driveTimeline([ev])
-    assert.equal(state.surface.at(-1)?.skill, 'deep')
-    assert.equal(state.events[0].name, 'deep')
+    assert.equal(state.surface.at(-1)?.skill, undefined)
+    assert.equal(state.events.length, 0)
   })
 
-  test('nested empty text yields no tag', () => {
+  test('an empty text block yields no tag', () => {
     const ev: TimelineEvent = {
       type: 'tool/result', seq: 1, time: at(),
-      data: { message: { content: [{ type: 'tool-result', toolCallId: 'e', content: [{ type: 'text', text: '' }] }] } },
+      data: { message: { role: 'tool', toolCallId: 'e', content: [{ type: 'text', text: '' }] } },
       surfaceOp: 'append',
     }
     const { state } = driveTimeline([ev])

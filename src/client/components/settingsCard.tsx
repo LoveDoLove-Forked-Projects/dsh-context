@@ -1,21 +1,15 @@
 /**
- * The dsh-context preference cards — two seats over the same eight rows. The
- * settings-section card (`settings.plugin.item`, the older harness lines)
- * renders a collapsible list item in Settings → Plugins → Plugin
- * configuration; the Plugins-page card (`plugins.bundle.config`, the
- * Config-form generation) renders the rows flat inside the section chrome the
- * Plugins page draws for the bundle. Both are keyed on the Host-served
- * `dsh-context` namespace and render nothing while it is unavailable (a
- * deployment without the Host half, or a remote browser, shows no trace).
- * The settings-section card mounts expanded when the Plugin Info card's
- * "Open plugin settings" jump left a fresh expand request (settingsJump.ts),
- * scrolling itself into view.
+ * The dsh-context preference card: the eight preference rows on the
+ * Plugins-page seat (`plugins.bundle.config`, the Config-form generation),
+ * rendered flat inside the section chrome the Plugins page draws for the
+ * bundle. The card is keyed on the Host-served `dsh-context` namespace and
+ * renders nothing while it is unavailable (a deployment without the Host
+ * half, or a remote browser, shows no trace).
  */
 
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import { IconChevronDown } from '../primitives'
-import { consumeCardExpand } from '../settingsJump'
 import type { SettingsField, SettingsState } from '../settings'
 import type { ViewKit } from '../viewkit'
 
@@ -67,7 +61,7 @@ function PrefRow(props: PrefRowProps): ReactElement {
 /** Translate over the plugin's dictionary, as the view kit binds it. */
 type Translate = ViewKit['t']
 
-/** The seven preference rows shared by both seats. */
+/** The eight preference rows. */
 function PreferenceRows(props: { t: Translate; state: SettingsState; set?: SettingsCardProps['set'] }): ReactElement {
   const { t, state, set } = props
   const disabled = state.status !== 'ready' || !state.writable
@@ -160,57 +154,10 @@ function PreferenceRows(props: { t: Translate; state: SettingsState; set?: Setti
   )
 }
 
-export function makeSettingsCard(kit: ViewKit): (props: SettingsCardProps) => ReactElement | null {
-  const { t } = kit
-  return function SettingsCard(props: SettingsCardProps): ReactElement | null {
-    const [open, setOpen] = useState(false)
-    const itemRef = useRef<HTMLLIElement | null>(null)
-    // "Open plugin settings" jump: consume its fresh expand request once on
-    // mount and land open; every guard stays local so no host quirk can surface.
-    useEffect(() => {
-      if (!consumeCardExpand()) return
-      setOpen(true)
-      try {
-        itemRef.current?.scrollIntoView({ block: 'nearest' })
-      } catch { /* hosts without scrollIntoView: expanded but unscrolled */ }
-    }, [])
-    const state = typeof props.useContextSettings === 'function' ? props.useContextSettings(s => s) : undefined
-    if (state === undefined || state.status === 'unavailable') return null
-    return (
-      <li ref={itemRef} className={'lc-settings-card' + (open ? ' lc-settings-open' : '')}>
-        <button
-          type="button"
-          className="lc-settings-head"
-          aria-expanded={open}
-          aria-label={`${t(open ? 'settings.collapse' : 'settings.expand')}: ${t('settings.title')}`}
-          onClick={() => { setOpen(!open) }}
-        >
-          <span className="lc-settings-headtext">
-            <span className="lc-settings-name">{t('settings.title')}</span>
-            <span className="lc-settings-desc">{t('settings.desc')}</span>
-          </span>
-          <IconChevronDown className="lc-settings-chevron" />
-        </button>
-        {open
-          ? (
-            <div className="lc-settings-body">
-              {!state.writable && state.status === 'ready'
-                ? <p className="lc-settings-note" role="status">{t('settings.readOnly')}</p>
-                : null}
-              <PreferenceRows t={t} state={state} set={props.set} />
-            </div>
-          )
-          : null}
-      </li>
-    )
-  }
-}
-
 /**
  * The Plugins-page card (the Config-form generation's `plugins.bundle.config`
  * seat, `view: 'page'`): the page owns the bundle's page and section chrome,
- * so the rows render flat. Same unserved/absent degradation as the
- * settings-section card.
+ * so the rows render flat. Unserved/absent degrades to nothing.
  */
 export function makePluginConfigCard(kit: ViewKit): (props: SettingsCardProps) => ReactElement | null {
   const { t } = kit

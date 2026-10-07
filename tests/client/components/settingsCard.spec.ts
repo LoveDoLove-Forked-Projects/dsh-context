@@ -1,20 +1,18 @@
-// SettingsCard (src/client/components/settingsCard.tsx) rendered with real
-// React against the real DICT_EN strings; the select rows open the REAL
-// Menu primitive (portaled into document.body) and pick through it. The
-// "Open in Settings" jump path mounts the card pre-expanded (settingsJump.ts
-// expand request), with the scroll best-effort against stubbed prototypes.
+// The preference card (src/client/components/settingsCard.tsx): the
+// Plugins-page seat rendered with real React against the real DICT_EN
+// strings; the select rows open the REAL Menu primitive (portaled into
+// document.body) and pick through it.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { makePluginConfigCard, makeSettingsCard } from '../../../src/client/components/settingsCard'
+import { makePluginConfigCard } from '../../../src/client/components/settingsCard'
 import type { SettingsState } from '../../../src/client/settings'
 import { DICT_EN } from '../../../src/client/i18n'
-import { requestCardExpand } from '../../../src/client/settingsJump'
 import { click, keydown, makeKit, mount, query, queryAll, text } from '../helpers/kit'
 
 const kit = makeKit()
-const SettingsCard = makeSettingsCard(kit)
+const PluginConfigCard = makePluginConfigCard(kit)
 
 function hookFor(state: SettingsState) {
   return <T,>(sel: (s: SettingsState) => T): T => sel(state)
@@ -29,61 +27,34 @@ function menuItems(): HTMLElement[] {
   return queryAll(document.body, '[role="menu"] [role="menuitem"]')
 }
 
-type ScrollIntoViewLike = (this: Element, arg?: unknown) => void
-
-/** Swap Element.prototype.scrollIntoView (absent in jsdom); returns the original. */
-function stubScrollIntoView(impl: ScrollIntoViewLike | undefined): ScrollIntoViewLike | undefined {
-  const proto = Element.prototype as unknown as { scrollIntoView?: ScrollIntoViewLike }
-  const original = proto.scrollIntoView
-  proto.scrollIntoView = impl
-  return original
-}
-
-describe('SettingsCard', () => {
+describe('PluginConfigCard (the Plugins-page seat)', () => {
   test('renders nothing without a settings hook or when the namespace is unavailable', async () => {
-    const m1 = await mount(h(SettingsCard, {}))
+    const m1 = await mount(h(PluginConfigCard, {}))
     assert.equal(m1.container.childElementCount, 0)
     await m1.unmount()
 
-    const m2 = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf({ status: 'unavailable' })) }))
+    const m2 = await mount(h(PluginConfigCard, { useContextSettings: hookFor(stateOf({ status: 'unavailable' })) }))
     assert.equal(m2.container.childElementCount, 0)
     await m2.unmount()
   })
 
-  test('loading state renders the card with disabled selects; the head toggles the body', async () => {
-    const m = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf({ status: 'loading', writable: false })) }))
-    const card = query(m.container, '.lc-settings-card')
-    assert.ok(!card.className.includes('lc-settings-open'))
-    const head = query(m.container, '.lc-settings-head')
-    assert.equal(head.getAttribute('aria-expanded'), 'false')
-    assert.equal(head.getAttribute('aria-label'), `${DICT_EN['settings.expand']}: ${DICT_EN['settings.title']}`)
-    assert.ok(text(m.container).includes(DICT_EN['settings.desc']))
-    assert.equal(queryAll(m.container, '.lc-settings-select').length, 0)
-
-    await click(head)
-    assert.equal(head.getAttribute('aria-expanded'), 'true')
-    assert.equal(head.getAttribute('aria-label'), `${DICT_EN['settings.collapse']}: ${DICT_EN['settings.title']}`)
-    assert.ok(card.className.includes('lc-settings-open'))
-    const selects = queryAll(m.container, '.lc-settings-select')
+  test('renders the eight rows flat — no card chrome', async () => {
+    const m = await mount(h(PluginConfigCard, { useContextSettings: hookFor(stateOf({ status: 'loading', writable: false })) }))
+    assert.equal(m.container.querySelector('.lc-settings-card'), null, 'no settings-section chrome')
+    assert.ok(query(m.container, '.lc-settings-prefs'))
+    const selects = queryAll<HTMLButtonElement>(m.container, '.lc-settings-select')
     assert.equal(selects.length, 8)
-    assert.ok(selects.every(s => (s as HTMLButtonElement).disabled))
-    // Loading is not ready: no read-only note.
+    assert.ok(selects.every(s => s.disabled), 'loading is not ready: the rows are disabled')
     assert.equal(m.container.querySelector('.lc-settings-note'), null)
-
-    await click(head)
-    assert.equal(head.getAttribute('aria-expanded'), 'false')
-    assert.ok(!card.className.includes('lc-settings-open'))
-    assert.equal(queryAll(m.container, '.lc-settings-select').length, 0)
     await m.unmount()
   })
 
   test('ready+writable: enabled selects pick through the real portaled Menu', async () => {
     const calls: [string, string][] = []
-    const m = await mount(h(SettingsCard, {
+    const m = await mount(h(PluginConfigCard, {
       useContextSettings: hookFor(stateOf()),
       set: (field, value) => { calls.push([field, value]) },
     }))
-    await click(query(m.container, '.lc-settings-head'))
     const selects = queryAll<HTMLButtonElement>(m.container, '.lc-settings-select')
     assert.ok(selects.every(s => !s.disabled))
     assert.equal(m.container.querySelector('.lc-settings-note'), null)
@@ -109,13 +80,10 @@ describe('SettingsCard', () => {
     assert.ok(text(m.container).includes(DICT_EN['settings.insightsEntry']))
     assert.ok(text(selects[1]).includes(DICT_EN['insightsEntry.show']))
     await click(selects[1])
-    assert.equal(selects[1].getAttribute('aria-expanded'), 'true')
     const entryItems = menuItems()
     assert.deepEqual(entryItems.map(i => text(i)), [DICT_EN['insightsEntry.show'], DICT_EN['insightsEntry.hide']])
     await click(entryItems[1]) // 'Hide'
     assert.deepEqual(calls, [['defaultPlacement', 'sidebar'], ['insightsEntry', 'hide']])
-    assert.equal(selects[1].getAttribute('aria-expanded'), 'false')
-    assert.equal(document.body.querySelector('[role="menu"]'), null)
 
     // The granularity row follows.
     assert.ok(text(selects[2]).includes(DICT_EN['gran.step']))
@@ -132,19 +100,14 @@ describe('SettingsCard', () => {
     assert.ok(text(selects[7]).includes(DICT_EN['files.sort.count']))
 
     await click(selects[2])
-    assert.equal(selects[2].getAttribute('aria-expanded'), 'true')
     const items = menuItems()
-    assert.equal(items.length, 2)
     assert.deepEqual(items.map(i => text(i)), [DICT_EN['gran.step'], DICT_EN['gran.turn']])
-
     await click(items[1]) // 'Turn'
     assert.deepEqual(calls, [
       ['defaultPlacement', 'sidebar'],
       ['insightsEntry', 'hide'],
       ['defaultGranularity', 'turn'],
     ])
-    assert.equal(selects[2].getAttribute('aria-expanded'), 'false')
-    assert.equal(document.body.querySelector('[role="menu"]'), null)
 
     // The trend-mode row writes the other field.
     await click(selects[3])
@@ -157,7 +120,6 @@ describe('SettingsCard', () => {
       ['defaultGranularity', 'turn'],
       ['defaultTrendMode', 'delta'],
     ])
-    assert.equal(document.body.querySelector('[role="menu"]'), null)
 
     // The duration-curve row writes its field through the same show/hide vocabulary.
     await click(selects[4])
@@ -171,7 +133,6 @@ describe('SettingsCard', () => {
       ['defaultTrendMode', 'delta'],
       ['defaultDurationCurve', 'hide'],
     ])
-    assert.equal(document.body.querySelector('[role="menu"]'), null)
 
     // The delta-baseline row writes its field through the toolbar's vocabulary.
     await click(selects[5])
@@ -186,7 +147,6 @@ describe('SettingsCard', () => {
       ['defaultDurationCurve', 'hide'],
       ['defaultDeltaBase', 'turn'],
     ])
-    assert.equal(document.body.querySelector('[role="menu"]'), null)
 
     // The tool-sort row leads the file-sort one.
     await click(selects[6])
@@ -206,7 +166,6 @@ describe('SettingsCard', () => {
       ['defaultDeltaBase', 'turn'],
       ['defaultToolSort', 'name'],
     ])
-    assert.equal(document.body.querySelector('[role="menu"]'), null)
 
     // The file-sort row writes the last field.
     await click(selects[7])
@@ -240,11 +199,10 @@ describe('SettingsCard', () => {
 
   test('Menu onClose (Escape) closes an open select without picking', async () => {
     const calls: [string, string][] = []
-    const m = await mount(h(SettingsCard, {
+    const m = await mount(h(PluginConfigCard, {
       useContextSettings: hookFor(stateOf()),
       set: (field, value) => { calls.push([field, value]) },
     }))
-    await click(query(m.container, '.lc-settings-head'))
     const select = query(m.container, '.lc-settings-select')
     await click(select)
     assert.equal(select.getAttribute('aria-expanded'), 'true')
@@ -256,10 +214,8 @@ describe('SettingsCard', () => {
     await m.unmount()
   })
 
-  test('ready+readonly: disabled selects and the read-only note when open', async () => {
-    const m = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf({ writable: false })) }))
-    // Note only renders once the body is open.
-    await click(query(m.container, '.lc-settings-head'))
+  test('ready+readonly: disabled selects and the read-only note', async () => {
+    const m = await mount(h(PluginConfigCard, { useContextSettings: hookFor(stateOf({ writable: false })) }))
     const note = query(m.container, '.lc-settings-note')
     assert.equal(note.getAttribute('role'), 'status')
     assert.equal(text(note), DICT_EN['settings.readOnly'])
@@ -268,122 +224,13 @@ describe('SettingsCard', () => {
   })
 
   test('a value matching no option falls back to the raw id; a missing set never throws', async () => {
-    const m = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf({ placement: 'weird' as never })) }))
-    await click(query(m.container, '.lc-settings-head'))
+    const m = await mount(h(PluginConfigCard, { useContextSettings: hookFor(stateOf({ placement: 'weird' as never })) }))
     const selects = queryAll(m.container, '.lc-settings-select')
     assert.ok(text(selects[0]).includes('weird'))
     // props.set undefined: picking still closes the menu, no throw.
     await click(selects[0])
     await click(menuItems()[1])
     assert.equal(document.body.querySelector('[role="menu"]'), null)
-    await m.unmount()
-  })
-
-  test('a fresh expand request mounts the card open, scrolled into view — once', async () => {
-    const scrolled: Array<{ el: Element; arg: unknown }> = []
-    const restore = stubScrollIntoView(function (this: Element, arg?: unknown) {
-      scrolled.push({ el: this, arg })
-    })
-    try {
-      requestCardExpand()
-      const m = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf()) }))
-      const card = query(m.container, '.lc-settings-card')
-      assert.ok(card.className.includes('lc-settings-open'))
-      assert.equal(query(m.container, '.lc-settings-head').getAttribute('aria-expanded'), 'true')
-      assert.equal(queryAll(m.container, '.lc-settings-select').length, 8)
-      assert.equal(scrolled.length, 1, 'the card scrolls itself into view')
-      assert.deepEqual(scrolled[0].arg, { block: 'nearest' })
-      assert.equal(scrolled[0].el, card)
-      await m.unmount()
-
-      // Consumed once: a later mount starts collapsed again.
-      const again = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf()) }))
-      assert.equal(query(again.container, '.lc-settings-head').getAttribute('aria-expanded'), 'false')
-      assert.equal(scrolled.length, 1)
-      await again.unmount()
-    } finally {
-      stubScrollIntoView(restore)
-    }
-  })
-
-  test('a host whose scrollIntoView throws still mounts expanded', async () => {    const restore = stubScrollIntoView(() => { throw new Error('no scrolling here') })
-    try {
-      requestCardExpand()
-      const m = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf()) }))
-      assert.equal(query(m.container, '.lc-settings-head').getAttribute('aria-expanded'), 'true')
-      await m.unmount()
-    } finally {
-      stubScrollIntoView(restore)
-    }
-  })
-
-  test('a pending request is consumed even when the card renders nothing', async () => {
-    requestCardExpand()
-    const m = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf({ status: 'unavailable' })) }))
-    assert.equal(m.container.childElementCount, 0)
-    await m.unmount()
-
-    const again = await mount(h(SettingsCard, { useContextSettings: hookFor(stateOf()) }))
-    assert.equal(query(again.container, '.lc-settings-head').getAttribute('aria-expanded'), 'false')
-    await again.unmount()
-  })
-})
-
-describe('PluginConfigCard (the Plugins-page seat)', () => {
-  const PluginConfigCard = makePluginConfigCard(kit)
-
-  test('renders nothing without a settings hook or when the namespace is unavailable', async () => {
-    const m1 = await mount(h(PluginConfigCard, {}))
-    assert.equal(m1.container.childElementCount, 0)
-    await m1.unmount()
-
-    const m2 = await mount(h(PluginConfigCard, { useContextSettings: hookFor(stateOf({ status: 'unavailable' })) }))
-    assert.equal(m2.container.childElementCount, 0)
-    await m2.unmount()
-  })
-
-  test('renders the eight rows flat — no card chrome, no expand request consumption', async () => {
-    requestCardExpand()
-    const m = await mount(h(PluginConfigCard, { useContextSettings: hookFor(stateOf({ status: 'loading', writable: false })) }))
-    assert.equal(m.container.querySelector('.lc-settings-card'), null, 'no settings-section chrome')
-    assert.ok(query(m.container, '.lc-settings-prefs'))
-    assert.equal(m.container.querySelector('.lc-settings-head'), null)
-    // The rows render immediately: no expand/collapse leg.
-    const selects = queryAll<HTMLButtonElement>(m.container, '.lc-settings-select')
-    assert.equal(selects.length, 8)
-    assert.ok(selects.every(s => s.disabled), 'loading is not ready: the rows are disabled')
-    assert.equal(m.container.querySelector('.lc-settings-note'), null)
-    await m.unmount()
-  })
-
-  test('ready rows pick through the portaled Menu; the read-only note renders without a disclosure', async () => {
-    const calls: [string, string][] = []
-    const m = await mount(h(PluginConfigCard, {
-      useContextSettings: hookFor(stateOf({ writable: false })),
-      set: (field, value) => { calls.push([field, value]) },
-    }))
-    const note = query(m.container, '.lc-settings-note')
-    assert.equal(text(note), DICT_EN['settings.readOnly'])
-    const selects = queryAll<HTMLButtonElement>(m.container, '.lc-settings-select')
-    assert.ok(selects.every(s => s.disabled), 'read-only: the rows are disabled')
-
-    const writable = await mount(h(PluginConfigCard, {
-      useContextSettings: hookFor(stateOf()),
-      set: (field, value) => { calls.push([field, value]) },
-    }))
-    assert.equal(writable.container.querySelector('.lc-settings-note'), null)
-    const enabled = queryAll<HTMLButtonElement>(writable.container, '.lc-settings-select')
-    assert.ok(enabled.every(s => !s.disabled))
-    await click(enabled[7]) // the file-sort row trails
-    const items = menuItems()
-    assert.deepEqual(items.map(i => text(i)), [
-      DICT_EN['files.sort.count'],
-      DICT_EN['files.sort.latest'],
-      DICT_EN['files.sort.path'],
-    ])
-    await click(items[2]) // 'By path'
-    assert.deepEqual(calls, [['defaultFileSort', 'path']])
-    await writable.unmount()
     await m.unmount()
   })
 })

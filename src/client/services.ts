@@ -30,7 +30,7 @@ export interface SlotRegistration {
   /** List slots dispatch on id + order. */
   id?: string
   order?: number
-  /** Keyed slots (e.g. settings.plugin.item) dispatch on the entry key. */
+  /** Keyed slots (e.g. plugins.bundle.config) dispatch on the entry key. */
   key?: string
   /** optional dictionary namespace; the framework then synthesizes the `t` seat. */
   locale?: string
@@ -49,7 +49,7 @@ export interface SlotsService {
 
 /**
  * One guide-page capsule a right-Sidebar tab type contributes (dsh
- * 0.1.5-rc.1+): the glyph, the title, and the optional one-line description,
+ * 0.1.7-rc.2+): the glyph, the title, and the optional one-line description,
  * exactly the fields `SidebarRightGuideEntry` carries.
  */
 export interface SidebarGuideEntryLike {
@@ -79,10 +79,10 @@ export interface SidebarTabDefinitionLike {
 
 /**
  * The right Sidebar's tab-type registry (`ctx.sidebarRightTabs`), as far as
- * this plugin consumes it. OPTIONAL by contract: the service ships only on the
- * 0.1.5 line (0.1.5-rc.1+ supported), so the plugin reaches it through a
- * deferred inject and stays fully functional (no pending fiber, no throw)
- * without it.
+ * this plugin consumes it. OPTIONAL by contract: a deployment may strip the
+ * service (and a below-baseline host, gated onto the fallback units, serves
+ * none of this half's seats), so the plugin reaches it through a deferred
+ * inject and stays fully functional (no pending fiber, no throw) without it.
  */
 export interface SidebarTabsFace {
   register(definition: SidebarTabDefinitionLike): () => void
@@ -816,13 +816,6 @@ export interface SessionScopeFace {
 export interface SessionsFace {
   scope(id: string): SessionScopeFace | undefined
   /**
-   * Select a listed session as current — the retired selection spelling,
-   * still served through the 0.1.5 line and gone since the 0.1.6 selection
-   * refactor (issue #90: the verb's home is now the view owner). Re-proved at
-   * the call site via {@link openSessionVia}, which prefers the newer face.
-   */
-  open?(id: string): void
-  /**
    * Re-pull the session-list baseline (the rows' projection column included).
    * The overview rides it on open so host-side backfill rows (backfill.ts)
    * reach a long-connected browser without a reload.
@@ -956,12 +949,12 @@ export function openPathVia(ctx: ClientCtx): ((path: string) => void) | undefine
 
 /**
  * The right Sidebar's resource opener over `ctx.sidebarRight`, or undefined
- * when this harness serves no such column (every line older than 0.1.5-rc.1) or
- * the face is hostile — the caller then keeps its system-open degradation.
- * Synchronous, and it reports whether the column took the address: `openResource`
- * throws for a no-type-claims address or with no session surface mounted, and an
- * unwired preview must fall back rather than become an inert click. The face is
- * re-proved at call time (the service can land or be revoked across an HMR
+ * when this harness serves no such column (a stripped deployment) or the face
+ * is hostile — the caller then keeps its system-open degradation. Synchronous,
+ * and it reports whether the column took the address: `openResource` throws
+ * for a no-type-claims address or with no session surface mounted, and an
+ * unwired preview must fall back rather than become an inert click. The face
+ * is re-proved at call time (the service can land or be revoked across an HMR
  * reload), so the returned closure reads it per open.
  */
 export function openResourceVia(ctx: ClientCtx): ((address: string) => boolean) | undefined {
@@ -995,26 +988,19 @@ export function openResourceVia(ctx: ClientCtx): ((address: string) => boolean) 
 /**
  * Jump to one session — the harness's own session-selection verb (issue #90).
  * Every supported line selects through the view owner (`uiWorkspace`
- * .openSession, the sidebar row click's own verb); the sessions service's own
- * `open` is the retired spelling (still served through the 0.1.5 line, gone
- * since the 0.1.6 selection refactor) and stays as the degradation path for a
- * composition without the workspace module. Both faces are re-proved per call
- * (a service can land or be revoked across an HMR reload) and the verb is
- * invoked bound (the service instance reads its own state); a generation
- * serving neither, or a hostile face, swallows — the jump is best-effort by
- * nature.
+ * .openSession, the sidebar row click's own verb, re-spelled
+ * `openSession(target: SessionTarget)` by the 0.1.6 selection refactor; a
+ * plain session id satisfies the target union). The face is re-proved per
+ * call (a service can land or be revoked across an HMR reload) and the verb
+ * is invoked bound (the service instance reads its own state); a composition
+ * without the workspace module, or a hostile face, swallows — the jump is
+ * best-effort by nature.
  */
 export function openSessionVia(ctx: ClientCtx, id: string): void {
   try {
     const workspace = asRecord(ctx.get('uiWorkspace'))
     const open = workspace?.openSession
-    if (typeof open === 'function') {
-      open.call(workspace, id)
-      return
-    }
-    const sessions = asRecord(ctx.get('sessions'))
-    const legacy = sessions?.open
-    if (typeof legacy === 'function') legacy.call(sessions, id)
+    if (typeof open === 'function') open.call(workspace, id)
   } catch { /* absent or hostile face — the jump is best-effort */ }
 }
 

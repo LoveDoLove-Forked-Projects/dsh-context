@@ -12,10 +12,9 @@
  *     click that selects the panel), the plugin contributes only the glyph
  *     and the localized label thunk.
  *
- * Both seats ship on every supported line (the `main` conversation panel and
- * the panellist contract are present since 0.1.5-rc.1 — the compat matrix
- * pins both spellings per baseline), so the registrations ride plain
- * `slots.inject` declaration injects, like the conversation tab's.
+ * Both seats ship on every supported line (the compat matrix pins both
+ * spellings per baseline), so the registrations ride plain `slots.inject`
+ * declaration injects, like the conversation tab's.
  *
  * The per-user `insightsEntry` preference gates the pair: 'show' mounts both
  * registrations, 'hide' unwinds them (a hidden entry leaves the page no

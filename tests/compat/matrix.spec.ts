@@ -105,31 +105,23 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
       assert.equal(report.poisonedSnapshotThrows, true)
     })
 
-    test('settings: the tag\'s namespace surface matches the plugin\'s feature-detected faces', () => {
-      const settings = baseline.settings
-      // The register face the host half calls (and feature-detects): present
-      // through V3, gone on the V4+ Config-form generations.
+    test('settings: the retired register face stays gone (the plugin never calls it)', () => {
+      // The Config-form generation derives forms from each loader entry's own
+      // Config schema; `settings.register` retired with the older lines. The
+      // probe pins the absence, so a resurrection names the seam.
       assert.equal(
-        staging.dshHasString(baseline.tag, 'register(', settings.serviceFile),
-        settings.register,
+        staging.dshHasString(baseline.tag, 'register(', baseline.settings.serviceFile),
+        baseline.settings.register,
         'the settings service register face',
       )
-      // Where the generation enforces a namespace pattern it must accept the
-      // plugin literal; where it does not (the pattern source is gone), the
-      // register probe above already pins the plugin's inert path.
-      if (settings.patternFile === undefined) return
-      const pattern = staging.namespacePatternOf(baseline, settings.patternFile)
-      assert.ok(pattern !== null, 'the tag source carries NAMESPACE_PATTERN')
-      assert.equal(pattern.test('dsh-context'), true)
     })
 
     test('balance: the settings face and the DeepSeek provider row the facts fold reads', () => {
-      // The balance route resolves the provider's settings row through the
-      // face this generation serves — the `get(ns)` section read through V3,
-      // the Config-form `describe()` projection on V4+ (the row matched by
-      // its own apiKeyEnv-bearing section shape). Presence asserted both
-      // ways, so a moved seam names itself instead of silently hiding the
-      // capsule.
+      // The balance route resolves the provider's settings row off the
+      // Config-form `describe()` projection (the row matched by its own
+      // apiKeyEnv-bearing section shape); the retired `get(ns)` section read
+      // is asserted absent, so a moved seam names itself instead of silently
+      // hiding the capsule.
       const balance = baseline.balance
       assert.equal(
         staging.dshHasString(baseline.tag, balance.settingsGetNeedle, balance.settingsFile),
@@ -158,11 +150,11 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
 
     test('client: the preferences card seat and transport match the generation', () => {
       // The keyed slot the browser half's card registers on and the settings
-      // transport it rides: `settings.plugin.item` + `settingsScope` through
-      // V3, the Plugins page's `plugins.bundle.config` + `configForms` from
-      // the Config-form generation on. Asserted BOTH ways (like the sidebar
-      // seam) so a moved seam cannot read as "unsupported here" — a slot the
-      // generation does not declare simply never receives the registration.
+      // transport it rides: the Plugins page's `plugins.bundle.config` +
+      // `configForms` on every supported line. Asserted BOTH ways (like the
+      // sidebar seam) so a moved seam cannot read as "unsupported here" — a
+      // slot the generation does not declare simply never receives the
+      // registration.
       const settings = baseline.settings
       assert.equal(
         settings.cardSlotFiles.some(pattern =>
@@ -223,7 +215,7 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
     test('client: the session-jump seam of this generation (issue #90)', () => {
       // The view owner's navigation verb (the sidebar row click's own), with
       // the signature this line spells; and the retired sessions-service
-      // `open(id)` selection verb, declared exactly where the line still has it.
+      // `open(id)` selection verb, probed staying gone.
       const nav = baseline.client.sessionNav
       assert.equal(
         staging.dshHasString(baseline.tag, nav.workspaceNeedle, nav.workspaceFile),
@@ -248,10 +240,9 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
     })
 
     test('client: the icon seams resolve on this generation (primitives.ts)', () => {
-      for (const [modern, legacy] of staging.ICON_SEAMS) {
-        const present = staging.dshHasString(baseline.tag, modern, 'packages/client/ui-primitives/src/**')
-          || staging.dshHasString(baseline.tag, legacy, 'packages/client/ui-primitives/src/**')
-        assert.equal(present, true, `icon seam: ${modern} | ${legacy}`)
+      for (const name of staging.ICON_SEAMS) {
+        const present = staging.dshHasString(baseline.tag, name, 'packages/client/ui-primitives/src/**')
+        assert.equal(present, true, `icon seam: ${name}`)
       }
     })
 

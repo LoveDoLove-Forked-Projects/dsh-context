@@ -9,11 +9,9 @@
  * live form from this same schema — there the namespace is the entry id
  * (`dsh-context`) and only the `.volatile()` preference fields are served and
  * editable. Bounds edits remount the entry (the folds read them at apply);
- * preference edits commit volatile-only and never remount. On the older lines
- * the preferences are inert here — their surface is the registered settings
- * namespace (settings.ts). The `Config` type describes the RESOLVED shape
- * cordis hands to `apply`; the raw patch values are partial and the schema
- * fills every default.
+ * preference edits commit volatile-only and never remount. The `Config` type
+ * describes the RESOLVED shape cordis hands to `apply`; the raw patch values
+ * are partial and the schema fills every default.
  */
 
 import z from '@deepseek-ai/schemastery'
@@ -73,8 +71,8 @@ export const DEFAULT_BOUNDS: FoldBounds = {
 /**
  * Mark a field live-editable where the harness's schemastery ships the
  * `.volatile()` modifier (the Config-form generation reads the mark to serve
- * the field on the Plugins page); a plain field on the older lines whose
- * schemastery predates the modifier.
+ * the field on the Plugins page); a plain field where the modifier is absent
+ * (the feature-detect keeps one schema serving every harness the gate admits).
  */
 export function volatileField<S extends z>(field: S): S {
   const volatile = (field as unknown as { volatile?: () => S }).volatile

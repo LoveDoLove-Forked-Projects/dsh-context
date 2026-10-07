@@ -1,9 +1,9 @@
 /**
  * The plugin's user-settings binding (browser half). The Host-served
  * `dsh-context` namespace carries per-user display preferences; the Context
- * tab reads them at mount, and the Plugin configuration card (Settings →
- * Plugins) writes them through the settings scope. Both degrade to the
- * schema defaults when the settings surface is absent (older host) or
+ * tab reads them at mount, and the Plugins page's configuration card writes
+ * them through the bound form. Both degrade to the schema defaults when the
+ * settings surface is absent (a host without the Config-form transport) or
  * read-only (remote browser in memory mode).
  *
  * The scope faces are minimally re-typed here (the services.ts discipline):
@@ -18,16 +18,11 @@ import type { DefaultDeltaBase, DefaultFileSort, DefaultGranularity, DefaultDura
 // here so client-side consumers keep their canonical import path.
 export type { DefaultDeltaBase, DefaultFileSort, DefaultGranularity, DefaultDurationCurve, DefaultPlacement, DefaultToolSort, DefaultTrendMode, InsightsEntry, SettingsField } from '../shared/types'
 
-/** The bound settings scope (ctx.settingsScope.bind result), as consumed. */
+/** The bound settings form (the ctx.configForms.get result), as consumed. */
 export interface SettingsScopeLike {
   getSnapshot(): { status: string; value: unknown; writable: boolean }
   subscribe(listener: () => void): () => void
   set(field: string, value: unknown): Promise<void>
-}
-
-/** The ctx.settingsScope binder face, as consumed. */
-export interface SettingsScopeBinderFace {
-  bind(spec: { namespace: string }): SettingsScopeLike
 }
 
 /**

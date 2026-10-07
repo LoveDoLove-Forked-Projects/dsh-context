@@ -145,26 +145,15 @@ describe('timing — tool call durations', () => {
     })
   })
 
-  test('repeated names accumulate; the block-id fallback prices too', () => {
+  test('repeated names accumulate into the per-name tally', () => {
     const call = (seq: number, callId: string, time: number): TimelineEvent => ({
       type: 'tool/call', seq, time, data: { callId, name: 'bash', arguments: '{}' },
     })
-    const blockResult: TimelineEvent = {
-      type: 'tool/result', seq: 5, time: 9_000,
-      data: {
-        callId: 'x',
-        message: {
-          source: { kind: 'tool', callId: 'x' },
-          content: [{ type: 'tool-result', toolCallId: 'c2', content: text('ok') }],
-        },
-      },
-      surfaceOp: 'append',
-    }
     const { state } = driveTimeline([
       call(1, 'c1', 1_000),
       toolResult(2, { callId: 'c1', content: text('ok'), time: 3_000 }),
       call(4, 'c2', 5_000),
-      blockResult,
+      toolResult(5, { callId: 'c2', content: text('ok'), time: 9_000 }),
     ])
     assert.equal(state.timing?.toolsMs, 2_000 + 4_000)
     assert.deepEqual(state.timing?.tools, { bash: { calls: 2, ms: 6_000 } })

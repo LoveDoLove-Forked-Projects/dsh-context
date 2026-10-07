@@ -30,7 +30,6 @@ import { Config, resolveBounds } from './config'
 import { watchDetailChannel } from './detail'
 import { createFallbackActivityDefinition, createFallbackHeadersDefinition, createFallbackTimelineDefinition } from './fallback'
 import { createContextHeadersDefinition } from './headers'
-import { installSettings } from './settings'
 import { watchStepIdentity } from './stepIdentity'
 import { createContextTimelineDefinition } from './timeline'
 import { detectHarnessVersion } from './version'
@@ -95,7 +94,6 @@ export function apply(ctx: Context, config: Config): void {
   // demand — the dashboard (the rows' only reader) summons the pass through
   // the plugin's fetch route the first time it opens.
   watchActivityBackfill(ctx, coldReads)
-  installSettings(ctx)
 }
 
 // ---- public type surface (stable for downstream consumers) -------------------

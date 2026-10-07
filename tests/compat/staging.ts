@@ -85,13 +85,6 @@ export function ensureHostDeps(baseline: Baseline): void {
   if (run.status !== 0) throw new Error(`npm install ${JSON.stringify(deps)} failed: ${(run.stderr ?? '').trim().slice(0, 300)}`)
 }
 
-/** The tag's settings namespace pattern, read off the file the baseline names (null when absent). */
-export function namespacePatternOf(baseline: Baseline, file: string): RegExp | null {
-  const source = dshShow(baseline.tag, file)
-  const match = /^const NAMESPACE_PATTERN = \/(.+)\/([gimsuy]*)$/m.exec(source)
-  return match === null ? null : new RegExp(match[1], match[2])
-}
-
 export interface DriverReport {
   registered: boolean
   keys: string[]
@@ -305,9 +298,8 @@ export function bundleRequires(): string[] {
  * The slot registrations the client half mounts on EVERY baseline (identical
  * spellings in each generation's sources). The preferences card seat and the
  * settings transport are asserted separately, per generation — the matrix
- * spec pins them to the baseline's `settings` seam (`settings.plugin.item` +
- * `settingsScope` through V3, the Plugins page's `plugins.bundle.config` +
- * `configForms` from the Config-form generation on).
+ * spec pins them to the baseline's `settings` seam (`plugins.bundle.config` +
+ * `configForms` on every supported line).
  */
 export const SLOT_SEAMS = [
   'conversation.view',
@@ -316,29 +308,30 @@ export const SLOT_SEAMS = [
 ] as const
 
 /**
- * The ui-primitives icon seams the client bundle renders, as [modern, legacy]
- * name pairs: the vocabulary renamed across the range (`…Outline16`/`…14`
- * through 0.1.5, `…OutlineRegular`/`…OutlineMedium` from 0.1.6), and a
- * missing name is `undefined` at the browser's runtime — React error #130.
- * `src/client/primitives.ts` resolves whichever spelling the running
- * generation serves; each pair must exist in at least one spelling per tag.
+ * The ui-primitives icon seams the client bundle renders: every supported
+ * line ships the `…OutlineRegular`/`…OutlineMedium` vocabulary, and a missing
+ * name is `undefined` at the browser's runtime — React error #130.
+ * `src/client/primitives.ts` resolves each by name; every one must exist per
+ * tag.
  */
 export const ICON_SEAMS = [
-  ['IconBranchOutlineRegular', 'IconBranchOutline16'],
-  ['IconPlusOutlineRegular', 'IconPlusOutline16'],
-  ['IconCheckOutlineRegular', 'IconCheckOutline16'],
-  ['IconCopyOutlineRegular', 'IconCopyOutline16'],
-  ['IconCloseOutlineRegular', 'IconCloseOutline16'],
-  ['IconSettingsOutlineMedium', 'IconSettingsOutline14'],
-  ['IconChevronDownOutlineMedium', 'IconChevronDownOutline14'],
+  'IconBranchOutlineRegular',
+  'IconPlusOutlineRegular',
+  'IconCheckOutlineRegular',
+  'IconCopyOutlineRegular',
+  'IconCloseOutlineRegular',
+  'IconSettingsOutlineMedium',
+  'IconChevronDownOutlineMedium',
+  'IconChevronUpOutlineMedium',
+  'IconSearchOutlineRegular',
 ] as const
 
 /**
  * The event families the host fold switches on (src/host/fold.ts) — the UNION
- * over every supported generation (developer/message is V4-only). The
- * per-baseline probe asserts the baseline's own `foldEventTypes` subset, and
- * a matrix test asserts this union equals the baselines' union — a fold case
- * added without a baseline list fails loudly instead of going unprobed.
+ * over every supported generation. The per-baseline probe asserts the
+ * baseline's own `foldEventTypes` subset, and a matrix test asserts this
+ * union equals the baselines' union — a fold case added without a baseline
+ * list fails loudly instead of going unprobed.
  */
 export const FOLD_EVENT_TYPES = [
   'request/header', 'request/context', 'step/start', 'step/end',

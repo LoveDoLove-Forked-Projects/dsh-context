@@ -161,20 +161,21 @@ export function pageNodesOf(entries: readonly unknown[]): Map<number, Conversati
       continue
     }
     if (type === 'tool/result') {
+      // The V4 first-class tool-role message: the lifted `toolCallId` /
+      // `isError` live ON the message (the durable source mirrors the call
+      // id), and the content is the direct block list.
       const message = data.message !== null && typeof data.message === 'object' ? data.message as Record<string, unknown> : null
       const source = message?.source !== null && typeof message?.source === 'object' ? message.source as Record<string, unknown> : null
-      const first = Array.isArray(message?.content) ? (message.content as unknown[])[0] : undefined
-      const block = first !== null && typeof first === 'object' ? first as Record<string, unknown> : null
-      const callId = typeof source?.callId === 'string' ? source.callId
-        : typeof block?.toolCallId === 'string' ? block.toolCallId
+      const callId = typeof message?.toolCallId === 'string' ? message.toolCallId
+        : typeof source?.callId === 'string' ? source.callId
           : null
       const call = callId !== null ? calls.get(callId) ?? null : null
       nodes.set(seq, {
         kind: 'tool-result',
         seq,
         call,
-        content: block !== null && Array.isArray(block.content) ? block.content as readonly unknown[] : [],
-        isError: block?.isError === true || data.error === true,
+        content: Array.isArray(message?.content) ? message.content as readonly unknown[] : [],
+        isError: message?.isError === true,
       })
       continue
     }

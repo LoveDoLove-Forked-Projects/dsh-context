@@ -7,7 +7,7 @@
  * host serves no `fileOps`.
  *
  * Tool coverage matches the harness's built-ins on every supported baseline
- * (0.1.5-rc.1): read / read_image / write / edit (tool-fs) and grep / glob
+ * (0.1.7-rc.2+): read / read_image / write / edit (tool-fs) and grep / glob
  * (tool-fs-search), plus the Anthropic-style `str_replace_editor` (view
  * reads, every other command writes). Line deltas are estimates read off the
  * call ARGUMENTS (an edit's old/new strings, a write's content), never off

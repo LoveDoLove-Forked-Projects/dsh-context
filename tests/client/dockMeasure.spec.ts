@@ -31,14 +31,14 @@ describe('measureDock', () => {
     assert.deepEqual(measureDock(start), { left: 0, right: 0, frame: null })
   })
 
-  test('parses the sidebar tracks off the frame ancestor (V3 spelling, fixed right track)', () => {
+  test('parses the sidebar tracks off the frame ancestor (fixed right track)', () => {
     vi.stubGlobal('innerWidth', 1024)
     const frame = frameEl('280px minmax(0, 1fr) 360px')
     const start = chainOf(frame, document.createElement('div'), document.createElement('div'))
     assert.deepEqual(measureDock(start), { left: 280, right: 360, frame })
   })
 
-  test('parses the V4 minmax spelling: the right panel open and closed', () => {
+  test('parses the minmax spelling: the right panel open and closed', () => {
     vi.stubGlobal('innerWidth', 1280)
     const openFrame = frameEl('280px minmax(400px, 1fr) minmax(0px, 576px)')
     assert.deepEqual(measureDock(chainOf(openFrame, document.createElement('div'))), { left: 280, right: 576, frame: openFrame })

@@ -47,11 +47,14 @@ describe('estimateMessage', () => {
     assert.equal(estimateMessage({ content: [{ type: 'tool-call' }] }), 8)
   })
 
-  test('tool-result blocks price their nested content recursively', () => {
+  test('a retired wrapper block prices as generic JSON (the meter parity branch)', () => {
+    // The supported log generation carries no wrapper blocks; a hostile one
+    // prices through the same structural-JSON arm the meter applies to every
+    // unknown block.
+    const block = { type: 'tool-result', content: [{ type: 'text', text: 'ok' }] }
     assert.equal(
-      estimateMessage({ content: [{ type: 'tool-result', content: [{ type: 'text', text: 'ok' }] }] }),
-      // inner text: ceil(2/4)+4 = 5; wrapper: +4; role: +4
-      13,
+      estimateMessage({ content: [block] }),
+      4 + Math.ceil(JSON.stringify(block).length / 4) + 4,
     )
   })
 

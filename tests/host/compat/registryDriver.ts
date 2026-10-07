@@ -3,7 +3,6 @@
 // source at each baseline tag so the always-on suite pins the plugin's units
 // against every supported registry generation:
 //
-//   dsh-v0.1.5-rc.1  packages/session/session-projection/src/index.ts
 //   dsh-v0.1.7-rc.2  packages/session/session-projection/src/index.ts
 //   dsh-v0.2.0-rc.2  packages/session/session-projection/src/index.ts
 //

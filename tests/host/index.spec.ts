@@ -210,8 +210,7 @@ describe('dsh-context host plugin', () => {
     // A file-tool pair: the fold-derived op log serves through the detail endpoint.
     const call = session.append('tool/call', { turn: 1, step: 1, callId: 'c1', name: 'read', arguments: JSON.stringify({ file_path: 'src/a.ts' }) } as never)
     session.append('tool/result', {
-      callId: 'c1',
-      message: { content: [{ type: 'tool-result', toolCallId: 'c1', content: [{ type: 'text', text: 'ok' }] }], source: { kind: 'tool', callId: 'c1' } },
+      message: { role: 'tool', toolCallId: 'c1', content: [{ type: 'text', text: 'ok' }], source: { kind: 'tool', callId: 'c1' } },
     } as never, { surfaceOp: 'append', sourceEventSeqs: [call.seq] })
 
     const timeline = ctx.sessionProjections.snapshot(session).values.contextTimeline
@@ -279,7 +278,7 @@ describe('the baseline gate', () => {
 
     const timeline = ctx.sessionProjections.snapshot(session).values.contextTimeline
     assert.ok(timeline !== undefined, 'the fallback unit still delivers (no eternal loading)')
-    assert.deepEqual(timeline.unsupported, { current: '0.1.1-rc.2', minimum: BASELINE_DSH_VERSION })
+    assert.deepEqual(timeline.unsupported, { current: '0.1.5-rc.1', minimum: BASELINE_DSH_VERSION })
     assert.equal(timeline.current.total, 0, 'the log is NOT folded below the baseline')
     assert.equal(timeline.nodes.length, 0, 'real appends leave no surface nodes')
     assert.equal(timeline.model, undefined, 'no model metadata either')

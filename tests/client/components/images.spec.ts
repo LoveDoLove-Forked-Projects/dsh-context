@@ -218,7 +218,7 @@ describe('AttachmentLightbox', () => {
     assert.equal(query<HTMLImageElement>(box, '.lc-att-lightbox-img').getAttribute('src'), 'blob:x')
     const close = query(box, '.lc-att-lightbox-close')
     assert.equal(close.getAttribute('aria-label'), 'Close')
-    assert.ok(query(box, 'svg') instanceof SVGElement) // real IconCloseOutline16
+    assert.ok(query(box, 'svg') instanceof SVGElement) // real IconCloseOutlineRegular
     assert.equal(document.activeElement, close) // focus moved into the dialog
     await keydown('Enter') // non-Escape keys keep it open
     assert.equal(queryAll(document.body, '.lc-att-lightbox').length, 1)

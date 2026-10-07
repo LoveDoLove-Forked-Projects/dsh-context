@@ -64,12 +64,7 @@ function ctxOf(spec: CtxSpec): { ctx: Context; captured: { path?: string; fetch?
   return { ctx: ctx as unknown as Context, captured, disposers }
 }
 
-/** The harness settings face serving one namespace's resolved section. */
-function settingsOf(section: unknown): { get(ns: string): unknown } {
-  return { get: (ns: string) => (ns === 'llm-deepseek' ? section : undefined) }
-}
-
-/** The V4+ settings face projecting one row per configurable entry (`throws` fails the read). */
+/** The harness settings face projecting one row per configurable entry (`throws` fails the read). */
 function settingsDescribeOf(rows: unknown, throws = false): { describe(): unknown } {
   return {
     describe() {
@@ -77,6 +72,11 @@ function settingsDescribeOf(rows: unknown, throws = false): { describe(): unknow
       return rows
     },
   }
+}
+
+/** The settings face serving one provider section, as the Config-form projection's `llm-deepseek` row. */
+function settingsOf(section: unknown): { describe(): unknown } {
+  return settingsDescribeOf([{ ns: 'llm-deepseek', value: section }])
 }
 
 /** The harness credentials face serving one resolved value. */
@@ -95,11 +95,11 @@ const CNY_BALANCE = {
   balance_infos: [{ currency: 'CNY', total_balance: '110.00', granted_balance: '10.00', topped_up_balance: '100.00' }],
 }
 
-/** The all-configured ctx spec: a default section, a resolvable key. */
+/** The all-configured ctx spec: the provider row (its served value always declares the credential ref), a resolvable key. */
 function configuredCtx(spec: CtxSpec = {}): CtxSpec {
   return {
     connection: { fetch: { register: () => () => {} } },
-    settings: settingsOf({}),
+    settings: settingsOf({ apiKeyEnv: 'DEEPSEEK_API_KEY' }),
     credentials: credentialsOf('sk-test'),
     ...spec,
   }
@@ -180,7 +180,7 @@ describe('balance route outcomes', () => {
     const refs: string[] = []
     const { ctx, captured } = ctxOf({
       connection: { fetch: { register: () => () => {} } },
-      settings: settingsOf({}),
+      settings: settingsOf({ apiKeyEnv: 'DEEPSEEK_API_KEY' }),
       credentials: credentialsOf('sk-test', refs),
     })
     watchBalanceChannel(ctx)
@@ -230,7 +230,7 @@ describe('balance route outcomes', () => {
     const absent: CtxSpec[] = [
       configuredCtx({ settings: undefined }),
       configuredCtx({ settings: {} }),
-      configuredCtx({ settings: { get: 'nope' } }),
+      configuredCtx({ settings: { describe: 'nope' } }),
       configuredCtx({ settings: settingsOf(undefined) }),
       configuredCtx({ settings: settingsOf('not a section') }),
       configuredCtx({ credentials: undefined }),
@@ -292,8 +292,8 @@ describe('balance route outcomes', () => {
   })
 })
 
-describe('settings faces across generations', () => {
-  test('the V4+ describe face serves the facts by the provider row\'s own shape', async () => {
+describe('settings face (the Config-form projection)', () => {
+  test('the describe face serves the facts by the provider row\'s own shape', async () => {
     const refs: string[] = []
     const { ctx, captured } = ctxOf({
       connection: { fetch: { register: () => () => {} } },
@@ -343,38 +343,6 @@ describe('settings faces across generations', () => {
     stubPlatform(CNY_BALANCE)
     await serve(captured)
     assert.deepEqual(refs, ['PRODUCT_KEY'])
-  })
-
-  test('a V3 section that reads absent falls through to the describe face', async () => {
-    const refs: string[] = []
-    const { ctx, captured } = ctxOf({
-      connection: { fetch: { register: () => () => {} } },
-      settings: {
-        get: () => undefined,
-        describe: () => [{ ns: 'llm-deepseek-api-key', value: { apiKeyEnv: 'FALLBACK_KEY' } }],
-      },
-      credentials: credentialsOf('sk-fallback', refs),
-    })
-    watchBalanceChannel(ctx)
-    stubPlatform(CNY_BALANCE)
-    await serve(captured)
-    assert.deepEqual(refs, ['FALLBACK_KEY'])
-  })
-
-  test('the V3 section wins when both faces are served', async () => {
-    const refs: string[] = []
-    const { ctx, captured } = ctxOf({
-      connection: { fetch: { register: () => () => {} } },
-      settings: {
-        get: (ns: string) => (ns === 'llm-deepseek' ? { apiKeyEnv: 'V3_KEY' } : undefined),
-        describe: () => [{ ns: 'llm-deepseek-api-key', value: { apiKeyEnv: 'V4_KEY' } }],
-      },
-      credentials: credentialsOf('sk-both', refs),
-    })
-    watchBalanceChannel(ctx)
-    stubPlatform(CNY_BALANCE)
-    await serve(captured)
-    assert.deepEqual(refs, ['V3_KEY'])
   })
 
   test('every broken describe shape serves a typed null without touching the platform', async () => {

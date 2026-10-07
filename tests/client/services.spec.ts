@@ -278,9 +278,9 @@ describe('timelineOf', () => {
   })
 
   test('the unsupported gate record survives the sanitizing slow path only when well-formed', () => {
-    const kept = timelineOf({ current: 1, unsupported: { current: '0.1.1-rc.2', minimum: '0.1.5-rc.1' } })
+    const kept = timelineOf({ current: 1, unsupported: { current: '0.1.1-rc.2', minimum: '0.1.7-rc.2' } })
     assert.ok(kept !== null)
-    assert.deepEqual(kept.unsupported, { current: '0.1.1-rc.2', minimum: '0.1.5-rc.1' })
+    assert.deepEqual(kept.unsupported, { current: '0.1.1-rc.2', minimum: '0.1.7-rc.2' })
     for (const bad of ['x', null, {}, { current: 1, minimum: 'm' }, { current: 'c' }]) {
       const out = timelineOf({ current: 1, unsupported: bad })
       assert.ok(out !== null)
@@ -354,7 +354,7 @@ describe('timelineOf', () => {
 
 describe('unsupportedOf', () => {
   test('well-formed records pass through as plain data', () => {
-    assert.deepEqual(unsupportedOf({ current: '0.1.1-rc.2', minimum: '0.1.5-rc.1' }), { current: '0.1.1-rc.2', minimum: '0.1.5-rc.1' })
+    assert.deepEqual(unsupportedOf({ current: '0.1.1-rc.2', minimum: '0.1.7-rc.2' }), { current: '0.1.1-rc.2', minimum: '0.1.7-rc.2' })
   })
 
   test('non-records and wrong-typed fields degrade to null', () => {
@@ -854,29 +854,14 @@ describe('openSessionVia', () => {
   const ctxWith = (services: Record<string, unknown>): ClientCtx => ({ get: (name: string) => services[name] }) as unknown as ClientCtx
 
   test('jumps through the view owner — every supported line\'s own verb (issue #90)', () => {
-    // Exactly the rc.2 composition: uiWorkspace serves the navigation verb,
-    // the sessions service carries no selection at all.
+    // Exactly the supported composition: uiWorkspace serves the navigation
+    // verb, the sessions service carries no selection at all.
     const opened: string[] = []
     openSessionVia(ctxWith({
       uiWorkspace: { openSession(id: string) { opened.push(id) } },
       sessions: { list: { getSnapshot: () => ({}) } },
     }), 's2')
     assert.deepEqual(opened, ['s2'])
-  })
-
-  test('the retired sessions-service verb still serves as the degradation path', () => {
-    const opened: string[] = []
-    openSessionVia(ctxWith({ sessions: { open: (id: string) => { opened.push(id) } } }), 's1')
-    assert.deepEqual(opened, ['s1'])
-  })
-
-  test('when both faces serve a verb, the view owner wins', () => {
-    const via: string[] = []
-    openSessionVia(ctxWith({
-      uiWorkspace: { openSession: (id: string) => { via.push(`workspace:${id}`) } },
-      sessions: { open: (id: string) => { via.push(`sessions:${id}`) } },
-    }), 's3')
-    assert.deepEqual(via, ['workspace:s3'])
   })
 
   test('the verb is invoked bound to its service instance', () => {
@@ -889,17 +874,14 @@ describe('openSessionVia', () => {
     assert.equal(seen, 's4:s4')
   })
 
-  test('a generation serving neither verb, or a verb-less face, swallows silently', () => {
+  test('a composition without the workspace module, or a verb-less face, swallows silently', () => {
     openSessionVia(ctxWith({}), 's5')
-    openSessionVia(ctxWith({ uiWorkspace: {}, sessions: null }), 's5')
+    openSessionVia(ctxWith({ uiWorkspace: {} }), 's5')
     openSessionVia(ctxWith({ uiWorkspace: { openSession: 7 } }), 's5')
-    openSessionVia(ctxWith({ sessions: {} }), 's5')
-    openSessionVia(ctxWith({ sessions: { open: 7 } }), 's5')
   })
 
   test('a hostile face never throws into the click handler', () => {
     openSessionVia(ctxWith({ uiWorkspace: { openSession: () => { throw new Error('boom') } } }), 's6')
-    openSessionVia(ctxWith({ sessions: { open: () => { throw new Error('boom') } } }), 's6')
     // A traced proxy can throw on the property READ itself (issue #42).
     openSessionVia(ctxWith({ uiWorkspace: { get openSession() { throw new Error('boom') } } }), 's6')
     openSessionVia({ get: () => { throw new Error('boom') } } as unknown as ClientCtx, 's6')
