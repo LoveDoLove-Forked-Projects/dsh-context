@@ -38,7 +38,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { ContextTimeline, ContextTimelineDetail } from '../shared/types'
 import type { ClientCtx, SessionStandardProps } from './services'
-import { asRecord, numOf, objectsOf, projectionOf, timelineOf } from './services'
+import { asRecord, collectionsOf, projectionOf, timelineOf } from './services'
 
 // The detail route of host/detail.ts — re-declared here: the client bundle
 // inlines every import, and the host module must never reach it. Same-origin
@@ -63,16 +63,7 @@ export function detailOf(value: unknown): ContextTimelineDetail | null {
   return {
     rev: data.rev,
     ...(head !== null ? { head } : {}),
-    requests: objectsOf(data.requests),
-    events: objectsOf(data.events),
-    nodes: objectsOf(data.nodes),
-    droppedNodes: numOf(data.droppedNodes),
-    archive: objectsOf(data.archive),
-    ...(typeof data.surfaceFloor === 'number' ? { surfaceFloor: data.surfaceFloor } : {}),
-    ...(typeof data.archiveFloor === 'number' ? { archiveFloor: data.archiveFloor } : {}),
-    ...(data.fileOps !== undefined ? { fileOps: objectsOf(data.fileOps) } : {}),
-    ...(typeof data.fileOpsFloor === 'number' ? { fileOpsFloor: data.fileOpsFloor } : {}),
-    ...(data.spans !== undefined ? { spans: objectsOf(data.spans) } : {}),
+    ...collectionsOf(data),
   }
 }
 

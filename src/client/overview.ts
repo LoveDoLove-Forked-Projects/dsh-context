@@ -55,36 +55,29 @@ export interface OverviewRow {
 }
 
 /**
- * The `useSessions` standard prop read, hook-safe and hostility-proof: the
- * seat must be a function (absent = a harness without the sessions service —
- * the panel renders its unavailable note), and a throwing seat/snapshot
- * reads as null. Called unconditionally at the top of the panel component
- * (the seat is a real hook; the identity selector keeps the raw snapshot so
- * the pure {@link rowsOfSnapshot} derivation can ride useMemo).
+ * The guarded standard-prop hook read behind both snapshot readers: the seat
+ * must be a function (absent = a harness without the service), and a throwing
+ * seat/snapshot reads as null. Called unconditionally at the top of the panel
+ * component (the seat is a real hook; the identity selector keeps the raw
+ * snapshot so the pure derivations can ride useMemo).
  */
-export function sessionsSnapshotOf(props: { useSessions?: unknown }): unknown {
-  const useSessions = props.useSessions
-  if (typeof useSessions !== 'function') return null
+function standardSnapshotOf(seat: unknown): unknown {
+  if (typeof seat !== 'function') return null
   try {
-    return (useSessions as <T>(selector: (snapshot: unknown) => T) => T)(snapshot => snapshot)
+    return (seat as <T>(selector: (snapshot: unknown) => T) => T)(snapshot => snapshot)
   } catch {
     return null
   }
 }
 
-/**
- * The `useWorkspaces` standard prop read — same guarded-hook contract as
- * {@link sessionsSnapshotOf}. The overview joins its session → workspace
- * grouping off this snapshot for the cards' breadcrumb row.
- */
+/** The `useSessions` snapshot (absent seat → the panel's unavailable note). */
+export function sessionsSnapshotOf(props: { useSessions?: unknown }): unknown {
+  return standardSnapshotOf(props.useSessions)
+}
+
+/** The `useWorkspaces` snapshot — the session → workspace grouping join. */
 export function workspacesSnapshotOf(props: { useWorkspaces?: unknown }): unknown {
-  const useWorkspaces = props.useWorkspaces
-  if (typeof useWorkspaces !== 'function') return null
-  try {
-    return (useWorkspaces as <T>(selector: (snapshot: unknown) => T) => T)(snapshot => snapshot)
-  } catch {
-    return null
-  }
+  return standardSnapshotOf(props.useWorkspaces)
 }
 
 /**

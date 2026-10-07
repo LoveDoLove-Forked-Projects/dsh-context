@@ -282,6 +282,28 @@ export function objectsOf<T>(value: unknown): T[] {
 }
 
 /**
+ * The collection/floor block every timeline-shaped payload carries — the
+ * full snapshot (timelineOf) and the split detail (timelineSource.ts) share
+ * this exact field set, re-proved per field at the boundary.
+ */
+export function collectionsOf(data: Record<string, unknown>): Pick<ContextTimeline,
+  'requests' | 'events' | 'nodes' | 'droppedNodes' | 'archive'
+  | 'surfaceFloor' | 'archiveFloor' | 'fileOps' | 'fileOpsFloor' | 'spans'> {
+  return {
+    requests: objectsOf(data.requests),
+    events: objectsOf(data.events),
+    nodes: objectsOf(data.nodes),
+    droppedNodes: numOf(data.droppedNodes),
+    archive: objectsOf(data.archive),
+    ...(typeof data.surfaceFloor === 'number' ? { surfaceFloor: data.surfaceFloor } : {}),
+    ...(typeof data.archiveFloor === 'number' ? { archiveFloor: data.archiveFloor } : {}),
+    ...(data.fileOps !== undefined ? { fileOps: objectsOf(data.fileOps) } : {}),
+    ...(typeof data.fileOpsFloor === 'number' ? { fileOpsFloor: data.fileOpsFloor } : {}),
+    ...(data.spans !== undefined ? { spans: objectsOf(data.spans) } : {}),
+  }
+}
+
+/**
  * The fast path's collection check: a real array whose entries are ALL
  * records. A null/primitive entry would pass a bare Array.isArray yet throw
  * on the first property read downstream (`req.seq` on null), so it sends the
@@ -410,26 +432,17 @@ export function timelineOf(value: unknown): ContextTimeline | null {
       tool: numOf(safeCurrent.tool),
       total: numOf(safeCurrent.total),
     },
-    requests: objectsOf(data.requests),
-    events: objectsOf(data.events),
-    nodes: objectsOf(data.nodes),
-    droppedNodes: numOf(data.droppedNodes),
+    ...collectionsOf(data),
     ...(typeof data.images === 'number' ? { images: data.images } : {}),
     ...(typeof data.toolCalls === 'number' ? { toolCalls: data.toolCalls } : {}),
     ...(typeof data.humanInputs === 'number' ? { humanInputs: data.humanInputs } : {}),
     ...(typeof data.lastUser === 'string' && data.lastUser !== '' ? { lastUser: data.lastUser.slice(0, 200) } : {}),
-    archive: objectsOf(data.archive),
     ...(counts !== undefined ? { counts } : {}),
     ...(last !== undefined ? { last } : {}),
     ...(typeof data.detailRev === 'number' && Number.isFinite(data.detailRev) ? { detailRev: data.detailRev } : {}),
     ...(cost !== undefined ? { cost } : {}),
     ...(timing !== null ? { timing } : {}),
     ...(data.systems !== undefined ? { systems: systemsOf(data.systems) } : {}),
-    ...(typeof data.surfaceFloor === 'number' ? { surfaceFloor: data.surfaceFloor } : {}),
-    ...(typeof data.archiveFloor === 'number' ? { archiveFloor: data.archiveFloor } : {}),
-    ...(data.fileOps !== undefined ? { fileOps: objectsOf(data.fileOps) } : {}),
-    ...(typeof data.fileOpsFloor === 'number' ? { fileOpsFloor: data.fileOpsFloor } : {}),
-    ...(data.spans !== undefined ? { spans: objectsOf(data.spans) } : {}),
   }
   return safe
 }
