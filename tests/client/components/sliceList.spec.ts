@@ -7,10 +7,9 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import { makeSliceList } from '../../../src/client/components/sliceList'
 import type { SliceRow } from '../../../src/client/components/sliceList'
-import { hover, makeKit, mount, query, queryAll, text, unhover } from '../helpers/kit'
+import { hover, mount, query, queryAll, text, unhover } from '../helpers/kit'
 
-const kit = makeKit()
-const SliceList = makeSliceList(kit)
+const SliceList = makeSliceList()
 
 /** A parent that really holds the hover key, so hovering re-renders the rows. */
 function HoverHarness(props: { rows: SliceRow[] }) {

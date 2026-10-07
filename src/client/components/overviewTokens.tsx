@@ -21,7 +21,7 @@ export function makeOverviewTokens(kit: ViewKit, Donut: (props: DonutProps) => R
   tokens: { parts: TokenPartTotal[]; total: number } | null
 }) => ReactElement {
   const { t, fmt, fmtShare, catLabel } = kit
-  const SliceList = makeSliceList(kit)
+  const SliceList = makeSliceList()
   return function OverviewTokens(props: { tokens: { parts: TokenPartTotal[]; total: number } | null }): ReactElement {
     // The legend row ↔ donut segment hover link (shared key, set from either side).
     const [hoverKey, setHoverKey] = useState<string | null>(null)

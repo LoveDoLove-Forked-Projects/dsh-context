@@ -13,7 +13,7 @@ import type { TokenPartTotal } from '../../../src/client/overview'
 import { makeKit, hover, mount, query, queryAll, text, unhover } from '../helpers/kit'
 
 const kit = makeKit()
-const Tokens = makeOverviewTokens(kit, makeDonut(kit))
+const Tokens = makeOverviewTokens(kit, makeDonut())
 
 const PARTS: TokenPartTotal[] = [
   { key: 'system', color: 'var(--color-indigo-500)', value: 42 },

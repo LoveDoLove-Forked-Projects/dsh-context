@@ -231,14 +231,6 @@ function TextSection(props: {
   )
 }
 
-function RawSection(props: { label: string; text: string }): ReactElement {
-  return (
-    <Section label={props.label}>
-      <pre className="lc-ts-desc-body lc-br-dim">{props.text}</pre>
-    </Section>
-  )
-}
-
 /**
  * The search text of one tool's raw schema. The schema is log data this view
  * does not own — a hostile value (cyclic, throwing getters) degrades to no
@@ -367,7 +359,6 @@ interface DetailLabels {
  */
 function BlocksBody(props: {
   blocks: readonly unknown[]
-  richable: boolean
   textLabel: string
   rich: RichKit
   img: ImageKit
@@ -421,7 +412,6 @@ function BlocksBody(props: {
       out.push(<BlocksBody
         key={out.length}
         blocks={blk.content as unknown[]}
-        richable={false}
         textLabel={labels.result}
         rich={rich}
         img={img}
@@ -429,7 +419,7 @@ function BlocksBody(props: {
       />)
       continue
     }
-    out.push(<RawSection key={out.length} label={labels.other} text={JSON.stringify(b, null, 2)} />)
+    out.push(<Section key={out.length} label={labels.other}><pre className="lc-ts-desc-body lc-br-dim">{JSON.stringify(b, null, 2)}</pre></Section>)
   }
   flushImages()
   return <>{out}</>
@@ -542,7 +532,7 @@ function NodeContent(props: {
     )
   }
   if (conv.kind === 'assistant' && Array.isArray(conv.blocks)) {
-    return <BlocksBody blocks={conv.blocks} richable textLabel={labels.answer} rich={rich} img={img} labels={labels} />
+    return <BlocksBody blocks={conv.blocks} textLabel={labels.answer} rich={rich} img={img} labels={labels} />
   }
   if (conv.kind === 'tool-result') {
     const { err, exit } = toolErrOf(node, conv)
@@ -557,7 +547,7 @@ function NodeContent(props: {
           />
           : null}
         {Array.isArray(conv.content)
-          ? <BlocksBody blocks={conv.content} richable={false} textLabel={labels.result} rich={rich} img={img} labels={labels} />
+          ? <BlocksBody blocks={conv.content} textLabel={labels.result} rich={rich} img={img} labels={labels} />
           : null}
       </>
     )
@@ -568,7 +558,7 @@ function NodeContent(props: {
       : <></>
   }
   if (Array.isArray(conv.content)) {
-    return <BlocksBody blocks={conv.content} richable textLabel={labels.content} rich={rich} img={img} labels={labels} />
+    return <BlocksBody blocks={conv.content} textLabel={labels.content} rich={rich} img={img} labels={labels} />
   }
   return <div className="lc-br-note">{props.hint}</div>
 }

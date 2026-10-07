@@ -28,7 +28,7 @@ export interface OverviewCardProps {
 
 export function makeOverviewCard(kit: ViewKit): (props: OverviewCardProps) => ReactElement {
   const { t } = kit
-  const Donut = makeDonut(kit)
+  const Donut = makeDonut()
   return function OverviewCard(props: OverviewCardProps): ReactElement {
     const { row } = props
     const timeline = row.timeline

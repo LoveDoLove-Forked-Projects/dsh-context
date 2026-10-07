@@ -11,7 +11,7 @@ import type { DetailState } from '../timelineSource'
 import type { ViewKit } from '../viewkit'
 import { makeDetailNote } from './detailNote'
 
-const EVENT_ICONS: Record<string, string> = { compaction: '✂', prune: '✂', inject: '＋', model: '⇄', mode: '⇄' }
+const EVENT_ICONS: Record<string, string> = { compaction: '✂', prune: '✂', mode: '⇄' }
 
 export interface EventListProps {
   events: ContextEventRecord[]

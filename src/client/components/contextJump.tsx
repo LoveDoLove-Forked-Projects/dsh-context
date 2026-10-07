@@ -31,7 +31,7 @@ export interface ContextJumpProps {
  * The reply's request seq by its durable message id, or null when no served node proves the pair. Join/log nodes are untrusted input: each
  * element is isolated, so one hostile object that throws on property access is skipped — the jump keeps its pin, never its click.
  */
-export function seqOfMessageId(nodes: readonly ConversationNodeLike[] | undefined, messageId: string): number | null {
+function seqOfMessageId(nodes: readonly ConversationNodeLike[] | undefined, messageId: string): number | null {
   for (const node of nodes ?? []) {
     try {
       if (node.kind !== 'assistant' || node.messageId !== messageId) continue

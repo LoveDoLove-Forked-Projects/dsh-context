@@ -10,7 +10,6 @@
  */
 
 import { type ReactElement } from 'react'
-import type { ViewKit } from '../viewkit'
 
 export interface SliceRow {
   key: string
@@ -24,14 +23,13 @@ export interface SliceRow {
   dim?: boolean
 }
 
-export function makeSliceList(kit: ViewKit): (props: {
+export function makeSliceList(): (props: {
   rows: SliceRow[]
   /** The hovered slice key — the legend row ↔ segment hover link. */
   hoverKey?: string | null
   /** Hover relay; absent renders the rows inert. */
   onHoverKey?: (key: string | null) => void
 }) => ReactElement {
-  void kit
   return function SliceList(props: {
     rows: SliceRow[]
     hoverKey?: string | null

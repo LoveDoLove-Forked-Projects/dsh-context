@@ -63,7 +63,7 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
   spans?: TimingSpan[]
 }) => ReactElement {
   const { t, fmt, fmtDuration, fmtShare } = kit
-  const SliceList = makeSliceList(kit)
+  const SliceList = makeSliceList()
   const TimingStrip = makeTimingStrip(kit)
   return function StatsTiming(props: { timing: TimingTotals | null; spans?: TimingSpan[] }): ReactElement {
     // The legend row ↔ donut segment hover link (shared key, set from either side).

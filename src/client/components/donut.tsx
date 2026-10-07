@@ -12,7 +12,6 @@
  */
 
 import { type CSSProperties, type ReactElement, type ReactNode } from 'react'
-import type { ViewKit } from '../viewkit'
 
 /**
  * The hairline divider between two slices, in dasharray units (1 unit ≈ 1% of
@@ -40,8 +39,7 @@ export interface DonutProps {
   onHoverKey?: (key: string | null) => void
 }
 
-export function makeDonut(kit: ViewKit): (props: DonutProps) => ReactElement {
-  void kit
+export function makeDonut(): (props: DonutProps) => ReactElement {
   return function Donut(props: DonutProps): ReactElement {
     const size = props.size ?? 118
     let total = 0

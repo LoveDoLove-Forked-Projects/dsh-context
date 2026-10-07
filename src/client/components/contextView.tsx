@@ -62,7 +62,7 @@ export function makeContextView(
   const RequestDetail = makeRequestDetail(kit, StackedBar)
   const EventList = makeEventList(kit)
   const FileCard = makeFileCard(kit, settings)
-  const Donut = makeDonut(kit)
+  const Donut = makeDonut()
   // One page-scope cold-head cache serves both subagent-data readers: the
   // Agent network card's composition rings and the stats board's
   // subagent-cost cell fetch each relative once.

@@ -228,7 +228,7 @@ interface StatsContextProps {
 }
 
 /** The anchor at fraction `at` along one box edge, with the edge's outward normal. */
-export function flowAnchor(box: FlowBox, side: 'left' | 'right' | 'top' | 'bottom', at: number): Anchor {
+function flowAnchor(box: FlowBox, side: 'left' | 'right' | 'top' | 'bottom', at: number): Anchor {
   switch (side) {
     case 'left': return { x: box.x, y: box.y + box.h * at, dx: -1, dy: 0 }
     case 'right': return { x: box.x + box.w, y: box.y + box.h * at, dx: 1, dy: 0 }

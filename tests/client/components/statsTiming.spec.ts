@@ -15,8 +15,8 @@ import { makeKit, mount, query, queryAll, text, hover } from '../helpers/kit'
 
 const kit = makeKit()
 const kitZh = makeKit('zh')
-const StatsTiming = makeStatsTiming(kit, makeDonut(kit))
-const StatsTimingZh = makeStatsTiming(kitZh, makeDonut(kitZh))
+const StatsTiming = makeStatsTiming(kit, makeDonut())
+const StatsTimingZh = makeStatsTiming(kitZh, makeDonut())
 
 /** Local HH:MM:SS exactly as the kit's fmtTime renders it (a timezone-free assertion). */
 const timeOf = (ms: number): string => new Date(ms).toLocaleTimeString('en-GB', { hour12: false })

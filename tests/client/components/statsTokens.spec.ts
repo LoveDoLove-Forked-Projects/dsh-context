@@ -12,7 +12,7 @@ import type { ContextBreakdown, Snapshot, TokenUsage } from '../../../src/shared
 import { makeKit, mount, query, queryAll, hover, unhover } from '../helpers/kit'
 
 const kit = makeKit()
-const StatsTokens = makeStatsTokens(kit, makeDonut(kit))
+const StatsTokens = makeStatsTokens(kit, makeDonut())
 
 const CURRENT: Snapshot['current'] = { system: 200, tools: 100, user: 300, inject: 100, skill: 0, assistant: 200, tool: 100, total: 1000 }
 // Billed input 400 (300 uncached + 100 read), output 50 → the chat line's 450.
@@ -124,7 +124,7 @@ describe('StatsTokens — the cache-hit corner figure', () => {
 
   test('the figure localizes its label and tooltip', async () => {
     const kitZh = makeKit('zh')
-    const StatsTokensZh = makeStatsTokens(kitZh, makeDonut(kitZh))
+    const StatsTokensZh = makeStatsTokens(kitZh, makeDonut())
     const m = await mount(h(StatsTokensZh, { usage: USAGE, current: CURRENT, breakdown: null }))
     const rate = query(m.container, '.lc-card-rate')
     assert.equal(rate?.textContent, '缓存命中 25.00%')

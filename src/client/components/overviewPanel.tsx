@@ -79,7 +79,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   // The first row's aggregate pair: the range's sessions folded into the two
   // donut cards the per-session Context tab opens with (Timing Stats reused
   // verbatim over the summed totals).
-  const Donut = makeDonut(kit)
+  const Donut = makeDonut()
   const OverviewTokens = makeOverviewTokens(kit, Donut)
   const StatsTiming = makeStatsTiming(kit, Donut)
   const OverviewUsage = makeOverviewUsage(kit)

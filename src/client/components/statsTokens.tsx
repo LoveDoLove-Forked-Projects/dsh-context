@@ -34,7 +34,7 @@ export function makeStatsTokens(kit: ViewKit, Donut: (props: DonutProps) => Reac
   breakdown: ContextBreakdown | null
 }) => ReactElement {
   const { t, fmt, fmtShare, catLabel } = kit
-  const SliceList = makeSliceList(kit)
+  const SliceList = makeSliceList()
   return function StatsTokens(props: {
     usage: TokenUsage | null
     current: Snapshot['current']
