@@ -47,7 +47,7 @@ const HEADERS_MAX = 50
  * One stored tool: the v1 row shape carried the producer description and the
  * raw schema; folds since the #37 slim-down append metadata-only entries.
  */
-export interface StoredHeaderTool {
+interface StoredHeaderTool {
   name: string
   tokens: number
   description?: string
@@ -56,7 +56,7 @@ export interface StoredHeaderTool {
 }
 
 /** One stored epoch: v1 rows carried `system`; folds since carry `systemTokens`. */
-export interface StoredHeaderRecord {
+interface StoredHeaderRecord {
   seq: number
   time: number
   system?: string

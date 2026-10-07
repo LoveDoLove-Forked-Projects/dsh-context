@@ -66,18 +66,6 @@ function compareParsed(a: ParsedVersion, b: ParsedVersion): number {
 }
 
 /**
- * Compare two version strings (negative / zero / positive). An unparseable
- * side compares EQUAL — the gate only ever acts on a strict, proven
- * below-baseline result.
- */
-export function compareVersions(a: string, b: string): number {
-  const x = parseVersion(a)
-  const y = parseVersion(b)
-  if (x === null || y === null) return 0
-  return compareParsed(x, y)
-}
-
-/**
  * Whether `version` satisfies the supported baseline. FAIL OPEN by design: a
  * version that cannot be parsed (a dev/nightly harness build) must not blank
  * a working deployment, so it passes — the gate trips only on a proven

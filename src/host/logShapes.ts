@@ -55,10 +55,10 @@ export function decodeKindOfBlock(blockType: unknown): DecodeKind | undefined {
 }
 
 /** Per-kind decode spans (see {@link decodeTallyOfStream}). */
-export type DecodeSpans = Record<DecodeKind, number>
+type DecodeSpans = Record<DecodeKind, number>
 
 /** Per-kind count of opened decode blocks (see {@link decodeTallyOfStream}). */
-export type DecodeCounts = Record<DecodeKind, number>
+type DecodeCounts = Record<DecodeKind, number>
 
 /** Both decode tallies of one stream: the spans that price the split and the marker counts that qualify its rows. */
 export interface DecodeTally {

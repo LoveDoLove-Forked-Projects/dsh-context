@@ -10,11 +10,6 @@
 /** The strict key shape (round-trip validated on construction too). */
 export const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/
 
-/** Zero-pad to two digits (no Intl allocation on the hot path). */
-function pad2(n: number): string {
-  return n < 10 ? '0' + String(n) : String(n)
-}
-
 /**
  * The local calendar-day key of an epoch-ms instant, or null when the time
  * is not a finite number or falls outside the representable date range —
@@ -25,7 +20,7 @@ export function dayKeyOf(time: number): string | null {
   const d = new Date(time)
   const y = d.getFullYear()
   if (!Number.isFinite(y) || y < 1970 || y > 9999) return null
-  return `${String(y).padStart(4, '0')}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  return `${String(y).padStart(4, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /**
