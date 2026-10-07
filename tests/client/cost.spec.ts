@@ -7,9 +7,9 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { estimateSessionCost, formatCost, formatPriceRate, mergeCostUsage, priceFaceOf, priceIndexOf, priceOf, toCurrency } from '../../src/client/cost'
+import { estimateSessionCost, billedTokensOf, formatCost, formatPriceRate, mergeCostUsage, priceFaceOf, priceIndexOf, priceOf, toCurrency } from '../../src/client/cost'
 import type { ModelBook, ModelPrices } from '../../src/client/cost'
-import type { CostBucketTotals } from '../../src/shared/types'
+import type { CostBucketTotals, SessionCostUsage } from '../../src/shared/types'
 
 const M = 1_000_000
 
@@ -239,8 +239,36 @@ describe('priceIndexOf / the model-side resolution tiers', () => {
   })
 })
 
-describe('estimateSessionCost', () => {
-  test('null usage or null book prices to null', () => {
+describe('billedTokensOf (the token face of the billed buckets)', () => {
+  test('null and empty usages total zero', () => {
+    assert.equal(billedTokensOf(null), 0)
+    assert.equal(billedTokensOf(undefined), 0)
+    assert.equal(billedTokensOf({}), 0)
+  })
+
+  test('sums every bucket across providers, models, and periods', () => {
+    const usage: SessionCostUsage = {
+      p1: {
+        m1: { peak: { uncached: 1, cacheRead: 2, cacheWrite: 3, output: 4 }, off: { uncached: 10, cacheRead: 20, cacheWrite: 30, output: 40 } },
+        m2: { peak: { uncached: 100, cacheRead: 0, cacheWrite: 0, output: 0 } },
+      },
+      p2: { m3: { off: { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 1000 } } },
+    }
+    assert.equal(billedTokensOf(usage), 1 + 2 + 3 + 4 + 10 + 20 + 30 + 40 + 100 + 1000)
+  })
+
+  test('hostile branches skip, the estimator’s own resilience', () => {
+    const usage = {
+      junk: 5,
+      p: { m: 'garbage', m2: { peak: null, off: { uncached: 'x', cacheRead: 7 } } },
+    } as unknown as SessionCostUsage
+    // The non-record provider/model/period branches drop whole; the junk
+    // bucket field coerces to zero (numOf), the number survives.
+    assert.equal(billedTokensOf(usage), 7)
+  })
+})
+
+describe('estimateSessionCost', () => {  test('null usage or null book prices to null', () => {
     assert.equal(estimateSessionCost(null, BOOK_B, 'usd'), null)
     assert.equal(estimateSessionCost(undefined, BOOK_B, 'cny'), null)
     assert.equal(estimateSessionCost({}, null, 'usd'), null)

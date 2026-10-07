@@ -303,6 +303,31 @@ export function estimateSessionCost(
 }
 
 /**
+ * The scope's billed-token total: uncached input + cache read/write + output,
+ * summed over every billed model and pricing period — the token face of the
+ * same buckets the cost estimate prices. Hostile branches skip, the same
+ * re-proving the estimator applies.
+ */
+export function billedTokensOf(usage: SessionCostUsage | null | undefined): number {
+  if (usage === null || usage === undefined) return 0
+  let total = 0
+  for (const provider of Object.keys(usage)) {
+    const models = asRecord(usage[provider])
+    if (models === null) continue
+    for (const model of Object.keys(models)) {
+      const periods = asRecord(models[model])
+      if (periods === null) continue
+      for (const period of ['peak', 'off'] as const) {
+        const bucket = asRecord(periods[period])
+        if (bucket === null) continue
+        total += numOf(bucket.uncached) + numOf(bucket.cacheRead) + numOf(bucket.cacheWrite) + numOf(bucket.output)
+      }
+    }
+  }
+  return total
+}
+
+/**
  * Accumulate one usage's buckets into `out`, summing per (provider, model,
  * period). Hostile branches skip (the same re-proving the estimator applies
  * — the merge is a boundary too); true when any bucket record merged, even

@@ -2,8 +2,10 @@
  * The Context card: the session as a flow diagram — the session node center
  * stage, fed by the two source nodes on the left (the user's own inputs and
  * the context events the host applied, broken down by kind) and draining
- * into the two effect nodes on the right (the live tool calls and the cost
- * estimate, split into the current agent's own share and the subagents').
+ * into the two effect nodes on the right (the live tool calls with their
+ * most-called ranking, and the Agent Team ledger: the family's billed-token
+ * and estimated-cost totals, then one row per scope — the current agent and
+ * the subagent subtree, its session count included).
  * Measured bezier ribbons connect the nodes (a wide translucent band plus a
  * traveling dash of the same hue — element flow, not a conservative Sankey):
  * left→right on a wide card, top→bottom once the container query in
@@ -32,7 +34,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { ContextEventRecord, ContextTimeline, RequestRecord, SessionCostUsage, SurfaceNode, TimelineCounts } from '../../shared/types'
-import { estimateSessionCost, formatCost, formatPriceRate, mergeCostUsage, priceFaceOf, toCurrency } from '../cost'
+import { estimateSessionCost, billedTokensOf, formatCost, formatPriceRate, mergeCostUsage, priceFaceOf, toCurrency } from '../cost'
 import type { CostCurrency, ModelBook, PriceFace } from '../cost'
 import { sessionsFaceOf, subagentCostFoldOf } from '../agentTree'
 import type { AgentHeads } from '../agentHeads'
@@ -326,6 +328,7 @@ export function makeStatsContext(
       ].filter((el): el is ReactElement => el !== null)
     const costTip: ReactNode = [
       t('stats.costTip'),
+      <span key="billed" className="lc-stat-tip-row">{t('stats.billedTip')}</span>,
       pricesBlock(rows),
       ...notes(deepseek),
       unpriced ? <span key="unavailable">{t('stats.costUnavailable')}</span> : null,
@@ -334,6 +337,7 @@ export function makeStatsContext(
     // the outage note when the subagents' models priced against nothing.
     const subTip: ReactNode = [
       t('stats.subCostTip'),
+      <span key="billed" className="lc-stat-tip-row">{t('stats.billedTip')}</span>,
       pricesBlock(subRows),
       ...notes(subDeepseek),
       subUnpriced ? <span key="unavailable">{t('stats.costUnavailable')}</span> : null,
@@ -380,7 +384,7 @@ export function makeStatsContext(
     // left and the bold total right — as a div, or as an anchor opening the
     // models.dev provider listing in a new tab when the caller hands a
     // destination (the tooltip still frames and reveals off this same row).
-    const head = (label: string, total: string, tip?: ReactNode, href?: string): ReactElement => {
+    const head = (label: string, total: ReactNode, tip?: ReactNode, href?: string): ReactElement => {
       const body = (
         <>
           <span className="lc-flow-label">
@@ -400,13 +404,13 @@ export function makeStatsContext(
     // a kind class, dimmed on a zero count (the card's total already reads),
     // '?'-tipped when a tip rides. The label keys the pill — unique within
     // every card's row.
-    const pill = (label: string, value: string | number, cls = '', tip?: ReactNode): ReactElement => (
+    const pill = (label: string, value: number, cls = '', tip?: ReactNode): ReactElement => (
       <span key={label} className={'lc-flow-pill' + cls + (value === 0 ? ' lc-flow-pill-dim' : '') + (tip === undefined ? '' : ' lc-stat-tipped group/tip')}>
         <span className="lc-flow-pill-label">
           {label}
           {tip !== undefined && <i className="lc-stat-q group-hover/tip:text-(--dsw-alias-label-primary) group-hover/tip:border-(--dsw-alias-label-primary)" aria-hidden="true">?</i>}
         </span>
-        <b>{typeof value === 'number' ? fmt(value) : value}</b>
+        <b>{fmt(value)}</b>
         {tip !== undefined && <span className="lc-tip lc-stat-tip group-hover/tip:opacity-100" role="tooltip">{tip}</span>}
       </span>
     )
@@ -417,6 +421,18 @@ export function makeStatsContext(
     const costPids = new Set(rows.map(r => r.face.pid).filter(p => p !== ''))
     const costHref = costPids.size === 1 ? 'https://models.dev/providers/' + [...costPids][0] + '/' : undefined
     const ownCost = estimateSessionCost(props.cost, book, currency)
+    // The team ledger's token faces, off the same billed buckets the figures
+    // price: the family's total, the current agent's own, the subagents'.
+    const familyTokens = billedTokensOf(usage)
+    const ownTokens = billedTokensOf(props.cost)
+    const subTokens = billedTokensOf(subUsage)
+    // One scope's token/cost figure pair — the ledger rows' right side.
+    const pair = (tokens: number, costText: string): ReactElement => (
+      <span className="lc-flow-pair"><b>{fmt(tokens)}</b><i>/</i><b>{costText}</b></span>
+    )
+    const costText = cost === null ? '—' : formatCost(cost, currency)
+    const ownText = ownCost === null ? '—' : formatCost(ownCost, currency)
+    const subText = subCost === null ? '—' : formatCost(subCost, currency)
     // The I/O card's total: the user's own inputs plus every file op.
     const ioTotal = (props.humanInputs ?? 0) + props.files.reads + props.files.writes + props.files.searches + props.files.images
     // The tool card: the head's live tally figure (the tools' own tally sums
@@ -493,18 +509,25 @@ export function makeStatsContext(
                 : null}
             </div>
             <div className="lc-flow-node" ref={nodeRef('cost')}>
-              {head(t('stats.cost'), cost === null ? '—' : formatCost(cost, currency), costTip, costHref)}
-              {/* The split rides only when a subagent subtree actually reported:
-                  without one the family figure IS the agent's own and two pills
-                  would repeat it. */}
-              {subUsage !== null
-                ? (
-                  <div className="lc-flow-pills">
-                    {pill(t('stats.ownCost'), ownCost === null ? '—' : formatCost(ownCost, currency))}
-                    {pill(t('stats.subCost'), subCost === null ? '—' : formatCost(subCost, currency), '', subTip)}
-                  </div>
-                )
-                : null}
+              {head(t('stats.team'), pair(familyTokens, costText), costTip, costHref)}
+              {/* The team ledger: one row per scope — the current agent itself,
+                  then the subagent subtree (its session count from the same
+                  fold). A scope with nothing billed reads 0 tokens / a dashed
+                  cost (the price book's outage note lives in the tips). */}
+              <div className="lc-flow-rows">
+                <div className="lc-flow-row">
+                  <span className="lc-flow-row-label">{t('stats.currentAgent')}</span>
+                  {pair(ownTokens, ownText)}
+                </div>
+                <div className="lc-flow-row lc-stat-tipped group/tip">
+                  <span className="lc-flow-row-label">
+                    {t('stats.teamSubs', { n: sub.count })}
+                    <i className="lc-stat-q group-hover/tip:text-(--dsw-alias-label-primary) group-hover/tip:border-(--dsw-alias-label-primary)" aria-hidden="true">?</i>
+                  </span>
+                  {pair(subTokens, subText)}
+                  <span className="lc-tip lc-stat-tip group-hover/tip:opacity-100" role="tooltip">{subTip}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
