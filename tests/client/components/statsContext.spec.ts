@@ -490,6 +490,9 @@ describe('StatsContext', () => {
     await flush()
     const root = query(m.container, '.lc-root')
     const agents = query(m.container, '.lc-agents')
+    // jsdom reports 0 for both — the wrapper must overflow to be the operative scroller.
+    Object.defineProperty(root, 'scrollHeight', { value: 500 })
+    Object.defineProperty(root, 'clientHeight', { value: 200 })
     agents.getBoundingClientRect = () => ({ top: 120 }) as DOMRect
     const team = query(m.container, '.lc-flow-team')
     // A click on the card body lands the namesake flush at the scrollport top.
