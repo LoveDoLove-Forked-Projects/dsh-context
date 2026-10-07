@@ -746,25 +746,26 @@ export function isPeakUtc(time: number): boolean {
 }
 
 /**
- * Fold one billed request into the session-cost totals, cloning along the
- * mutated path only (the untouched branch stays shared with the persisted
- * previous state — the apply contract never mutates it in place). The
- * buckets arrive sanitized ({@link BilledUsage}), so the totals stay at the
- * schemas' non-negative safe integers no matter what the provider reported.
- * The key is the request envelope's (provider, model) face — the exact
- * lookup the Client's model-price book resolves (models.dev). A request
- * without a provider still accumulates (under the '' key) and the Client
- * prices it when the model id is unambiguous; without a model there is
- * nothing to price. DeepSeek's period-based list splits the buckets
- * (peak windows at list price, all other hours half price); every other
- * provider books everything under the list-price period.
+ * Add one settlement's billed buckets to a session-cost record, cloning
+ * along the mutated path only (the untouched branch stays shared with the
+ * persisted previous state — the apply contract never mutates it in place).
+ * The buckets arrive sanitized ({@link BilledUsage}), so the totals stay at
+ * the schemas' non-negative safe integers no matter what the provider
+ * reported. DeepSeek's period-based list splits the buckets (peak windows
+ * at list price, all other hours half price); every other provider books
+ * everything under the list-price period. The timeline fold and the
+ * activity ledger price by this ONE walk, so their records share one shape
+ * and one semantics.
  */
-function accumulateCost(st: TimelineState, time: number, usage: BilledUsage): void {
-  const model = st.model
-  if (model === undefined) return
-  const provider = st.provider ?? ''
+export function addBilledUsage(
+  prev: SessionCostUsage | undefined,
+  provider: string,
+  model: string,
+  time: number,
+  usage: BilledUsage,
+): SessionCostUsage {
   const period = isDeepSeekProvider(provider) && !isPeakUtc(time) ? 'off' : 'peak'
-  const models = st.cost?.[provider] ?? {}
+  const models = prev?.[provider] ?? {}
   const periods = models[model] ?? {}
   const b = periods[period] ?? { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
   const nextPeriods: CostModelUsage = { ...periods }
@@ -775,7 +776,21 @@ function accumulateCost(st: TimelineState, time: number, usage: BilledUsage): vo
     output: b.output + usage.output,
   }
   const nextModels: Record<string, CostModelUsage> = { ...models, [model]: nextPeriods }
-  st.cost = { ...(st.cost ?? {}), [provider]: nextModels }
+  return { ...(prev ?? {}), [provider]: nextModels }
+}
+
+/**
+ * Fold one billed request into the session-cost totals (addBilledUsage over
+ * the fold state). The key is the request envelope's (provider, model) face
+ * — the exact lookup the Client's model-price book resolves (models.dev). A
+ * request without a provider still accumulates (under the '' key) and the
+ * Client prices it when the model id is unambiguous; without a model there
+ * is nothing to price.
+ */
+function accumulateCost(st: TimelineState, time: number, usage: BilledUsage): void {
+  const model = st.model
+  if (model === undefined) return
+  st.cost = addBilledUsage(st.cost, st.provider ?? '', model, time, usage)
 }
 
 /**

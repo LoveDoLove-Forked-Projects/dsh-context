@@ -24,6 +24,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { PlatformBalance, PlatformBalanceEntry } from '../shared/types'
+import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
 
 /** The plugin's balance route, under the authenticated `/api` fence. */
 export const BALANCE_ROUTE = '/api/dsh-context/balance'
@@ -52,18 +53,6 @@ interface SettingsHostFace {
 /** The harness `credentials` service, as far as the route consumes it. */
 interface CredentialsHostFace {
   resolve?(ref: string): Promise<{ value?: unknown } | undefined>
-}
-
-/** The host `connection` service, as far as the route consumes it (host/detail.ts's seam). */
-interface ConnectionHostFace {
-  fetch?: {
-    register?(route: {
-      path: string
-      methods: readonly string[]
-      requestBody: 'buffered'
-      fetch: (request: Request) => Promise<Response>
-    }): () => void
-  }
 }
 
 /** Narrow an unknown value to a string-keyed record, or null. */
@@ -242,10 +231,7 @@ async function readBalance(facts: DeepSeekFacts): Promise<PlatformBalance | null
  */
 export function watchBalanceChannel(ctx: Context): void {
   ctx.inject(['connection'], (c) => {
-    const connection = c.get('connection') as ConnectionHostFace | undefined
-    const register = typeof connection?.fetch?.register === 'function'
-      ? connection.fetch.register.bind(connection.fetch)
-      : undefined
+    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
     if (register === undefined) return
 
     const handler = async (): Promise<Response> => {

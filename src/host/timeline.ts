@@ -150,7 +150,8 @@ const costModelSchema = z.object({
 
 const costModelsSchema = z.record(z.string(), costModelSchema)
 
-const costUsageSchema = z.record(z.string(), costModelsSchema)
+/** The session-cost wire shape — shared by every projection that serves one (activity.ts imports it). */
+export const costUsageSchema = z.record(z.string(), costModelsSchema)
 
 const toolTimingSchema = z.object({
   calls: z.number().int().nonnegative(),

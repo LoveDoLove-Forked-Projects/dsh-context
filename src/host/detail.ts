@@ -38,6 +38,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { FoldBounds } from './config'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
+import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
 import { applyTimeline, buildTimelineDetail, createTimelineState } from './fold'
 
 /** The plugin's detail route, under the authenticated `/api` fence. */
@@ -46,20 +47,6 @@ export const DETAIL_ROUTE = '/api/dsh-context/detail'
 /** The route's liveness, read by the timeline unit's view at every serve. */
 export interface DetailChannelGate {
   readonly live: boolean
-}
-
-/** The host `connection` service, as far as the route consumes it. */
-interface ConnectionHostFace {
-  fetch?: {
-    // The handler's result is awaited by the transport; the cold rung below
-    // awaits the observation read.
-    register?(route: {
-      path: string
-      methods: readonly string[]
-      requestBody: 'buffered'
-      fetch: (request: Request) => Promise<Response>
-    }): () => void
-  }
 }
 
 /** The host `sessions` service, as far as the route consumes it (the strict-global-read idiom). */
@@ -94,12 +81,9 @@ function failure(code: string, message: string): Response {
 export function watchDetailChannel(ctx: Context, bounds: FoldBounds, coldReads: ColdReadGate = makeColdReadGate()): DetailChannelGate {
   const gate = { live: false }
   ctx.inject(['connection', 'sessions'], (c) => {
-    const connection = c.get('connection') as ConnectionHostFace | undefined
     const sessions = c.get('sessions') as SessionsHostFace | undefined
-    // Bind at extraction (an unbound hand-off loses `this` on the real faces).
-    const register = typeof connection?.fetch?.register === 'function'
-      ? connection.fetch.register.bind(connection.fetch)
-      : undefined
+    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
+    // Bind at extraction (an unbound hand-off loses `this` on the real face).
     const getSession = typeof sessions?.get === 'function' ? sessions.get.bind(sessions) : undefined
     if (register === undefined || getSession === undefined) return
     const projections = ctx.sessionProjections

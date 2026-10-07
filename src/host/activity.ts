@@ -34,10 +34,10 @@
 import { z } from 'zod'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from './compat'
-import { isPeakUtc, tokenCountOf, type BilledUsage, type UsageLike } from './fold'
-import { isDeepSeekProvider } from '../shared/providers'
+import { addBilledUsage, tokenCountOf, type BilledUsage, type UsageLike } from './fold'
+import { costUsageSchema } from './timeline'
 import { dayKeyOf } from '../shared/days'
-import type { ContextActivity, CostModelUsage, SessionCostUsage } from '../shared/types'
+import type { ContextActivity, SessionCostUsage } from '../shared/types'
 
 /**
  * Retention cap on ledger days. A little over a year of daily-active
@@ -54,20 +54,6 @@ export interface ActivityState {
   /** The open step's start instant (armed by `step/start`, cleared by `step/end`). */
   stepStart?: number
 }
-
-const costBucketSchema = z.object({
-  uncached: z.number().int().nonnegative(),
-  cacheRead: z.number().int().nonnegative(),
-  cacheWrite: z.number().int().nonnegative(),
-  output: z.number().int().nonnegative(),
-}).strict()
-
-const costModelSchema = z.object({
-  peak: costBucketSchema.optional(),
-  off: costBucketSchema.optional(),
-}).strict()
-
-const costUsageSchema = z.record(z.string(), z.record(z.string(), costModelSchema))
 
 const activityDaySchema = z.object({
   tokens: z.number().int().nonnegative(),
@@ -104,40 +90,6 @@ function billedBucketsOf(value: unknown): BilledUsage | null {
   const output = tokenCountOf(usage.outputTokens)
   if (input === null && cacheRead === null && cacheWrite === null && output === null) return null
   return { input: input ?? 0, cacheRead: cacheRead ?? 0, cacheWrite: cacheWrite ?? 0, output: output ?? 0 }
-}
-
-/**
- * Add one settlement's billed buckets to a day's pricing record — the same
- * clone-along-the-mutated-path walk the timeline fold's accumulateCost
- * prices by, so the two folds' records share one shape and one semantics.
- * The pricing period splits off the SAME instant the day bucket does: a fee
- * can never land on one day at the neighbouring window's rate.
- */
-function pricedDayOf(
-  prev: SessionCostUsage | undefined,
-  provider: string,
-  model: string,
-  period: 'peak' | 'off',
-  usage: BilledUsage,
-): SessionCostUsage {
-  const models = prev?.[provider] ?? {}
-  const periods: CostModelUsage = models[model] ?? {}
-  const b = periods[period] ?? { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
-  return {
-    ...prev,
-    [provider]: {
-      ...models,
-      [model]: {
-        ...periods,
-        [period]: {
-          uncached: b.uncached + usage.input,
-          cacheRead: b.cacheRead + usage.cacheRead,
-          cacheWrite: b.cacheWrite + usage.cacheWrite,
-          output: b.output + usage.output,
-        },
-      },
-    },
-  }
 }
 
 /**
@@ -206,12 +158,12 @@ export function applyActivity(state: ActivityState, event: SessionEvent): Activi
   const prev = byKey[key]
   // A settlement prices only when a model is in force (the accumulateCost
   // rule): a model-less or unmetered settlement still counts its tokens and
-  // request, never a fabricated fee.
+  // request, never a fabricated fee. The pricing period splits off the SAME
+  // instant the day bucket does: a fee can never land on one day at the
+  // neighbouring window's rate.
   let cost = prev?.cost
   if (buckets !== null && state.model !== undefined) {
-    const provider = state.provider ?? ''
-    const period = isDeepSeekProvider(provider) && !isPeakUtc(initiated) ? 'off' : 'peak'
-    cost = pricedDayOf(cost, provider, state.model, period, buckets)
+    cost = addBilledUsage(cost, state.provider ?? '', state.model, initiated, buckets)
   }
   const entry = {
     tokens: (prev === undefined ? 0 : prev.tokens)

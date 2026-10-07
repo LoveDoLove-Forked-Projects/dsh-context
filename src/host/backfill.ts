@@ -47,6 +47,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
+import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
 
 /** The plugin's warm-up trigger route, under the authenticated `/api` fence. */
 export const BACKFILL_ROUTE = '/api/dsh-context/backfill'
@@ -77,18 +78,6 @@ interface ReadHandleLike {
 
 interface PersistenceLike {
   open(id: string, access: 'read', options?: { signal?: AbortSignal }): Promise<ReadHandleLike>
-}
-
-/** The host `connection` service, as far as the trigger route consumes it. */
-interface ConnectionHostFace {
-  fetch?: {
-    register?(route: {
-      path: string
-      methods: readonly string[]
-      requestBody: 'buffered'
-      fetch: (request: Request) => Response | Promise<Response>
-    }): () => void
-  }
 }
 
 /**
@@ -231,11 +220,7 @@ export function watchActivityBackfill(ctx: Context, coldReads: ColdReadGate = ma
   }
 
   const routeFiber = ctx.inject(['connection'], (c) => {
-    const connection = c.get('connection') as ConnectionHostFace | undefined
-    // Bind at extraction (an unbound hand-off loses `this` on the real face).
-    const register = typeof connection?.fetch?.register === 'function'
-      ? connection.fetch.register.bind(connection.fetch)
-      : undefined
+    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
     if (register === undefined) return
     try {
       c.effect(() => register({
