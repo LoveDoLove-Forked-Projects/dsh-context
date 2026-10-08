@@ -9,14 +9,14 @@
  * session's insight without opening one log.
  *
  * The chrome keeps the shipped first-level pages' discipline — one scroll
- * region that opens with the page heading, the title beside the range group
- * (and the DeepSeek balance capsule when it serves) — but the content column
- * spans the pane's full width rather than the shipped pages' centered 960px
- * frame: the dashboard's grids and legends adapt to the pane, so the width
- * reads as more dashboard, not wider lines. The page element is the `lc-ov`
- * query container, so every fold keys off the pane's own width. Hover tips
- * portal to <body> (hoverTip.tsx) because the container would otherwise
- * capture their fixed positioning.
+ * region that opens with the page heading, the title beside the preferences
+ * chip, the range group (and the DeepSeek balance capsule when it serves) —
+ * but the content column spans the pane's full width rather than the shipped
+ * pages' centered 960px frame: the dashboard's grids and legends adapt to the
+ * pane, so the width reads as more dashboard, not wider lines. The page
+ * element is the `lc-ov` query container, so every fold keys off the pane's
+ * own width. Hover tips portal to <body> (hoverTip.tsx) because the container
+ * would otherwise capture their fixed positioning.
  *
  * The body's first row is a 1:1 column pair: the KPI metrics band (the
  * range's six figures — sessions, billed tokens, cost, cache hit, tool
@@ -26,12 +26,12 @@
  * range's sessions into the two donut cards the per-session Context tab
  * opens with — Token Stats (the composition-split billed volume) and Timing
  * Stats (the summed totals). The body is then a 3:7 column pair: the
- * insight column (the activity heatmap, then the preferences entry row)
- * beside the session column (search, group chips, and the card grid); the
- * heatmap keeps its own fixed 8-week window and PINs the list to a picked
- * day (the page's drill-down gesture). A session card click jumps to that
- * session through the harness's own selection verb (openSessionVia), whose
- * navigation returns the center column to the conversation.
+ * insight column (the activity heatmap) beside the session column (search,
+ * group chips, and the card grid); the heatmap keeps its own fixed 8-week
+ * window and PINs the list to a picked day (the page's drill-down gesture).
+ * A session card click jumps to that session through the harness's own
+ * selection verb (openSessionVia), whose navigation returns the center column
+ * to the conversation.
  */
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
@@ -157,6 +157,13 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
           <div className="lc-ov-pagecontent">
             <div className="lc-ov-pagehead">
               <h1 className="lc-ov-pagetitle">{t('ov.title')}</h1>
+              {/* The preferences entry: one quiet chip beside the title, the same
+                  best-effort preferences jump the Context tab's plugin-info row
+                  rides. The jump selects the Plugins panel, which unmounts this
+                  page on its own; the long hint rides the hover title. */}
+              <button type="button" className="lc-ov-settings" title={t('plugin.settingsOpen')} onClick={() => { openPluginSettings() }}>
+                <IconSettings size={14} />{t('plugin.settings')}
+              </button>
               {/* The DeepSeek platform balance (client/balance.ts): renders nothing
                   until a live figure lands, so the heading row never reflows for it. */}
               <BalanceCapsule />
@@ -246,14 +253,6 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                       </div>
                       <Heatmap days={days} metric={metric} selected={day} onSelect={setDay} today={todayKey()} />
                     </div>
-                    {/* The settings entry: one quiet row under the activity card, the
-                        same best-effort preferences jump the Context tab's plugin-info
-                        row rides. The jump selects the Plugins panel, which unmounts
-                        this page on its own. */}
-                    <button type="button" className="lc-ov-settings" onClick={() => { openPluginSettings() }}>
-                      <span className="lc-ov-settings-label"><IconSettings size={14} />{t('plugin.settings')}</span>
-                      <span className="lc-ov-settings-hint">{t('plugin.settingsOpen')}</span>
-                    </button>
                   </div>
 
                   <div className="lc-ov-right">

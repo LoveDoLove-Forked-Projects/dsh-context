@@ -344,7 +344,7 @@ describe('OverviewPanel', () => {
     await m.unmount()
   })
 
-  test('the settings row under the activity card runs the preferences jump', async () => {
+  test('the settings chip beside the title runs the preferences jump', async () => {
     // The harness chrome the jump drives (settingsJump.ts): the Plugins panel
     // entry first, then the bundle card's open control (the one non-switch
     // button inside the card), both click-tracked.
@@ -363,9 +363,15 @@ describe('OverviewPanel', () => {
     try {
       const ctx = makeCtx()
       const { m } = await openPanel(ctx)
-      const row = query<HTMLButtonElement>(m.container, '.lc-ov-settings')
-      assert.equal(row.textContent, 'SettingsOpen plugin settings')
-      await click(row)
+      const chip = query<HTMLButtonElement>(m.container, '.lc-ov-settings')
+      // The chip rides the heading, directly after the title (the long hint
+      // moved onto the hover title).
+      assert.equal(chip.textContent, 'Settings')
+      assert.equal(chip.title, 'Open plugin settings')
+      const head = query(m.container, '.lc-ov-pagehead')
+      assert.equal(head.children[0].className, 'lc-ov-pagetitle')
+      assert.equal(head.children[1], chip)
+      await click(chip)
       assert.deepEqual(clicks, ['Plugins'], 'the jump clicked the Plugins panel entry synchronously')
       await until(() => clicks.length > 1, 'the jump never reached the bundle card open control')
       assert.equal(clicks[1], 'Context')
@@ -445,7 +451,7 @@ describe('OverviewPanel', () => {
     assert.ok(text(m.container).includes('活跃会话'))
     assert.ok(text(m.container).includes('Token 统计'), 'the aggregate stats row rides the zh dictionary too')
     assert.ok(text(m.container).includes('系统提示词'), 'the Context tab\'s composition categories render in zh')
-    assert.ok(text(m.container).includes('打开插件设置'), 'the settings row rides the zh dictionary too')
+    assert.equal(query<HTMLButtonElement>(m.container, '.lc-ov-settings').title, '打开插件设置', 'the settings chip rides the zh dictionary too')
     await flush() // the price book lands
     const values = queryAll(m.container, '.lc-stat-value').map(el => el.textContent)
     assert.ok(values[2].startsWith('¥'), 'CNY under the zh locale')
