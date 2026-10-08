@@ -255,6 +255,11 @@ export default defineConfig([
     outDir: 'lib',
     format: 'cjs',
     platform: 'browser',
+    // The artifact is a classic script the shell loads into its module table,
+    // never a Node module: pin the browser target explicitly. Without it
+    // tsdown falls back to package.json engines.node, which also trips its
+    // legacy-CJS warning — a false positive for this artifact.
+    target: 'es2024',
     // dts would wrap the banner/footer into a .d.cts and break parsing;
     // browser profiling consumes the bundle's own sourcemap instead.
     dts: false,
@@ -266,6 +271,11 @@ export default defineConfig([
       // throw: requested specifiers stay imports, everything else inlines.
       neverBundle: isRequested,
       alwaysBundle: (specifier: string) => !isRequested(specifier),
+      // "Everything else inlines" stays auditable: only these browser-safe
+      // packages may come from node_modules. A dependency that starts being
+      // bundled fails the build instead of silently growing the artifact; a
+      // stale entry here is reported by tsdown.
+      onlyBundle: ['@opencode-ai/models', '@deepseek-ai/dsh-util-workspace-path', 'simple-icons'],
     },
     // Browser bundles inline node-idiom deps that read process.env.NODE_ENV
     // or probe import.meta.env(.MODE); without these substitutions the
