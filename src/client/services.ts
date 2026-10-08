@@ -765,11 +765,43 @@ export function activityOf(value: unknown): ContextActivity | null {
     const proved = costOf(entry.cost)
     const cost = proved !== undefined && Object.keys(proved).length > 0 ? proved : undefined
     if (entry.cost !== undefined && cost === undefined) dirty = true
-    days[key] = { tokens, requests, ...(cost !== undefined ? { cost } : {}) }
+    // The day's skill table (additive-optional): per-name re-proved — a
+    // malformed tally drops just that name, a malformed record drops whole.
+    const skills = skillTalliesOf(entry.skills)
+    if (entry.skills !== undefined && skills === undefined) dirty = true
+    days[key] = {
+      tokens,
+      requests,
+      ...(cost !== undefined ? { cost } : {}),
+      ...(skills !== undefined ? { skills } : {}),
+    }
   }
   // Fully well-formed: pass the delivered value through untouched (cheap, and
   // reference-stable for the selector equality); otherwise the sanitized copy.
   return dirty ? { days } : data as unknown as ContextActivity
+}
+
+/**
+ * One day entry's skill-load table, re-proved name by name: a tally needs a
+ * finite non-negative count and a finite load instant; anything less drops
+ * just that name. Absent/non-record stays undefined (an older host's day, or
+ * a load-less one); an empty-after-scrubbing record drops whole.
+ */
+function skillTalliesOf(value: unknown): ActivityDay['skills'] | undefined {
+  const data = asRecord(value)
+  if (data === null || Array.isArray(data)) return undefined
+  const skills: Record<string, { n: number; last: number }> = {}
+  let any = false
+  for (const name of Object.keys(data)) {
+    const tally = asRecord(data[name])
+    const n = tally?.n
+    const last = tally?.last
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < 0
+      || typeof last !== 'number' || !Number.isFinite(last)) continue
+    skills[name] = { n, last }
+    any = true
+  }
+  return any ? skills : undefined
 }
 
 export interface TriggerCandidate {

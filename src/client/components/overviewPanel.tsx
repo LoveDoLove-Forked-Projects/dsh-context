@@ -26,9 +26,15 @@
  * range's sessions into the two donut cards the per-session Context tab
  * opens with — Token Stats (the composition-split billed volume) and Timing
  * Stats (the summed totals). The body is then a 3:7 column pair: the
- * insight column (the activity heatmap) beside the session column (search,
+ * insight column (the activity heatmap over the scope's skill-load card)
+ * beside the session column (search,
  * group chips, and the card grid); the heatmap keeps its own fixed 8-week
- * window and PINs the list to a picked day (the page's drill-down gesture).
+ * window and PINs both column mates to a picked day (the page's drill-down
+ * gesture). The skill card's row click is the column's second drill-down:
+ * the session column narrows to the pinned skill's loaders within the same
+ * scope, and the card's description/origin/path enrichment rides the
+ * plugin's skill-catalog route (client/skills.ts), read per open off the
+ * current session's workspace.
  * A session card click jumps to that session through the harness's own
  * selection verb (openSessionVia), whose navigation returns the center column
  * to the conversation.
@@ -41,12 +47,14 @@ import { useModelPrices } from '../modelPrices'
 import {
   aggregateDays, filterRows, groupCountsOf, inGroup, kpisOf,
   pageOf, refreshSessions, requestActivityBackfill, rowsOfSnapshot,
-  sessionGroupsOf, sessionsSnapshotOf, sortRows,
+  rowLoadedSkill, sessionGroupsOf, sessionsSnapshotOf, skillLoadsOf, sortRows,
   UNGROUPED_KEY, workspacesSnapshotOf,
-  type OverviewRange, type OverviewRow, type OverviewSort,
+  type OverviewRange, type OverviewRow, type OverviewSort, type SkillSort,
 } from '../overview'
 import { openSessionVia, type ClientCtx } from '../services'
+import { readSkillCatalog } from '../skills'
 import { openPluginSettings } from '../settingsJump'
+import type { SkillInfo } from '../../shared/types'
 import type { ViewKit } from '../viewkit'
 import { makeBalanceCapsule } from './balanceCapsule'
 import { makeErrorBoundary } from './errorBoundary'
@@ -57,6 +65,7 @@ import { makeOverviewTokens } from './overviewTokens'
 import { makeOverviewUsage } from './overviewUsage'
 import { makeStatsTiming } from './statsTiming'
 import { makeOverviewCard } from './overviewCard'
+import { makeOverviewSkills } from './overviewSkills'
 import { IconSettings } from '../primitives'
 
 export interface OverviewPanelProps {
@@ -83,6 +92,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   const OverviewTokens = makeOverviewTokens(kit, Donut)
   const StatsTiming = makeStatsTiming(kit, Donut)
   const OverviewUsage = makeOverviewUsage(kit)
+  const OverviewSkills = makeOverviewSkills(kit)
   const ErrorBoundary = makeErrorBoundary(t)
 
   /** The display currency follows the active locale (zh → CNY), read per render — the slot outlet re-renders on a locale switch. */
@@ -101,6 +111,8 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     const [day, setDay] = useState<string | null>(null)
     const [query, setQuery] = useState('')
     const [group, setGroup] = useState<string | null>(null)
+    const [skill, setSkill] = useState<string | null>(null)
+    const [skillSort, setSkillSort] = useState<SkillSort>('loads')
     const [sort, setSort] = useState<OverviewSort>('recent')
     const [metric, setMetric] = useState<HeatMetric>('steps')
     const [page, setPage] = useState(0)
@@ -108,6 +120,22 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
 
     const rows = useMemo(() => rowsOfSnapshot(snapshot, wsSnapshot), [snapshot, wsSnapshot])
     const groups = useMemo(() => sessionGroupsOf(wsSnapshot), [wsSnapshot])
+    const [catalog, setCatalog] = useState<ReadonlyMap<string, SkillInfo> | null>(null)
+
+    // The skill card's metadata read: the registry resolves per SESSION (the
+    // workspace selects the project layer, the preset selects the discovery
+    // scope), so the current session anchors it; a session-less list still
+    // serves the global layers. A switch re-reads; a failed read leaves the
+    // card unenriched rather than stale.
+    const currentRow = (rows ?? []).find(row => row.current)
+    const currentCwd = currentRow?.cwd
+    const currentId = currentRow?.id
+    useEffect(() => {
+      let alive = true
+      setCatalog(null)
+      void readSkillCatalog(currentCwd, currentId).then((next) => { if (alive && next !== null) setCatalog(next) })
+      return () => { alive = false }
+    }, [currentCwd, currentId])
 
     // On mount (the panel's open): summon the host's projection warm-up (this
     // page is the rows' only reader — one pass per host process) and re-pull
@@ -118,7 +146,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     }, [])
 
     // Any filter change re-anchors the pager at the first page.
-    useEffect(() => { setPage(0) }, [range, day, query, group, sort])
+    useEffect(() => { setPage(0) }, [range, day, query, group, skill, sort])
 
     const currency = activeCurrency()
     const now = Date.now()
@@ -136,7 +164,10 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
       ? [...counts, { key: group, count: 0 }]
       : counts
     const visible = sortRows(
-      group === null ? scoped : scoped.filter(row => inGroup(row, group, groups)),
+      (group === null ? scoped : scoped.filter(row => inGroup(row, group, groups)))
+        // The skill card's row pin narrows the list to the skill's loaders
+        // within the card's own scope (the range floor plus the pinned day).
+        .filter(row => skill === null || rowLoadedSkill(row, skill, { range, day }, now)),
       sort,
     )
     const paged = pageOf(visible, page)
@@ -253,6 +284,22 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                       </div>
                       <Heatmap days={days} metric={metric} selected={day} onSelect={setDay} today={todayKey()} />
                     </div>
+                    {/* The activity column's second card: the scope's skill
+                        loads off the rows' family ledgers (skillLoadsOf). The
+                        scope is the range group plus the heatmap's pinned day
+                        — the column's own drill-down — never the list's search
+                        or group chips (those are list-local). A row pin narrows
+                        the session list to the skill's loaders. */}
+                    <OverviewSkills
+                      stats={skillLoadsOf(ranged, { range, day, sort: skillSort }, now)}
+                      day={day}
+                      selected={skill}
+                      onSelect={setSkill}
+                      sort={skillSort}
+                      onSort={setSkillSort}
+                      catalog={catalog}
+                      now={now}
+                    />
                   </div>
 
                   <div className="lc-ov-right">
@@ -262,6 +309,11 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                       {day !== null && (
                         <button type="button" className="lc-ov-day-chip" title={t('ov.list.dayClear')} onClick={() => { setDay(null) }}>
                           {t('ov.list.dayFilter', { day })} ×
+                        </button>
+                      )}
+                      {skill !== null && (
+                        <button type="button" className="lc-ov-day-chip" title={t('ov.list.skillClear')} onClick={() => { setSkill(null) }}>
+                          {t('node.skillTag', { name: skill })} ×
                         </button>
                       )}
                       <input

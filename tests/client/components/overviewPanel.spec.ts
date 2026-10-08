@@ -11,7 +11,7 @@ import { makeOverviewPanel } from '../../../src/client/components/overviewPanel'
 import { resetModelPrices, setModelPricesLoader } from '../../../src/client/modelPrices'
 import { dayKeyOf } from '../../../src/shared/days'
 import { TestClientCtx, asClientCtx } from '../helpers/harness'
-import { click, flush, makeKit, mount, query, queryAll, text, until, type Mounted } from '../helpers/kit'
+import { click, flush, hover, makeKit, mount, query, queryAll, text, unhover, until, type Mounted } from '../helpers/kit'
 
 const PROVIDERS = {
   deepseek: { models: { 'deepseek-v4-flash': { cost: { input: 1, output: 2, cache_read: 0.1 } } } },
@@ -234,6 +234,54 @@ describe('OverviewPanel', () => {
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2, 'both sessions were active yesterday')
     await click(queryAll<HTMLButtonElement>(m.container, 'button.lc-heat-cell').find(c => c.getAttribute('aria-label')?.startsWith(YESTERDAY))!)
     assert.equal(queryAll(m.container, '.lc-ov-day-chip').length, 0)
+    await m.unmount()
+  })
+
+  test('the skill card pins the session list to the skill’s loaders; the chip and the row release it', async () => {
+    const ctx = makeCtx()
+    // Session a loaded 'tdd' today; b's ledger carries no skills.
+    const snap = sessionsSnapshot()
+    const aDays = (snap.byId.a.projectionValues as { contextActivity: { days: Record<string, Record<string, unknown>> } }).contextActivity.days
+    aDays[TODAY] = { ...aDays[TODAY], skills: { tdd: { n: 2, last: NOW - 1000 } } }
+    const skillPosts: unknown[] = []
+    vi.stubGlobal('fetch', async (url: string | URL, init?: RequestInit) => {
+      const route = String(url)
+      if (route.endsWith('/skills')) {
+        skillPosts.push(init?.body === undefined ? undefined : JSON.parse(String(init.body)))
+        return {
+          ok: true,
+          json: async () => ({ ok: true, value: { skills: [{ name: 'tdd', description: 'Test-driven.', path: '/p/tdd/SKILL.md', source: 'user-agents' }] } }),
+        }
+      }
+      return { ok: true, json: async () => ({}) }
+    })
+    const { m } = await openPanel(ctx, { useSessions: useHookOf(snap) })
+    await flush() // the catalog read lands
+    assert.deepEqual(skillPosts, [{ cwd: '/repo/alpha', sessionId: 'a' }], 'the catalog read anchors on the current session')
+    // The card lists the skill, enriched by the catalog (the hover card carries the description).
+    const skillRow = query<HTMLButtonElement>(m.container, 'button.lc-ov-skill')
+    assert.ok(text(skillRow).includes('tdd'))
+    await hover(skillRow)
+    assert.ok(text(document.querySelector('#lc-skilltip-bubble') as HTMLElement).includes('Test-driven.'), 'the catalog’s description joins the hover card')
+    await unhover(skillRow)
+    // Pin: the grid narrows to the skill's loaders and the list-head chip shows the pin.
+    await click(skillRow)
+    const cards = queryAll(m.container, '.lc-ov-grid > .lc-ov-session')
+    assert.equal(cards.length, 1)
+    assert.ok(text(cards[0]).includes('alpha session'))
+    const chip = query<HTMLButtonElement>(m.container, '.lc-ov-day-chip[title="Clear the skill filter"]')
+    assert.ok(text(chip).includes('Skill · tdd'))
+    // The pin's detail block rides the catalog.
+    assert.ok(text(query(m.container, '.lc-ov-skill-detail')).includes('/p/tdd/SKILL.md'))
+    // The chip clears the pin.
+    await click(chip)
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2)
+    assert.equal(queryAll(m.container, '.lc-ov-skill-detail').length, 0, 'the detail block leaves with the pin')
+    // Re-pin and release via the row itself.
+    await click(query<HTMLButtonElement>(m.container, 'button.lc-ov-skill'))
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1)
+    await click(query<HTMLButtonElement>(m.container, 'button.lc-ov-skill'))
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2)
     await m.unmount()
   })
 

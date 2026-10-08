@@ -21,13 +21,14 @@
  */
 
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
+import { dayKeyOf } from '../shared/days'
 import { billedParts } from './categories'
 import { cacheHitPercent } from './format'
 import { estimateSessionCost, mergeCostUsage } from './cost'
 import type { CostCurrency, ModelBook } from './cost'
 import { agentRowOf } from './agentTree'
 import { activityOf, asRecord, timelineOf, type ClientCtx, type SessionsFace } from './services'
-import type { ContextActivity, ContextTimeline, SessionCostUsage, TimingTotals, TokenUsage, ToolTimingTotals } from '../shared/types'
+import type { ActivityDay, ContextActivity, ContextTimeline, SessionCostUsage, TimingTotals, TokenUsage, ToolTimingTotals } from '../shared/types'
 
 /** One session-list row joined with its (sanitized) projection values. */
 export interface OverviewRow {
@@ -276,8 +277,10 @@ export function rowsOfSnapshot(snapshot: unknown, workspaces?: unknown): Overvie
 /**
  * Merge several sessions' daily ledgers into one family's: per day the tokens
  * and requests sum and the pricing records merge (each member's own entry,
- * same day — the fee prices off the same book downstream either way). Null
- * when no member carries a ledger, matching a lone session's day-less state.
+ * same day — the fee prices off the same book downstream either way), and the
+ * skill tables merge name by name (loads sum, last-load instant takes the
+ * max). Null when no member carries a ledger, matching a lone session's
+ * day-less state.
  */
 function mergeActivity(members: (ContextActivity | null)[]): ContextActivity | null {
   const days: ContextActivity['days'] = {}
@@ -291,7 +294,12 @@ function mergeActivity(members: (ContextActivity | null)[]): ContextActivity | n
       const entry = activity.days[key]
       const prev = byKey[key]
       if (prev === undefined) {
-        days[key] = { tokens: entry.tokens, requests: entry.requests, ...(entry.cost !== undefined ? { cost: entry.cost } : {}) }
+        days[key] = {
+          tokens: entry.tokens,
+          requests: entry.requests,
+          ...(entry.cost !== undefined ? { cost: entry.cost } : {}),
+          ...(entry.skills !== undefined ? { skills: entry.skills } : {}),
+        }
       } else {
         prev.tokens += entry.tokens
         prev.requests += entry.requests
@@ -299,10 +307,23 @@ function mergeActivity(members: (ContextActivity | null)[]): ContextActivity | n
           /* v8 ignore next 1 -- a merge with a defined input never comes back empty. */
           prev.cost = mergeCostUsage(prev.cost, entry.cost) ?? entry.cost
         }
+        if (entry.skills !== undefined) prev.skills = mergeSkillTallies(prev.skills, entry.skills)
       }
     }
   }
   return any ? { days } : null
+}
+
+/** Two days' skill tables merged name by name: loads sum, the last-load instant takes the max. */
+function mergeSkillTallies(a: ActivityDay['skills'], b: NonNullable<ActivityDay['skills']>): NonNullable<ActivityDay['skills']> {
+  // Widened honestly: a Record index read can miss at runtime.
+  const out: Record<string, { n: number; last: number } | undefined> = { ...a }
+  for (const name of Object.keys(b)) {
+    const tally = b[name]
+    const prev = out[name]
+    out[name] = prev === undefined ? tally : { n: prev.n + tally.n, last: Math.max(prev.last, tally.last) }
+  }
+  return out as NonNullable<ActivityDay['skills']>
 }
 
 // ---- range / filter / sort -------------------------------------------------
@@ -405,6 +426,99 @@ export function pageOf<T>(rows: readonly T[], page: number): { items: T[]; index
 }
 
 // ---- aggregations ----------------------------------------------------------
+
+/** One skill's loads across the scoped rows: its tally, its loader count, and its last load instant. */
+export interface SkillLoadStat {
+  name: string
+  loads: number
+  /** How many session rows (agent families — the same granularity the list filter reads) loaded it in scope. */
+  sessions: number
+  /** The last load's instant (epoch ms) — the row's relative-time label. */
+  last: number
+}
+
+/** The skill card's row orderings (the title's segmented toggle); omission reads as 'loads'. */
+export type SkillSort = 'loads' | 'recent'
+
+/**
+ * The scope's ledger-day predicate: the heatmap's pinned day admits exactly
+ * that day, else the range's day floor admits its own and later days (the
+ * ledger is day-grained: the 24h window's start day counts whole, the same
+ * resolution the heatmap reads at); 'all' admits every day.
+ */
+function skillDayPredicate(opts: { range: OverviewRange; day: string | null }, now: number): (key: string) => boolean {
+  if (opts.day !== null) return key => key === opts.day
+  const start = rangeStartOf(opts.range, now)
+  const floor = start === null ? null : dayKeyOf(start)
+  return floor === null ? () => true : key => key >= floor
+}
+
+/**
+ * The Insights page's skill card data: every scoped row's family ledger (the
+ * activity merge already folds the subtree) folded name by name over the
+ * ledger days the scope admits. Each name tallies its loads, counts its
+ * loader rows once per row (a row loading it on two days is one loader), and
+ * keeps the freshest load instant. The sort ranks by the picked key, the
+ * remaining keys tiebreak volume-first then recent-first, and the name is the
+ * final tiebreak so every ordering is stable.
+ */
+export function skillLoadsOf(
+  rows: readonly OverviewRow[],
+  opts: { range: OverviewRange; day: string | null; sort?: SkillSort },
+  now: number,
+): SkillLoadStat[] {
+  const admit = skillDayPredicate(opts, now)
+  const stats = new Map<string, SkillLoadStat>()
+  for (const row of rows) {
+    const days = row.activity?.days
+    if (days === undefined) continue
+    // A row counts once per name toward the loader tally, however many of its
+    // admitted days carry the name.
+    const rowLoaded = new Set<string>()
+    for (const key of Object.keys(days)) {
+      if (!admit(key)) continue
+      const skills = days[key].skills
+      if (skills === undefined) continue
+      for (const name of Object.keys(skills)) {
+        const tally = skills[name]
+        const prev = stats.get(name)
+        if (prev === undefined) stats.set(name, { name, loads: tally.n, sessions: 1, last: tally.last })
+        else {
+          prev.loads += tally.n
+          prev.last = Math.max(prev.last, tally.last)
+          if (!rowLoaded.has(name)) prev.sessions += 1
+        }
+        rowLoaded.add(name)
+      }
+    }
+  }
+  // Names are unique across rows (the map keys), so the name tiebreak never ties.
+  const byName = (a: SkillLoadStat, b: SkillLoadStat): number => (a.name < b.name ? -1 : 1)
+  const out = [...stats.values()]
+  switch (opts.sort ?? 'loads') {
+    case 'recent': return out.sort((a, b) => (b.last - a.last) || (b.loads - a.loads) || byName(a, b))
+    default: return out.sort((a, b) => (b.loads - a.loads) || (b.last - a.last) || byName(a, b))
+  }
+}
+
+/**
+ * Whether the row's family ledger loaded the named skill within the scope —
+ * the session-list filter behind the skill card's click-to-drill-down.
+ */
+export function rowLoadedSkill(
+  row: OverviewRow,
+  name: string,
+  opts: { range: OverviewRange; day: string | null },
+  now: number,
+): boolean {
+  const admit = skillDayPredicate(opts, now)
+  const days = row.activity?.days
+  if (days === undefined) return false
+  for (const key of Object.keys(days)) {
+    if (admit(key) && days[key].skills?.[name] !== undefined) return true
+  }
+  return false
+}
 
 /** The merged billed-bucket totals behind the KPI band and the cost estimate. */
 export interface UsageTotals {

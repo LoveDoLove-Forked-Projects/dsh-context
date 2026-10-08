@@ -213,11 +213,78 @@ button.lc-heat-cell:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--col
 .lc-heat-legend { display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding-top: 6px; }
 .lc-heat-key { font-size: 9px; color: var(--dsw-alias-label-secondary); }
 
+/* ---- the skill card (the activity column's second card): one row per
+   scoped skill — a name-hashed color dot, the name, the load tally, the last
+   load's relative time, and a proportional hairline bar along the row's
+   bottom edge (share of the heaviest row's tally, so no ordering can push a
+   bar past the card edge). Rows are the column's drill-down: a click pins
+   the session list to the skill's loaders, and the pinned row wraps with its
+   detail into one unit carrying the ring. The name ellipsizes (its full
+   text rides the row's hover tip); the two figures hold a fixed right column
+   so the tally and the time never crush it. ---- */
+.lc-ov-skills { display: flex; flex-direction: column; gap: 2px; }
+/* The scope's totals sit under the title, pulled into the title's bottom
+   margin so the pair reads as one head; the sort toggle stays up in the
+   title row's right corner. */
+.lc-ov-skills-sub { margin: -4px 0 8px; }
+.lc-ov-skill { position: relative; display: flex; align-items: baseline; gap: 7px; min-width: 0; width: 100%; border: 0; border-radius: 6px; padding: 2px 6px 4px; background: transparent; font: inherit; font-size: 12px; line-height: 1.7; color: inherit; text-align: left; cursor: pointer; transition: background-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+.lc-ov-skill:hover { background: var(--dsw-alias-bg-layer-2); }
+/* The pinned row and its detail read as one unit: the fill and the single
+   ring live on the wrapper (the ring follows the rounded corners), the parts
+   inside go quiet — no seam, no double outline. */
+.lc-ov-skill-unit { background: var(--dsw-alias-bg-layer-2); border-radius: 8px; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-blue-500) 45%, transparent); }
+.lc-ov-skill-unit .lc-ov-skill-detail { margin-top: 0; padding: 4px 6px 8px; background: transparent; }
+.lc-ov-skill-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; align-self: center; }
+.lc-ov-skill-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 11px; color: var(--dsw-alias-label-primary); }
+.lc-ov-skill-count { flex: none; font-variant-numeric: tabular-nums; color: var(--dsw-alias-label-primary); }
+.lc-ov-skill-last { flex: none; min-width: 56px; text-align: right; font-size: 11px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+/* The share hairline: absolute off the row's bottom padding, so it never
+   moves the text baseline; the color-mix keeps it a wash under both themes.
+   The JS width subtracts the row's horizontal insets (6px + 6px), so 100%
+   stops at the content edge instead of poking through the pinned unit's ring. */
+.lc-ov-skill-bar { position: absolute; left: 6px; bottom: 1px; height: 2px; border-radius: 1px; opacity: 0.45; pointer-events: none; }
+.lc-ov-skill-more { padding-top: 4px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+/* The skill hover card (a structured `.lc-tip` bubble — the page's plain
+   pre-line chrome cannot hold a hierarchy) and the pinned skill's detail
+   block under the rows share the head (dot + name; the card adds the origin
+   chip) and the clamped description; the card adds the stats/action footer,
+   the block the fact grid. The detail registers wrap an over-long name in
+   full — the list row's ellipsis is the only truncation. */
+.lc-skilltip { position: fixed; z-index: 300; max-width: min(300px, 60vw); padding: 10px 12px; border-radius: 10px; white-space: normal; line-height: 1.5; }
+.lc-skilld-head { display: flex; align-items: center; gap: 7px; }
+.lc-skilld-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.lc-skilld-chip { flex: none; font-size: 10px; line-height: 1.5; color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l2); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.lc-skilld-desc { margin: 6px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.lc-skilld-path { margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 11px; color: var(--dsw-alias-label-tertiary); }
+/* The footer's two halves fold under width pressure (the bubble is portaled
+   to <body>, outside the lc-ov query container — flex-wrap self-adapts, no
+   container query reaches it): the stats hold one unbroken line, the hint
+   drops to its own right-aligned line. */
+.lc-skilld-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--dsw-alias-border-l2); font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.lc-skilld-foot > span:first-child { white-space: nowrap; }
+.lc-skilld-hint { margin-left: auto; flex: none; color: var(--color-blue-500); white-space: nowrap; }
+/* The pinned skill's detail: attached right under its row (a quiet inset
+   box), or detached at the card's bottom when the pinned row is out of the
+   visible scope. */
+.lc-ov-skill-detail { margin: 4px 0 2px; padding: 8px 10px 9px; background: var(--dsw-alias-bg-layer-2); border-radius: 8px; }
+.lc-ov-skill-detail > :first-child { margin-top: 0; }
+/* The facts: a label column against a value column — every fact named,
+   nothing floating. Values ellipsis; the path value is the copy button. */
+.lc-skilld-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; margin-top: 7px; font-size: 11px; line-height: 1.6; }
+.lc-skilld-k { color: var(--dsw-alias-label-tertiary); white-space: nowrap; }
+.lc-skilld-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-secondary); }
+.lc-skilld-pathv { display: flex; align-items: center; gap: 5px; border: 0; padding: 0; background: transparent; font: inherit; cursor: copy; text-align: left; }
+.lc-skilld-pathv-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace); }
+.lc-skilld-pathv svg { flex: none; color: var(--dsw-alias-label-tertiary); transition: color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+.lc-skilld-pathv:hover .lc-skilld-pathv-text, .lc-skilld-pathv:hover svg { color: var(--dsw-alias-label-primary); }
+
 /* ---- the session list head: title, count, day chip, search, sort ---- */
 .lc-ov-list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .lc-ov-list-title { font-weight: 600; white-space: nowrap; }
 .lc-ov-list-count { color: var(--dsw-alias-label-secondary); font-size: 11px; font-variant-numeric: tabular-nums; background: var(--dsw-alias-bg-layer-2); border-radius: 8px; padding: 1px 7px; }
-.lc-ov-day-chip { border: 1px solid color-mix(in srgb, var(--color-blue-500) 45%, transparent); color: var(--color-blue-500); background: color-mix(in srgb, var(--color-blue-500) 10%, transparent); border-radius: 999px; font-size: 11px; line-height: 1.4; padding: 1px 10px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+/* The day/skill pin chips truncate an over-long skill name instead of
+   bursting the list head. */
+.lc-ov-day-chip { border: 1px solid color-mix(in srgb, var(--color-blue-500) 45%, transparent); color: var(--color-blue-500); background: color-mix(in srgb, var(--color-blue-500) 10%, transparent); border-radius: 999px; font-size: 11px; line-height: 1.4; padding: 1px 10px; cursor: pointer; font-family: inherit; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .lc-ov-search { flex: 1 1 150px; min-width: 110px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 12px; color: var(--dsw-alias-label-primary); outline: none; transition: border-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
 .lc-ov-search:focus { border-color: var(--dsw-alias-label-secondary); }
 .lc-ov-search::placeholder { color: var(--dsw-alias-label-secondary); }

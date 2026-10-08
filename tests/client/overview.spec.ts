@@ -18,9 +18,11 @@ import {
   refreshSessions,
   relativeTime,
   requestActivityBackfill,
+  rowLoadedSkill,
   rowsOfSnapshot,
   sessionGroupsOf,
   sessionsSnapshotOf,
+  skillLoadsOf,
   sortRows,
   timingSumOf,
   tokenPartsOf,
@@ -31,6 +33,7 @@ import {
   type OverviewRow,
 } from '../../src/client/overview'
 import type { ClientCtx } from '../../src/client/services'
+import { dayKeyOf } from '../../src/shared/days'
 import type { ContextActivity, ContextTimeline, SessionCostUsage } from '../../src/shared/types'
 import { mergeCostUsage, priceIndexOf } from '../../src/client/cost'
 
@@ -682,8 +685,30 @@ describe('rowsOfSnapshot: the family fold', () => {
     assert.equal(billedOf(rows[0]), 500, 'COST + COST2 — the cycle’s revisit adds nothing twice')
   })
 
-  test('hostile descendant projections degrade to null members, never a throw', () => {
+  test('the daily ledgers’ skill tables merge name by name (loads sum, last takes the max)', () => {
     const rows = rowsOfSnapshot(snapshotOf([
+      ['root', {
+        displayTitle: 'root',
+        projectionValues: {
+          contextActivity: { days: { '2026-09-16': { tokens: 5, requests: 1, skills: { tdd: { n: 2, last: 100 }, solo: { n: 1, last: 90 } } } } },
+        },
+      }],
+      ['kid', {
+        origin: 'subagent', parentId: 'root',
+        projectionValues: {
+          contextActivity: { days: { '2026-09-16': { tokens: 7, requests: 2, skills: { tdd: { n: 3, last: 200 }, fresh: { n: 1, last: 300 } } } } },
+        },
+      }],
+    ]))
+    assert.ok(rows !== null)
+    assert.deepEqual(rows[0].activity?.days['2026-09-16'].skills, {
+      tdd: { n: 5, last: 200 },
+      solo: { n: 1, last: 90 },
+      fresh: { n: 1, last: 300 },
+    })
+  })
+
+  test('hostile descendant projections degrade to null members, never a throw', () => {    const rows = rowsOfSnapshot(snapshotOf([
       ['root', { displayTitle: 'root', projectionValues: { contextTimeline: billedHead(1, COST) } }],
       ['kid', { origin: 'subagent', parentId: 'root', projectionValues: { contextTimeline: 7, contextActivity: 'x' } }],
       ['junk', 5 as unknown as Record<string, unknown>],
@@ -693,6 +718,140 @@ describe('rowsOfSnapshot: the family fold', () => {
     assert.equal(rows[0].family[1], null, 'the hostile head sanitizes to null in place')
     assert.equal(rows[0].activity, null, 'no member carried a ledger → the family has none')
     assert.equal(billedOf(rows[0]), 200)
+  })
+})
+
+describe('skillLoadsOf', () => {
+  const NOW = Date.UTC(2026, 8, 20, 12)
+  /** The local day key `back` days before NOW — TZ-independent. */
+  const day = (back: number): string => {
+    const key = dayKeyOf(NOW - back * 86_400_000)
+    assert.ok(key !== null)
+    return key
+  }
+  /** A row whose family ledger carries the given day → skill table entries. */
+  function rowWith(id: string, days: ContextActivity['days']): OverviewRow {
+    return rowOf({ id, activity: { days } })
+  }
+
+  test('the range’s day floor scopes the aggregation; every member sums and the last load maximizes', () => {
+    const rows = [
+      rowWith('a', {
+        [day(0)]: { tokens: 1, requests: 1, skills: { tdd: { n: 2, last: NOW - 1000 } } },
+        [day(10)]: { tokens: 1, requests: 1, skills: { tdd: { n: 5, last: NOW - 900_000 }, stale: { n: 1, last: NOW - 900_000 } } },
+      }),
+      rowWith('b', {
+        [day(1)]: { tokens: 1, requests: 1, skills: { tdd: { n: 3, last: NOW - 2000 }, grill: { n: 1, last: NOW - 500 } } },
+      }),
+    ]
+    assert.deepEqual(skillLoadsOf(rows, { range: '24h', day: null }, NOW), [
+      { name: 'tdd', loads: 5, sessions: 2, last: NOW - 1000 },
+      { name: 'grill', loads: 1, sessions: 1, last: NOW - 500 },
+    ], 'the 10-days-ago entries fall below the floor')
+    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW), [
+      { name: 'tdd', loads: 10, sessions: 2, last: NOW - 1000 },
+      { name: 'grill', loads: 1, sessions: 1, last: NOW - 500 },
+      { name: 'stale', loads: 1, sessions: 1, last: NOW - 900_000 },
+    ])
+  })
+
+  test('the loader tally counts a row once however many of its days carry the name', () => {
+    const rows = [
+      rowWith('a', {
+        [day(0)]: { tokens: 1, requests: 1, skills: { tdd: { n: 1, last: NOW - 3000 } } },
+        [day(1)]: { tokens: 1, requests: 1, skills: { tdd: { n: 1, last: NOW - 2000 } } },
+      }),
+      rowWith('b', { [day(0)]: { tokens: 1, requests: 1, skills: { tdd: { n: 1, last: NOW - 500 } } } }),
+    ]
+    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW), [
+      { name: 'tdd', loads: 3, sessions: 2, last: NOW - 500 },
+    ])
+  })
+
+  test('the sort keys reorder; ties fall to the next key, then the name', () => {
+    const rows = [
+      rowWith('a', {
+        [day(0)]: {
+          tokens: 1,
+          requests: 1,
+          skills: {
+            alpha: { n: 3, last: NOW - 3000 },   // 3 loads, 1 loader, stalest
+            beta: { n: 1, last: NOW - 1000 },    // 2 loads, 2 loaders
+            gamma: { n: 2, last: NOW - 500 },    // 2 loads, 1 loader, freshest
+            delta: { n: 1, last: NOW - 700 },    // delta and epsilon agree on every key — the name decides
+            epsilon: { n: 1, last: NOW - 700 },
+          },
+        },
+      }),
+      rowWith('b', { [day(0)]: { tokens: 1, requests: 1, skills: { beta: { n: 1, last: NOW - 2000 } } } }),
+    ]
+    const names = (sort?: 'loads' | 'recent'): string[] =>
+      skillLoadsOf(rows, { range: 'all', day: null, sort }, NOW).map(s => s.name)
+    assert.deepEqual(names(), ['alpha', 'gamma', 'beta', 'delta', 'epsilon'], 'loads (the default): loads desc, then recent — the gamma/beta tie breaks on freshness')
+    assert.deepEqual(names('loads'), ['alpha', 'gamma', 'beta', 'delta', 'epsilon'], 'the explicit key matches the omission')
+    assert.deepEqual(names('recent'), ['gamma', 'delta', 'epsilon', 'beta', 'alpha'], 'recent: the freshest first')
+  })
+
+  test('the heatmap’s pinned day scopes to that day exactly', () => {
+    const rows = [
+      rowWith('a', {
+        [day(0)]: { tokens: 1, requests: 1, skills: { tdd: { n: 2, last: NOW - 1000 } } },
+        [day(1)]: { tokens: 1, requests: 1, skills: { grill: { n: 4, last: NOW - 80_000 } } },
+      }),
+    ]
+    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: day(1) }, NOW), [
+      { name: 'grill', loads: 4, sessions: 1, last: NOW - 80_000 },
+    ])
+  })
+
+  test('ties break recent-first, then by name; rows and days without skills skip', () => {
+    const rows = [
+      rowOf({ id: 'bare' }), // no ledger at all
+      rowWith('empty-day', { [day(0)]: { tokens: 2, requests: 1 } }),
+      rowWith('a', {
+        [day(0)]: {
+          tokens: 1,
+          requests: 1,
+          skills: {
+            beta: { n: 2, last: NOW - 1000 },
+            alpha: { n: 2, last: NOW - 1000 },
+            gamma: { n: 2, last: NOW - 1000 },
+            delta: { n: 5, last: NOW - 9000 },
+          },
+        },
+      }),
+    ]
+    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW).map(s => s.name), ['delta', 'alpha', 'beta', 'gamma'])
+  })
+})
+
+describe('rowLoadedSkill', () => {
+  const NOW = Date.UTC(2026, 8, 20, 12)
+  /** The local day key `back` days before NOW — TZ-independent. */
+  const day = (back: number): string => {
+    const key = dayKeyOf(NOW - back * 86_400_000)
+    assert.ok(key !== null)
+    return key
+  }
+
+  test('the scope’s day predicate decides — the range floor, the pinned day, and the skill-less days', () => {
+    const row = rowOf({
+      id: 'a',
+      activity: {
+        days: {
+          [day(0)]: { tokens: 1, requests: 1, skills: { tdd: { n: 2, last: NOW - 1000 } } },
+          [day(1)]: { tokens: 1, requests: 1 },
+          [day(10)]: { tokens: 1, requests: 1, skills: { grill: { n: 1, last: NOW - 900_000 } } },
+        },
+      },
+    })
+    assert.equal(rowLoadedSkill(row, 'tdd', { range: '24h', day: null }, NOW), true, 'loaded today — inside the 24h floor')
+    assert.equal(rowLoadedSkill(row, 'grill', { range: '24h', day: null }, NOW), false, 'the 10-days-ago load falls below the floor')
+    assert.equal(rowLoadedSkill(row, 'grill', { range: 'all', day: null }, NOW), true)
+    assert.equal(rowLoadedSkill(row, 'tdd', { range: 'all', day: day(1) }, NOW), false, 'the pinned day admits only itself')
+    assert.equal(rowLoadedSkill(row, 'grill', { range: 'all', day: day(10) }, NOW), true)
+    assert.equal(rowLoadedSkill(row, 'never', { range: 'all', day: null }, NOW), false, 'a name no day carries')
+    assert.equal(rowLoadedSkill(rowOf({ id: 'bare' }), 'tdd', { range: 'all', day: null }, NOW), false, 'no ledger at all')
   })
 })
 

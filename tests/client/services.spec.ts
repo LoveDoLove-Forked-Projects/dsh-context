@@ -947,4 +947,36 @@ describe('activityOf', () => {
       days: { '2026-09-16': { tokens: 15, requests: 1 }, '2026-09-15': { tokens: 3, requests: 1 } },
     })
   })
+
+  test('a well-formed skill table rides the pass-through; malformed tallies drop per name', () => {
+    const skills = { tdd: { n: 2, last: 1_758_000_000_000 } }
+    const wire = { days: { '2026-09-16': { tokens: 15, requests: 1, skills } } }
+    assert.ok(activityOf(wire) === (wire as never))
+    const out = activityOf({
+      days: {
+        '2026-09-16': {
+          tokens: 15,
+          requests: 1,
+          skills: {
+            tdd: { n: 1, last: 5 },
+            'bad-count': { n: 'x', last: 5 },
+            'bad-last': { n: 1, last: Number.NaN },
+            'neg-count': { n: -1, last: 5 },
+            'not-record': null,
+          },
+        },
+        '2026-09-17': { tokens: 1, requests: 1, skills: 'x' },
+        '2026-09-18': { tokens: 1, requests: 1, skills: [] },
+        '2026-09-19': { tokens: 1, requests: 1, skills: {} },
+      },
+    })
+    assert.deepEqual(out, {
+      days: {
+        '2026-09-16': { tokens: 15, requests: 1, skills: { tdd: { n: 1, last: 5 } } },
+        '2026-09-17': { tokens: 1, requests: 1 },
+        '2026-09-18': { tokens: 1, requests: 1 },
+        '2026-09-19': { tokens: 1, requests: 1 },
+      },
+    }, 'non-record and empty-after-scrubbing tables drop whole; the days survive')
+  })
 })
