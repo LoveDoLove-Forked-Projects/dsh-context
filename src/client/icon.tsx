@@ -9,13 +9,13 @@
  * re-renders it at every requested size. The identity seats (tab chip,
  * command, sidebar registration) keep the sheet's fixed fills —
  * deliberately polychrome on both light and dark chrome — while the
- * sidebar's panel-list seat (insightPage.ts) opts into `mono`, trading
- * every fill for `currentColor` so the glyph follows the shell-owned row's
- * own state colors, exactly as the shipped panel glyphs do.
+ * sidebar's panel-list seat (insightPage.ts) opts into `mono`: the sheet in
+ * the surrounding text colour at the harness's own line weight, so the
+ * shell-owned row weighs what the shipped rows beside it weigh.
  */
 
 import sheetMarkup from '../../icon.svg?raw'
-import type { ReactElement } from 'react'
+import { useId, type ReactElement } from 'react'
 import type { Translate } from './i18n'
 
 /** Everything between the file's `<svg>` tags: the sheet's strokes in paint order, whitespace-folded. */
@@ -24,8 +24,54 @@ const SHEET_MARKUP = sheetMarkup
   .trim()
   .replace(/>\s+</g, '><')
 
-/** The mono seat's strokes: same geometry, every palette fill traded for the surrounding text colour. */
-const SHEET_MARKUP_MONO = SHEET_MARKUP.replace(/fill="#[0-9A-Fa-f]{6}"/g, 'fill="currentColor"')
+/** The same strokes with their palette dropped — the shape alone, which the mono seat's masks paint. */
+const SHEET_OUTLINE = SHEET_MARKUP.replace(/fill="#[0-9A-Fa-f]{6}"/g, '')
+
+/** The harness icon set's line weight: one unit of its 16-unit box, which this artboard spells as 64. */
+const HARNESS_STROKE = 1024 / 16
+
+/** The source artboard's own bar weight: every pill and the dot measures 98 to 101 units. */
+const SHEET_STROKE = 98
+
+/** What the mono seat's mask takes off each side of every stroke to reach the harness weight. */
+const INSET = (SHEET_STROKE - HARNESS_STROKE) / 2
+
+/** The mask canvas: the artboard grown past every shifted copy of itself, so no edge clips. */
+const CANVAS = { x: -2 * INSET, y: -2 * INSET, width: 1024 + 4 * INSET, height: 1024 + 4 * INSET }
+const CANVAS_ATTRS = `x="${CANVAS.x}" y="${CANVAS.y}" width="${CANVAS.width}" height="${CANVAS.height}"`
+
+/** One canvas-covering rect — the mask flood, a shift's paint, or the mono seat's own ink. */
+const canvasRect = (fill: string, rest = ''): string => `<rect ${CANVAS_ATTRS} fill="${fill}"${rest}/>`
+
+/** The axes the mono seat erodes along, one shift per direction. */
+const SHIFTS: [number, number][] = [[INSET, 0], [-INSET, 0], [0, INSET], [0, -INSET]]
+
+/**
+ * The mono seat's markup: the sheet masked down to the harness line weight
+ * rather than redrawn — the plugin ships ONE artwork, and the shell's rows
+ * want thin strokes. Erosion is the intersection of a shape with its own
+ * copies shifted along each axis; a mask intersects as a white flood with
+ * one black shift per direction, every shift painted through the sheet's
+ * own complement (the `-hole` mask), which is the only copy of the drawing.
+ * Compositing rather than a filter: `feMorphology` rounds its radius to
+ * whole device pixels, so it would thin the glyph on a 2× display and leave
+ * it untouched (or over-thin it) at 1×.
+ * @param id - this instance's def prefix; two emblems on a page may not share mask ids.
+ */
+function monoMarkup(id: string): string {
+  const hole = `${id}-hole`
+  const thin = `${id}-thin`
+  const shifts = SHIFTS
+    .map(([dx, dy]) => canvasRect('#000', ` mask="url(#${hole})" transform="translate(${dx} ${dy})"`))
+    .join('')
+  return '<defs>'
+    + `<mask id="${hole}" maskUnits="userSpaceOnUse" ${CANVAS_ATTRS}>`
+    + `${canvasRect('#fff')}<g fill="#000">${SHEET_OUTLINE}</g>`
+    + '</mask>'
+    + `<mask id="${thin}" maskUnits="userSpaceOnUse" ${CANVAS_ATTRS}>${canvasRect('#fff')}${shifts}</mask>`
+    + '</defs>'
+    + canvasRect('currentColor', ` mask="url(#${thin})"`)
+}
 
 /** The emblem's props, matching the harness `IconProps` the guide capsule hands it. */
 export interface ContextIconProps {
@@ -33,12 +79,15 @@ export interface ContextIconProps {
   size?: number
   /** Extra class for layout placement. */
   className?: string
-  /** Render in the surrounding text colour instead of the palette (the sidebar panel-list seat). */
+  /** The sidebar panel-list seat: the surrounding text colour at the harness line weight, not the palette. */
   mono?: boolean
 }
 
-/** The document sheet at the requested square edge — polychrome by default, text-coloured in `mono`. */
+/** The document sheet at the requested square edge — polychrome by default, the shell row's own weight in `mono`. */
 export function ContextIcon({ size = 20, className, mono = false }: ContextIconProps): ReactElement {
+  // Mask defs are per instance: a second emblem on the page would otherwise
+  // resolve `url(#…)` against this one's defs, and lose them when it unmounts.
+  const id = `dsh-context-sheet-${useId().replaceAll(':', '')}`
   return (
     <svg
       width={size}
@@ -47,7 +96,7 @@ export function ContextIcon({ size = 20, className, mono = false }: ContextIconP
       className={className}
       aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"
-      dangerouslySetInnerHTML={{ __html: mono ? SHEET_MARKUP_MONO : SHEET_MARKUP }}
+      dangerouslySetInnerHTML={{ __html: mono ? monoMarkup(id) : SHEET_MARKUP }}
     />
   )
 }
