@@ -63,7 +63,9 @@
    reads as part of the name. */
 .lc-br-tool-plugin { font-size: 12px; border-radius: 6px; color: var(--dsw-alias-brand-primary); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent); border-color: transparent; }
 .lc-br-preview { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lc-br-time { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; }
+/* The row's muted meta run: the introducing-step stamp (T{t} S{s}) merges with the clock into one
+   nowrap span, so the meta tail reads as a single unit; the stamp's tooltip explains it on hover. */
+.lc-br-time { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; white-space: nowrap; }
 /* Call-hit tally on a tool-definition row (×N): the count sort's magnitude,
    shown in the time slot's muted face. */
 .lc-br-hits { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; }

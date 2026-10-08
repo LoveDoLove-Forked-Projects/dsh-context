@@ -647,6 +647,30 @@ function lastOfTurn(requests: RequestRecord[], turn: number): RequestRecord | nu
 }
 
 /**
+ * The turn/step stamp marking where a surface item entered the context: the
+ * FIRST request logged after the item's seq is the first request that carried
+ * it (assemble's inclusion rule is `n.seq < R.seq`), so that request's
+ * turn/step names the introducing step — the same next-request attachment the
+ * events card uses. Items with no following retained request (the live tail,
+ * not yet sent) stamp null, as does an introducing request without turn/step
+ * numbers (older hosts) — the true introduction step is then unknowable, and
+ * a later request's numbers would only mislabel it.
+ */
+export function stepStampOf(requests: RequestRecord[]): (itemSeq: number) => { turn: number; step: number } | null {
+  // Sort a copy: the wire arrives in append order, but the derivation must
+  // not depend on it (restored rows can re-order the list).
+  const sorted = requests.slice().sort((a, b) => a.seq - b.seq)
+  return (itemSeq) => {
+    for (const r of sorted) {
+      if (r.seq > itemSeq) {
+        return typeof r.turn === 'number' && typeof r.step === 'number' ? { turn: r.turn, step: r.step } : null
+      }
+    }
+    return null
+  }
+}
+
+/**
  * DNA bands keep at least this share of the occupied region, so a tiny item (a 25-token user message in a 40k
  * context) stays a hoverable/clickable filament instead of a sub-pixel sliver. Tooltips still report true shares.
  */
@@ -776,6 +800,7 @@ export function makeContextBrowser(
 
     const requests = data.requests
     const stepsOf = useMemo(() => turnStepsOf(requests), [requests])
+    const stampOf = useMemo(() => stepStampOf(requests), [requests])
     const hoverReq = props.previewSeq !== null && props.previewSeq !== undefined
       ? requests.find(r => r.seq === props.previewSeq) ?? null
       : null
@@ -926,14 +951,17 @@ export function makeContextBrowser(
 
     /**
      * Expandable element row; `err` rows carry the red run-state dot right after the chevron (the chat's failed-tool marker) so a failed
-     * result scans while collapsed.
+     * result scans while collapsed. `stamp` (the turn/step of the request that first carried the item) merges with the time into ONE
+     * muted meta run ('T1 S41 · 22:58:10') so the meta tail reads as a single unit instead of three separate clusters.
      */
     const elemRow = (
       key: string, tag: ReactNode | null, preview: string,
       tokens: number, time: number | undefined, body: ReactNode,
       err = false, trailing: ReactNode = null,
+      stamp: { turn: number; step: number } | null = null,
     ) => {
       const open = openElem === key
+      const stampText = stamp !== null ? t('browser.stepAt', { t: stamp.turn, s: stamp.step }) : null
       return (
         <div key={key} className={'lc-br-elem' + (open ? ' lc-br-elem-on' : '')}>
           <button type="button" className="lc-br-elem-row hover:bg-(--dsw-alias-interactive-bg-hover)" onClick={() => { toggleElem(key) }}>
@@ -942,7 +970,14 @@ export function makeContextBrowser(
             {tag !== null ? <span className="lc-br-tags">{tag}</span> : null}
             <span className="lc-br-preview">{preview}</span>
             {trailing !== null ? trailing : null}
-            {time !== undefined ? <span className="lc-br-time">{fmtTime(time)}</span> : null}
+            {stampText !== null || time !== undefined
+              ? <span
+                className="lc-br-time"
+                title={stamp !== null ? t('browser.stepAtTip', { t: stamp.turn, s: stamp.step }) : undefined}
+              >
+                {stampText ?? ''}{stampText !== null && time !== undefined ? ' · ' : ''}{time !== undefined ? fmtTime(time) : ''}
+              </span>
+              : null}
             <span className="lc-br-tokens">{'≈' + fmt(tokens)}</span>
           </button>
           {open ? <div className="lc-br-content">{body}</div> : null}
@@ -978,7 +1013,8 @@ export function makeContextBrowser(
         if (content === undefined) return <div className="lc-br-note">{headerNote}</div>
         if (content.system === undefined) return <div className="lc-br-note">{t('browser.noSystem')}</div>
         return elemRow('sys', null, content.system.replace(/\s+/g, ' ').trim().slice(0, 80), breakdown.system, undefined,
-          <TextSection label={catLabel('system')} text={content.system} rich={rich} lines={lineLabel} />)
+          <TextSection label={catLabel('system')} text={content.system} rich={rich} lines={lineLabel} />,
+          false, null, stampOf(sys.seq))
       }
       if (c === 'tools') {
         if (view.header === null) return <div className="lc-br-note">{t(headers === null ? 'browser.noHeader' : 'browser.noEpoch')}</div>
@@ -992,6 +1028,8 @@ export function makeContextBrowser(
         // The epoch's fetched content, joined onto the metadata rows by tool
         // name (the open row's body renders description/params/JSON from it).
         const content = headerContent.get(view.header.seq)
+        // Every schema row of one epoch shares the epoch's introducing step.
+        const epochStamp = stampOf(view.header.seq)
         const contentByName = new Map(content?.tools.map(t => [t.name, t]) ?? [])
         // The text filter scans everything the rows can say: the name, the
         // producer description, the plugin chip, and the raw parameter JSON —
@@ -1073,7 +1111,7 @@ export function makeContextBrowser(
               )
               return elemRow('tool:' + tool.name, null, tool.name, tool.tokens, undefined,
                 toolBody(tool),
-                false, trailing)
+                false, trailing, epochStamp)
             })}
           </div>
         )
@@ -1231,7 +1269,7 @@ export function makeContextBrowser(
               // static hint.
               hint={conv === undefined ? missNote : t('browser.noContent')}
             />,
-            rowErr))}
+            rowErr, null, stampOf(n.seq)))}
         </div>
       )
     }

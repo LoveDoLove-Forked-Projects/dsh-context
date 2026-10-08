@@ -6,7 +6,7 @@
 import { act, createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
-import { makeContextBrowser, type ContextBrowserProps } from '../../../src/client/components/browser'
+import { makeContextBrowser, stepStampOf, type ContextBrowserProps } from '../../../src/client/components/browser'
 import { makeStackedBar } from '../../../src/client/components/stackedBar'
 import { DICT_EN } from '../../../src/client/i18n'
 import { UNKNOWN_TOOL_SOURCE, type ContextHeaders, type ContextTimeline, type HeaderEpochContent, type RequestRecord, type SurfaceNode } from '../../../src/shared/types'
@@ -357,6 +357,72 @@ describe('ContextBrowser live surface', () => {
     assert.ok(text(query(m.container, '.lc-br-meta')).includes('Live · Next Request'))
     assert.equal(query<HTMLSelectElement>(m.container, 'select.lc-br-pick').value, 'live')
     await m.unmount()
+  })
+
+  test('element rows carry the introducing step stamp merged with the time (T{t} S{s} · clock); the live tail carries none', async () => {
+    const data = tl({
+      current: { system: 10, tools: 10, user: 10, inject: 10, skill: 10, assistant: 10, tool: 10, total: 70 },
+      requests: [
+        req({ seq: 20, turn: 1, step: 1 }),
+        req({ seq: 30, turn: 1, step: 2 }),
+        req({ seq: 40, turn: 2, step: 1 }),
+      ],
+      systems: [{ seq: 22, time: 100, tokens: 10 }],
+      nodes: [
+        surfaceNode({ seq: 5, cat: 'user', tokens: 1 }),
+        surfaceNode({ seq: 25, cat: 'inject', tokens: 1, form: 'snapshot', text: 'state', time: 60_000 }),
+        surfaceNode({ seq: 35, cat: 'assistant', tokens: 1 }),
+        surfaceNode({ seq: 36, cat: 'skill', tokens: 1, skill: 's' }),
+        surfaceNode({ seq: 45, cat: 'tool', tokens: 1, tool: 'bash' }),
+      ],
+    })
+    // The header epoch at seq 22 enters the context with the seq-30 request, like the inject node.
+    const headers: ContextHeaders = { headers: [{ seq: 22, time: 100, systemTokens: 10, tools: [{ name: 't1', tokens: 5 }] }] }
+    const epoch = withEpochContent(headers, { 22: { system: 'SYS', tools: [{ name: 't1', schema: {} }] } })
+    const m = await mount(h(Browser, props({ data, headers: epoch.headers, fetchHeader: epoch.fetchHeader })))
+    const stampOfCat = async (cat: keyof typeof ROW): Promise<string[]> => {
+      await click(catRow(m, cat))
+      await flush()
+      const body = query(queryAll(m.container, '.lc-br-cat')[ROW[cat]], '.lc-br-body')
+      return queryAll(body, '.lc-br-time').map(el => text(el))
+    }
+    assert.deepEqual(await stampOfCat('user'), ['T1 S1'], 'a stamp without a clock stands alone')
+    const [injectStamp] = await stampOfCat('inject')
+    assert.match(injectStamp, /^T1 S2 · \d{2}:\d{2}:\d{2}$/, 'the stamp merges with the clock into one run')
+    assert.deepEqual(await stampOfCat('assistant'), ['T2 S1'])
+    assert.deepEqual(await stampOfCat('skill'), ['T2 S1'])
+    // The tool result landed after the last logged request: no request carries it yet, so no stamp (and it has no clock).
+    await click(catRow(m, 'tool'))
+    await flush()
+    const toolBody = query(queryAll(m.container, '.lc-br-cat')[ROW.tool], '.lc-br-body')
+    assert.equal(queryAll(toolBody, '.lc-br-time').length, 0)
+    assert.equal(queryAll(toolBody, '.lc-br-elem-row').length, 1, 'the row still renders without a stamp')
+    // System prompt and tool schemas share the epoch's introducing step.
+    assert.deepEqual(await stampOfCat('system'), ['T1 S2'])
+    assert.deepEqual(await stampOfCat('tools'), ['T1 S2'])
+    const tip = query(queryAll(m.container, '.lc-br-cat')[ROW.tools], '.lc-br-time').title
+    assert.equal(tip, 'First carried by the Turn 1 · Step 2 request')
+    await m.unmount()
+  })
+})
+
+describe('stepStampOf', () => {
+  const r = (seq: number, turn?: number, step?: number): RequestRecord => req({ seq, turn, step })
+
+  test('an item stamps to the FIRST request logged after it, whatever the wire order', () => {
+    const input = [r(30, 2, 1), r(10, 1, 1), r(20, 1, 2)]
+    const stamp = stepStampOf(input)
+    assert.deepEqual(stamp(5), { turn: 1, step: 1 })
+    assert.deepEqual(stamp(10), { turn: 1, step: 2 }, 'an item AT a request seq is carried by the NEXT request')
+    assert.deepEqual(stamp(25), { turn: 2, step: 1 })
+    assert.equal(input[0].seq, 30, 'the caller array is not reordered')
+  })
+
+  test('the live tail and turn-less introducers stamp null', () => {
+    const stamp = stepStampOf([r(10, undefined, undefined), r(20, 1, 1)])
+    assert.equal(stamp(5), null, 'the introducing request carries no turn/step numbers')
+    assert.deepEqual(stamp(15), { turn: 1, step: 1 })
+    assert.equal(stamp(25), null, 'no request follows the item yet')
   })
 })
 
