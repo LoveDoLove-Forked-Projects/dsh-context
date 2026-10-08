@@ -801,6 +801,38 @@ export function makeContextBrowser(
     const requests = data.requests
     const stepsOf = useMemo(() => turnStepsOf(requests), [requests])
     const stampOf = useMemo(() => stepStampOf(requests), [requests])
+    // The live tail — items no logged request carries yet — will ride the NEXT
+    // request. Its numbers follow the harness's step loop (agent.ts): a newest
+    // user message opens a new turn, a text-only final reply means the turn
+    // ended, and anything else (pending tool results, an in-flight injection)
+    // continues the same turn — the next step is lastStep + 1. An ESTIMATE
+    // (dotted underline, pending tooltip): dsh names that step at step/start
+    // before the request exists, and the confirmed stamp replaces the estimate
+    // the moment the request logs.
+    const pendingStamp = useMemo(() => {
+      let hasReq = false
+      let lastSeq = -1
+      let lastTurn = 0
+      let lastStep = 0
+      for (const r of requests) {
+        if (hasReq && r.seq <= lastSeq) continue
+        hasReq = true
+        lastSeq = r.seq
+        lastTurn = typeof r.turn === 'number' ? r.turn : -1
+        lastStep = typeof r.step === 'number' ? r.step : -1
+      }
+      // The step numbers of a newest request the log never stamped cannot be derived.
+      if (hasReq && (lastTurn < 0 || lastStep < 0)) return null
+      let newestSeq = -1
+      let newest: SurfaceNode | null = null
+      for (const n of data.nodes) if (newest === null || n.seq > newestSeq) { newest = n; newestSeq = n.seq }
+      if (newest === null) return null
+      const nextTurn = { turn: lastTurn + 1, step: 1 }
+      if (newest.cat === 'user') return nextTurn
+      if (!hasReq) return null
+      if (newest.cat === 'assistant' && !msgKindsOf(newest, bySeq.get(newest.seq)).tool) return nextTurn
+      return { turn: lastTurn, step: lastStep + 1 }
+    }, [requests, data.nodes, bySeq])
     const hoverReq = props.previewSeq !== null && props.previewSeq !== undefined
       ? requests.find(r => r.seq === props.previewSeq) ?? null
       : null
@@ -951,17 +983,17 @@ export function makeContextBrowser(
 
     /**
      * Expandable element row; `err` rows carry the red run-state dot right after the chevron (the chat's failed-tool marker) so a failed
-     * result scans while collapsed. `stamp` (the turn/step of the request that first carried the item) merges with the time into ONE
-     * muted meta run ('T1 S41 · 22:58:10') so the meta tail reads as a single unit instead of three separate clusters.
+     * result scans while collapsed. `stamp` (the turn/step of the request that first carried the item, or the pending estimate for the
+     * live tail) merges with the time into ONE muted meta run ('T1 S41 · 22:58:10') so the meta tail reads as a single unit; a pending
+     * estimate wears the dotted underline and its own tooltip.
      */
     const elemRow = (
       key: string, tag: ReactNode | null, preview: string,
       tokens: number, time: number | undefined, body: ReactNode,
       err = false, trailing: ReactNode = null,
-      stamp: { turn: number; step: number } | null = null,
+      stamp: { turn: number; step: number; pending: boolean } | null = null,
     ) => {
       const open = openElem === key
-      const stampText = stamp !== null ? t('browser.stepAt', { t: stamp.turn, s: stamp.step }) : null
       return (
         <div key={key} className={'lc-br-elem' + (open ? ' lc-br-elem-on' : '')}>
           <button type="button" className="lc-br-elem-row hover:bg-(--dsw-alias-interactive-bg-hover)" onClick={() => { toggleElem(key) }}>
@@ -970,12 +1002,16 @@ export function makeContextBrowser(
             {tag !== null ? <span className="lc-br-tags">{tag}</span> : null}
             <span className="lc-br-preview">{preview}</span>
             {trailing !== null ? trailing : null}
-            {stampText !== null || time !== undefined
+            {stamp !== null || time !== undefined
               ? <span
-                className="lc-br-time"
-                title={stamp !== null ? t('browser.stepAtTip', { t: stamp.turn, s: stamp.step }) : undefined}
+                className={'lc-br-time' + (stamp !== null && stamp.pending ? ' lc-br-time-pending' : '')}
+                title={stamp !== null
+                  ? t(stamp.pending ? 'browser.stepPendingTip' : 'browser.stepAtTip', { t: stamp.turn, s: stamp.step })
+                  : undefined}
               >
-                {stampText ?? ''}{stampText !== null && time !== undefined ? ' · ' : ''}{time !== undefined ? fmtTime(time) : ''}
+                {stamp !== null ? t('browser.stepAt', { t: stamp.turn, s: stamp.step }) : ''}
+                {stamp !== null && time !== undefined ? ' · ' : ''}
+                {time !== undefined ? fmtTime(time) : ''}
               </span>
               : null}
             <span className="lc-br-tokens">{'≈' + fmt(tokens)}</span>
@@ -983,6 +1019,16 @@ export function makeContextBrowser(
           {open ? <div className="lc-br-content">{body}</div> : null}
         </div>
       )
+    }
+
+    // A row's stamp: its confirmed introducing step, else — LIVE only — the
+    // pending estimate for tail items no request carries yet (past-step views
+    // reconstruct only what their request already carried, so they never speculate).
+    const stampFor = (itemSeq: number): { turn: number; step: number; pending: boolean } | null => {
+      const confirmed = stampOf(itemSeq)
+      if (confirmed !== null) return { ...confirmed, pending: false }
+      if (!view.live || pendingStamp === null) return null
+      return { ...pendingStamp, pending: true }
     }
 
     // The row's tag slot: plain tags render as one capsule; tool-named tags render one capsule per distinct call
@@ -1014,7 +1060,7 @@ export function makeContextBrowser(
         if (content.system === undefined) return <div className="lc-br-note">{t('browser.noSystem')}</div>
         return elemRow('sys', null, content.system.replace(/\s+/g, ' ').trim().slice(0, 80), breakdown.system, undefined,
           <TextSection label={catLabel('system')} text={content.system} rich={rich} lines={lineLabel} />,
-          false, null, stampOf(sys.seq))
+          false, null, stampFor(sys.seq))
       }
       if (c === 'tools') {
         if (view.header === null) return <div className="lc-br-note">{t(headers === null ? 'browser.noHeader' : 'browser.noEpoch')}</div>
@@ -1029,7 +1075,7 @@ export function makeContextBrowser(
         // name (the open row's body renders description/params/JSON from it).
         const content = headerContent.get(view.header.seq)
         // Every schema row of one epoch shares the epoch's introducing step.
-        const epochStamp = stampOf(view.header.seq)
+        const epochStamp = stampFor(view.header.seq)
         const contentByName = new Map(content?.tools.map(t => [t.name, t]) ?? [])
         // The text filter scans everything the rows can say: the name, the
         // producer description, the plugin chip, and the raw parameter JSON —
@@ -1269,7 +1315,7 @@ export function makeContextBrowser(
               // static hint.
               hint={conv === undefined ? missNote : t('browser.noContent')}
             />,
-            rowErr, null, stampOf(n.seq)))}
+            rowErr, null, stampFor(n.seq)))}
         </div>
       )
     }

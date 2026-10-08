@@ -66,6 +66,9 @@
 /* The row's muted meta run: the introducing-step stamp (T{t} S{s}) merges with the clock into one
    nowrap span, so the meta tail reads as a single unit; the stamp's tooltip explains it on hover. */
 .lc-br-time { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; white-space: nowrap; }
+/* A PENDING stamp (a live-tail item no request carries yet) is an estimate: the dotted underline
+   is the quiet differentiator, and its tooltip names the not-yet-sent step. */
+.lc-br-time-pending { text-decoration: underline dotted; text-underline-offset: 2px; }
 /* Call-hit tally on a tool-definition row (×N): the count sort's magnitude,
    shown in the time slot's muted face. */
 .lc-br-hits { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; }
