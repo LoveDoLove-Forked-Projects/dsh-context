@@ -225,6 +225,12 @@ function cssChannels(id: string) {
   }]
 }
 
+// Published artifacts drop their comments: `index.d.ts` keeps the JSDoc (where
+// the API documentation belongs), and annotation/coverage hints
+// (`/* @__PURE__ */`, `/* v8 ignore */`) are build-time input whose only
+// remaining effect in the output is bytes. Legal comments stay for licenses.
+const OUTPUT_COMMENTS = { legal: true, annotation: false, jsdoc: false } as const
+
 export default defineConfig([
   {
     name: pkg.name,
@@ -244,6 +250,7 @@ export default defineConfig([
     // The banner stays off index.d.ts (the { js } scope) so the published
     // types remain a pure declaration file.
     banner: () => ({ js: artifactBanner() }),
+    outputOptions: { comments: OUTPUT_COMMENTS },
     deps: {
       neverBundle: isProductionDependency,
       alwaysBundle: (specifier: string) => !isBuiltin(specifier) && !isProductionDependency(specifier),
@@ -324,6 +331,7 @@ export default defineConfig([
       },
     }, ...cssChannels(pkg.name)],
     outputOptions: {
+      comments: OUTPUT_COMMENTS,
       entryFileNames: 'client.js',
       // The closure-factory handoff every `dsh.client` package's ./client
       // export must use; mirrors tsdown.client.ts banner/intro/footer.
