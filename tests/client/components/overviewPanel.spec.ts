@@ -366,7 +366,7 @@ describe('OverviewPanel', () => {
       const chip = query<HTMLButtonElement>(m.container, '.lc-ov-settings')
       // The chip rides the heading, directly after the title (the long hint
       // moved onto the hover title).
-      assert.equal(chip.textContent, 'Settings')
+      assert.equal(chip.textContent, 'Plugin Settings')
       assert.equal(chip.title, 'Open plugin settings')
       const head = query(m.container, '.lc-ov-pagehead')
       assert.equal(head.children[0].className, 'lc-ov-pagetitle')

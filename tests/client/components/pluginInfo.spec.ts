@@ -55,7 +55,7 @@ describe('PluginInfo', () => {
     assert.equal(rows[1].getAttribute('href'), 'https://github.com/bowenliang123/dsh-context')
     // The settings entry: a button (no href) below GitHub — the guarded jump runs on click.
     assert.equal(rows[2].getAttribute('href'), null)
-    assert.equal(query(rows[2], '.lc-pi-label').textContent, 'Settings')
+    assert.equal(query(rows[2], '.lc-pi-label').textContent, 'Plugin Settings')
     assert.equal(query(rows[2], '.lc-pi-value').textContent, 'Open plugin settings')
     // The tagline is the repo link too: hover underlines it, a click opens GitHub.
     const hint = query(m.container, '.lc-pi-hint')
