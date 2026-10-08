@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { isBuiltin } from 'node:module'
@@ -10,6 +11,53 @@ import { defineConfig } from 'tsdown'
 // Read the manifest from cwd: the config file's own URL is not guaranteed to
 // sit at the package root under every loader, and `pnpm run build` runs here.
 const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
+
+// Header prepended to every built JS artifact so a deployed lib/*.js can be
+// traced back to its sources. Git state is read per build (not at config
+// load), so `tsdown --watch` rebuilds pick up new commits; every line
+// degrades to omission when unavailable, e.g. building from an npm tarball.
+interface GitState { commit: string; branch: string; date: string; dirty: boolean }
+
+function readGitState(): GitState | undefined {
+  try {
+    const run = (...args: string[]): string =>
+      execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    return {
+      commit: run('rev-parse', '--short=12', 'HEAD'),
+      branch: run('branch', '--show-current'),
+      date: run('show', '-s', '--format=%cI', 'HEAD'),
+      dirty: run('status', '--porcelain') !== '',
+    }
+  } catch {
+    return undefined
+  }
+}
+
+function localIsoNow(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const offsetMinutes = -now.getTimezoneOffset()
+  const sign = offsetMinutes >= 0 ? '+' : '-'
+  const offset = `${sign}${pad(Math.floor(Math.abs(offsetMinutes) / 60))}:${pad(Math.abs(offsetMinutes) % 60)}`
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${offset}`
+}
+
+function artifactBanner(): string {
+  const git = readGitState()
+  const lines = [
+    ` * ${pkg.name} v${pkg.version}`,
+    ` * ${pkg.description}`,
+    ` * @author ${pkg.author}`,
+    ` * @license ${pkg.license}`,
+    ` * @homepage ${pkg.homepage}`,
+    ` * @built ${localIsoNow()}`,
+  ]
+  if (git !== undefined) {
+    lines.push(` * @commit ${git.commit}${git.dirty ? ' (dirty working tree)' : ''}${git.branch === '' ? '' : ` on ${git.branch}`}`)
+    lines.push(` * @commit-date ${git.date}`)
+  }
+  return ['/**', ...lines, ' */', ''].join('\n')
+}
 
 // Mirrors packages/client/web/src/platform.ts in deepseek-harness: the shell
 // seeds these specifiers into the frozen browser module table, so client
@@ -190,6 +238,9 @@ export default defineConfig([
     // other plugins and tooling compile against; ship them next to the JS.
     dts: true,
     clean: true,
+    // The banner stays off index.d.ts (the { js } scope) so the published
+    // types remain a pure declaration file.
+    banner: () => ({ js: artifactBanner() }),
     deps: {
       neverBundle: isProductionDependency,
       alwaysBundle: (specifier: string) => !isBuiltin(specifier) && !isProductionDependency(specifier),
@@ -225,6 +276,11 @@ export default defineConfig([
         String((pkg.repository && pkg.repository.url) || '').replace(/^git\+/, '').replace(/\.git$/, ''),
       ),
     },
+    // tsdown routes top-level `banner` to rolldown's postBanner, which lands
+    // after minification — the header comment keeps its formatting instead
+    // of being re-printed by the chunk renderer, and it stays ahead of the
+    // outputOptions.banner loader handoff above.
+    banner: () => ({ js: artifactBanner() }),
     plugins: [{
       name: 'dsh-svg-raw',
       // `*.svg?raw` inlines a file's markup as its default export — the
