@@ -244,9 +244,9 @@ export default defineConfig([
     // other plugins and tooling compile against; ship them next to the JS.
     dts: true,
     clean: true,
-    // Minify both halves: the published lib/ is what the host mounts and what
-    // the browser parses, and tsdown's default leaves both unminified.
-    minify: true,
+    // Left unminified on purpose: this half runs in Node straight off disk
+    // (parse time is irrelevant) and ships no sourcemap, so minifying would
+    // only cost stack-trace readability. The browser half below stays minified.
     // The banner stays off index.d.ts (the { js } scope) so the published
     // types remain a pure declaration file.
     banner: () => ({ js: artifactBanner() }),
@@ -272,6 +272,7 @@ export default defineConfig([
     dts: false,
     sourcemap: true,
     clean: false,
+    // The one artifact the browser downloads and parses: keep it minified.
     minify: true,
     deps: {
       // A require() the module table cannot answer is a guaranteed runtime
