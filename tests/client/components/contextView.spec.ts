@@ -513,7 +513,7 @@ describe('ContextView — interactions', () => {
     // The settings default (show) mounts the overlay ON: the curve spans the two stamped bars and the
     // right axis reads the 2s peak (jsdom's zero-width viewport keeps the whole-log scale, adaptive off anyway).
     assert.ok(msBtn().className.includes('lc-gran-on'), 'on at mount (the settings default)')
-    assert.equal(queryAll(m.container, '.lc-duration polyline').length, 1)
+    assert.equal(queryAll(m.container, '.lc-duration polyline:not(.lc-dur-halo)').length, 1)
     assert.equal(text(query(m.container, '.lc-axis-r .lc-axis-top')), '2.0s')
     assert.equal(text(query(m.container, '.lc-axis-r .lc-axis-mid')), '1.0s')
 
@@ -524,7 +524,7 @@ describe('ContextView — interactions', () => {
     assert.equal(queryAll(m.container, '.lc-axis-r').length, 0)
 
     await click(msBtn())
-    assert.equal(queryAll(m.container, '.lc-duration polyline').length, 1)
+    assert.equal(queryAll(m.container, '.lc-duration polyline:not(.lc-dur-halo)').length, 1)
     assert.equal(queryAll(m.container, '.lc-axis-r').length, 1)
     await m.unmount()
   })

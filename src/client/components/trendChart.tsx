@@ -4,7 +4,7 @@
  * staggered left to right with the cascade capped for long logs (trendChart.css, `--lc-i` slots below).
  */
 
-import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type UIEvent } from 'react'
+import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type UIEvent } from 'react'
 import type { Category, ContextEventRecord, RequestRecord } from '../../shared/types'
 import { CATS } from '../categories'
 import { deltaBandsOf, dnaBaseLabel } from '../dna'
@@ -1061,7 +1061,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
               {/* The duration overlay: one svg riding the scrolling content (top 18px padding band excluded),
                   so it scrolls with the bars and needs no scroll handler. z-index parity with the DNA
                   highlight but later in DOM order, so the curve reads above the translucent slices; a bar
-                  without `activeMs` breaks the line instead of faking a point. */}
+                  without `activeMs` breaks the line instead of faking a point. Every segment paints twice:
+                  a card-bg knockout underlay (`.lc-dur-halo`) lifts the line clear of the bar colors. */}
               {durationOn && (durationRuns.length > 0 || durationDots.length > 0) ? (
                 <svg
                   className="lc-duration"
@@ -1069,8 +1070,18 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
                   height={CHART_H}
                   aria-hidden="true"
                 >
-                  {durationRuns.map((pts, i) => <polyline key={i} points={pts} />)}
-                  {durationDots.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r={1.5} />)}
+                  {durationRuns.map((pts, i) => (
+                    <Fragment key={i}>
+                      <polyline className="lc-dur-halo" points={pts} />
+                      <polyline points={pts} />
+                    </Fragment>
+                  ))}
+                  {durationDots.map((p, i) => (
+                    <Fragment key={i}>
+                      <circle className="lc-dur-halo" cx={p[0]} cy={p[1]} r={2} />
+                      <circle cx={p[0]} cy={p[1]} r={1.2} />
+                    </Fragment>
+                  ))}
                 </svg>
               ) : null}
             </div>

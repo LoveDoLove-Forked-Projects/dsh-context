@@ -708,12 +708,15 @@ describe('TrendChart duration overlay (durationCurve)', () => {
     const svg = query(m.container, '.lc-duration')
     assert.equal(svg.getAttribute('width'), String(3 * BAR_CELL - 2))
     assert.equal(svg.getAttribute('height'), String(CHART_H))
-    const lines = queryAll(svg, 'polyline')
+    const lines = queryAll(svg, 'polyline:not(.lc-dur-halo)')
     assert.equal(lines.length, 1, 'one contiguous run of stamped bars')
     assert.equal(
       lines[0].getAttribute('points'),
       `7,${activeMsY(1000, 4000)} 23,${activeMsY(2000, 4000)} 39,${activeMsY(4000, 4000)}`,
     )
+    const halos = queryAll(svg, 'polyline.lc-dur-halo')
+    assert.equal(halos.length, 1, 'each run paints a card-bg knockout underlay')
+    assert.equal(halos[0].getAttribute('points'), lines[0].getAttribute('points'))
     assert.equal(queryAll(svg, 'circle').length, 0)
     // The right-hand axis: max, ¾, ½, ¼, 0 — formatted as durations.
     const axis = query(m.container, '.lc-axis-r')
@@ -729,10 +732,10 @@ describe('TrendChart duration overlay (durationCurve)', () => {
     const reqs = [req(1, { activeMs: 1000 }), req(2), req(3, { activeMs: 2000 }), req(4, { activeMs: 4000 })]
     const m = await mount(h(TrendChart, propsOf(reqs, { durationCurve: true })))
     const svg = query(m.container, '.lc-duration')
-    const lines = queryAll(svg, 'polyline')
+    const lines = queryAll(svg, 'polyline:not(.lc-dur-halo)')
     assert.equal(lines.length, 1, 'the trailing pair re-joins after the gap')
     assert.equal(lines[0].getAttribute('points'), `39,${activeMsY(2000, 4000)} 55,${activeMsY(4000, 4000)}`)
-    const dots = queryAll(svg, 'circle')
+    const dots = queryAll(svg, 'circle:not(.lc-dur-halo)')
     assert.equal(dots.length, 1, 'a one-point run would be an invisible polyline')
     assert.equal(dots[0].getAttribute('cx'), '7')
     assert.equal(dots[0].getAttribute('cy'), String(activeMsY(1000, 4000)))
@@ -746,7 +749,7 @@ describe('TrendChart duration overlay (durationCurve)', () => {
       req(3, { turn: 2, step: 0, activeMs: 2000 }),
     ])
     const m = await mount(h(TrendChart, propsOf(agg, { granularity: 'turn', durationCurve: true })))
-    const lines = queryAll(query(m.container, '.lc-duration'), 'polyline')
+    const lines = queryAll(query(m.container, '.lc-duration'), 'polyline:not(.lc-dur-halo)')
     assert.equal(lines[0].getAttribute('points'), `7,${activeMsY(1500, 2000)} 23,${activeMsY(2000, 2000)}`)
     assert.equal(query(m.container, '.lc-axis-r .lc-axis-top').textContent, '2.0s')
     await m.unmount()
@@ -756,7 +759,7 @@ describe('TrendChart duration overlay (durationCurve)', () => {
     const reqs = [req(1, { activeMs: 1000 }), req(2, { activeMs: 2000 })]
     const m = await mount(h(TrendChart, propsOf(reqs, { mode: 'delta', durationCurve: true, hoveredSeq: 1 })))
     assert.equal(query(m.container, '.lc-axis-r .lc-axis-top').textContent, '2.0s')
-    assert.equal(queryAll(query(m.container, '.lc-duration'), 'polyline').length, 1)
+    assert.equal(queryAll(query(m.container, '.lc-duration'), 'polyline:not(.lc-dur-halo)').length, 1)
     const rows = queryAll(query(m.container, '.lc-chart-tip'), 'span').map(r => r.textContent)
     assert.equal(rows.length, 3)
     assert.equal(rows[2], kit.t('tip.duration', { n: '1.0s' }))

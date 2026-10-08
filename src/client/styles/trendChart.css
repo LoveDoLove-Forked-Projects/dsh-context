@@ -125,10 +125,16 @@
  Pointer-transparent; z-index 1 with DOM order after .lc-dna-hl keeps the curve above the bars and the
  highlight slices, below the ✂ markers and step flags (z-index 2). `overflow: visible` lets an adaptive-mode
  spike off the visible window poke above the plot exactly like an off-window bar's stack does.
+ The curve is a SECONDARY overlay, so it stays in the quiet label-tertiary gray rather than the brand token
+ (near-black/near-white made it the loudest element and collided with the hover outline and DNA slices);
+ each segment's slightly wider `.lc-dur-halo` underlay knocks out the card bg behind the line so it lifts
+ clear of the bar colors instead of fighting them.
 */
 .lc-duration { position: absolute; top: 18px; left: 2px; z-index: 1; overflow: visible; pointer-events: none; }
-.lc-duration polyline, .lc-duration circle { fill: none; stroke: var(--dsw-alias-brand-primary); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.lc-duration circle { fill: var(--dsw-alias-brand-primary); }
+.lc-duration polyline, .lc-duration circle { fill: none; stroke: var(--dsw-alias-label-tertiary); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
+.lc-duration circle { fill: var(--dsw-alias-label-tertiary); }
+.lc-duration .lc-dur-halo { stroke: var(--dsw-alias-bg-layer-1); stroke-width: 3; opacity: 0.85; }
+.lc-duration circle.lc-dur-halo { stroke: none; fill: var(--dsw-alias-bg-layer-1); }
 .lc-chart-dim .lc-duration { opacity: 0.35; }
 .lc-bar-marker { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); z-index: 2; font-size: 11px; color: var(--dsw-alias-state-warn-primary); }
 /*
