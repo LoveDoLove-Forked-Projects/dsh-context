@@ -1404,8 +1404,9 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
     const m = await mount(h(View, { sessionId: 'sv-slim', useProjection: projectionsFor(slimHead()) }))
 
     // First paint: the counters are real (no detail needed), the detail cards name the pending read.
+    // The session node reads two figure rows off the head: turns/steps, then skill loads/answers.
     const values = queryAll(m.container, '.lc-flow-kv b').map(el => text(el))
-    assert.deepEqual(values, ['1', '3', '0'], 'turns/steps from the head counters; no subagents without the sessions face')
+    assert.deepEqual(values, ['1', '3', '0', '0'], 'turns/steps/skills/answers from the head counters')
     assert.ok(text(m.container).includes(DICT_EN['detail.loading']))
     assert.equal(queryAll(m.container, '.lc-bar').length, 0, 'the chart waits for the detail')
     assert.equal(queryAll(m.container, '.lc-br-pick option').length, 1, 'the picker holds only the live row')

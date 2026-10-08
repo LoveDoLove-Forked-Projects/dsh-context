@@ -132,6 +132,14 @@ export interface TimelineState {
    */
   humanInputs?: number
   /**
+   * Whole-session answers tally (see Snapshot.answers): one per assistant
+   * message carrying a non-blank text block — a step that only dispatched
+   * tool calls (or projected to no message at all) is work, not a reply.
+   * Running total — never trimmed, like `humanInputs`. Absent until the first
+   * textual reply folds.
+   */
+  answers?: number
+  /**
    * The user's newest own message as a bounded one-line preview (the surface
    * node's first-text line). Last-wins — a newer human input replaces it, a
    * text-less one (images only) keeps the previous line. Additive-optional
@@ -1451,7 +1459,11 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
         // null when the content array is empty (usage-only events project to no
         // message — same rule as dsh's surface fold).
         const asstMsg = deriveEventMessage(event as never) as MessageLike | null
-        applySurface(s, event, event.type, asstMsg)
+        const asstNode = applySurface(s, event, event.type, asstMsg)
+        // The whole-session answers tally (TimelineState.answers): the node
+        // carries `text` exactly when the message said something (firstText's
+        // non-blank block), so a text-less tool dispatch does not count.
+        if (asstNode.text !== undefined) s.answers = (s.answers ?? 0) + 1
         break
       }
       case 'session/end-seed': {
@@ -1565,6 +1577,9 @@ function headFieldsOf(state: TimelineState): Snapshot {
     // The whole-session human-input tally (see TimelineState.humanInputs) —
     // a running total, so unlike turns/steps it covers the COMPLETE log.
     humanInputs: state.humanInputs ?? 0,
+    // The whole-session answers tally (see TimelineState.answers) — one per
+    // assistant message carrying text; a running total like humanInputs.
+    answers: state.answers ?? 0,
     // The last-user-message preview (see TimelineState.lastUser) — a plain
     // string copies by value; absent until the first textual human input.
     ...(state.lastUser !== undefined ? { lastUser: state.lastUser } : {}),
@@ -1696,12 +1711,17 @@ export function buildTimelineHead(state: TimelineState): Snapshot {
   let injects = 0
   let compactions = 0
   let prunes = 0
+  // Loaded skills: the distinct names among the skill-tagged inject events —
+  // `/name` invocations and `skill`-tool loads (the available-skills catalog
+  // digest rides an untagged inject event, so it never lands here).
+  const skills = new Set<string>()
   for (const e of state.events) {
     if (e.kind === 'inject') injects++
     else if (e.kind === 'compaction') compactions++
     else if (e.kind === 'prune') prunes++
+    if (e.sub === 'skill' && typeof e.name === 'string' && e.name !== '') skills.add(e.name)
   }
-  result.counts = { turns: turns.size, steps: state.requests.length, injects, compactions, prunes }
+  result.counts = { turns: turns.size, steps: state.requests.length, injects, compactions, prunes, skills: skills.size }
   const last = state.requests.at(-1)
   if (last !== undefined) {
     result.last = { seq: last.seq, total: last.total, ...(typeof last.prompt === 'number' ? { prompt: last.prompt } : {}) }

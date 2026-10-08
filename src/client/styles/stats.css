@@ -160,10 +160,13 @@ a.lc-flow-head:hover .lc-flow-label { color: var(--dsw-alias-label-primary); }
 .lc-flow-team { cursor: pointer; }
 .lc-flow-team:hover { border-color: var(--dsw-alias-label-secondary); }
 /* The session node: the diagram's pivot — raised surface, brand-tinted edge
-   and halo, the two shape figures centered under the label. */
-.lc-flow-self { background: var(--dsw-alias-bg-layer-1); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent); padding: 8px 14px; align-items: center; gap: 4px; }
-.lc-flow-self-stats { display: flex; gap: 18px; }
-.lc-flow-kv { display: flex; flex-direction: column; align-items: center; }
+   and halo, two figure rows centered under the label (turns/steps above
+   skill loads/answers), one even vertical rhythm throughout. */
+.lc-flow-self { background: var(--dsw-alias-bg-layer-1); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent); padding: 8px 14px; align-items: center; gap: 6px; }
+.lc-flow-self-stats { display: flex; align-self: stretch; gap: 16px; }
+/* Each figure cell takes half its row and centers within — the two rows share
+   one column pair no matter how wide a label runs (技能加载 vs 轮次). */
+.lc-flow-kv { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
 .lc-flow-kv b { font-size: 17px; font-weight: 700; line-height: 1.2; color: var(--dsw-alias-label-primary); font-variant-numeric: tabular-nums; }
 .lc-flow-kv i { font-style: normal; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 /* Right-column tips open leftward so the wide bubble never spills past the card edge. */

@@ -293,16 +293,20 @@ describe('timelineOf', () => {
       ok: true,
       model: 'm',
       current,
-      counts: { turns: 3, steps: 12, injects: 2, compactions: 1, prunes: 0 },
+      counts: { turns: 3, steps: 12, injects: 2, compactions: 1, prunes: 0, skills: 4 },
       last: { seq: 9, total: 100, prompt: 90 },
       detailRev: 12,
+      humanInputs: 2,
+      answers: 3,
       fileOps: [{ seq: 2, path: 'a.ts', kind: 'read', tool: 'read', err: false, added: 0, removed: 0 }],
       fileOpsFloor: 5,
       spans: [{ kind: 'ttft', start: 0, end: 100 }, null],
     }
     const out = timelineOf(head)
     assert.ok(out !== null)
-    assert.deepEqual(out.counts, { turns: 3, steps: 12, injects: 2, compactions: 1, prunes: 0 })
+    assert.deepEqual(out.counts, { turns: 3, steps: 12, injects: 2, compactions: 1, prunes: 0, skills: 4 })
+    assert.equal(out.humanInputs, 2)
+    assert.equal(out.answers, 3)
     assert.deepEqual(out.last, { seq: 9, total: 100, prompt: 90 })
     assert.equal(out.detailRev, 12)
     assert.deepEqual(out.requests, [])
@@ -314,9 +318,10 @@ describe('timelineOf', () => {
   })
 
   test('the slim head fields re-prove: partial counts zero per field, shapeless last/detailRev drop', () => {
-    const out = timelineOf({ current, counts: { turns: 2, steps: 'many' }, last: { seq: 'x' }, detailRev: 'r' })
+    const out = timelineOf({ current, counts: { turns: 2, steps: 'many' }, last: { seq: 'x' }, detailRev: 'r', answers: 'many' })
     assert.ok(out !== null)
-    assert.deepEqual(out.counts, { turns: 2, steps: 0, injects: 0, compactions: 0, prunes: 0 })
+    assert.deepEqual(out.counts, { turns: 2, steps: 0, injects: 0, compactions: 0, prunes: 0, skills: 0 })
+    assert.ok(!('answers' in out), 'a wrong-typed answers tally drops like any other scalar')
     assert.ok(!('last' in out), 'a wrong-typed seq drops the anchor whole')
     assert.ok(!('detailRev' in out), 'a wrong-typed revision drops the marker (reads as the inline generation)')
     const noCounts = timelineOf({ current, counts: 'junk', last: null, detailRev: NaN })

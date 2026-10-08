@@ -605,7 +605,7 @@ export function makeContextView(
             pair in a narrow pane at the cards' min-width floors. */}
         {inSidebar ? null : (
           <div className="lc-cols lc-head">
-            <StatsContext counts={counts} humanInputs={data.humanInputs} toolCalls={data.toolCalls}
+            <StatsContext counts={counts} humanInputs={data.humanInputs} answers={data.answers} toolCalls={data.toolCalls}
               files={ioTotals} tools={toolTally}
               cost={data.cost} locale={activeLocale} sessionId={typeof sessionId === 'string' ? sessionId : undefined} />
             <PluginInfo />

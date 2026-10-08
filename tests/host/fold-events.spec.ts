@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import type { TimelineEvent } from '../../src/host/fold'
 import {
+  assistantAttempt,
   assistantMessage,
   at,
   compaction,
@@ -400,6 +401,28 @@ describe('assistant/message request records', () => {
     assert.equal(node?.cat, 'assistant')
     assert.equal(node?.tokens, 0, 'usage-only events project to no message')
     assert.equal(state.requests.length, 1, 'the request record still lands')
+  })
+})
+
+describe('the answers tally (assistant messages carrying text)', () => {
+  test('a textual reply tallies one; a tool-only dispatch, an empty projection, and blank text do not', () => {
+    const { state } = driveTimeline([
+      assistantMessage(1, { content: [{ type: 'text', text: 'here is the answer' }] }),
+      assistantMessage(2, { content: [{ type: 'tool-call', name: 'bash' }] }),
+      assistantMessage(3, { content: [] }), // usage-only: projects to no message
+      assistantMessage(4, { content: [{ type: 'text', text: '   ' }] }), // blank text is not a reply
+      assistantAttempt(5, {}), // a committed-no-message attempt is not a reply either
+      assistantMessage(6, { content: [{ type: 'text', text: 'done' }] }),
+    ])
+    assert.equal(state.answers, 2)
+    assertPlainJson(state)
+  })
+
+  test('text beside tool calls still counts — the reply rode the same message', () => {
+    const { state } = driveTimeline([
+      assistantMessage(1, { content: [{ type: 'text', text: 'checking' }, { type: 'tool-call', name: 'bash' }] }),
+    ])
+    assert.equal(state.answers, 1)
   })
 })
 

@@ -193,6 +193,11 @@ const countsSchema = z.object({
   injects: z.number().int().nonnegative(),
   compactions: z.number().int().nonnegative(),
   prunes: z.number().int().nonnegative(),
+  // The distinct loaded-skill tally — additive-optional like every head field
+  // derived at view time: cached rows restore with their full event sets, so
+  // a state served by this build always recomputes it; only a boundary-
+  // sanitized partial record can arrive without it.
+  skills: z.number().int().nonnegative().optional(),
 }).strict()
 
 /** The newest retained request's billing summary (the split head's headline anchor). */
@@ -220,6 +225,10 @@ export const contextTimelineSchema = z.object({
   images: z.number().int().nonnegative().optional(),
   toolCalls: z.number().int().nonnegative().optional(),
   humanInputs: z.number().int().nonnegative().optional(),
+  // The whole-session answers tally (one per assistant message carrying text)
+  // — additive-optional like humanInputs: rows folded before the field
+  // existed read without it, and clients degrade to zero.
+  answers: z.number().int().nonnegative().optional(),
   lastUser: z.string().optional(),
   counts: countsSchema.optional(),
   last: lastSchema.optional(),
@@ -269,6 +278,7 @@ const timelineStateSchema = z.object({
   archiveFloor: z.number().optional(),
   timing: timingTotalsSchema.optional(),
   humanInputs: z.number().int().nonnegative().optional(),
+  answers: z.number().int().nonnegative().optional(),
   lastUser: z.string().optional(),
   stepStart: z.object({
     time: z.number(),
@@ -467,7 +477,21 @@ export function createContextTimelineDefinition(config: Config, slim: () => bool
     // backfill it for requests already folded (the v9 `cacheRead` precedent),
     // so cached rows refold from the durable log; the v20 warm-up rebuilds
     // idle sessions' rows the first time the dashboard opens.
-    stateVersion: 26,
+    //
+    // Not bumped for the `counts.skills` head field alone: that figure is
+    // derived AT VIEW TIME over the retained events already living in every
+    // cached row's state (skill-tagged inject events since v19), so a
+    // pre-field row recomputes the exact tally the moment this build serves
+    // it — no stale-row gap to refold away (the v15 additive-OPTIONAL
+    // precedent).
+    //
+    // 27: the whole-session answers tally (`answers`) joined the state and
+    // head — one per assistant message carrying text. A running total that
+    // later events cannot backfill for sessions folded before it existed
+    // (the v16 `humanInputs` precedent), so cached rows refold from the
+    // durable log; the v20 warm-up rebuilds idle sessions' rows the first
+    // time the dashboard opens.
+    stateVersion: 27,
   }
   return definition
 }

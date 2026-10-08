@@ -96,10 +96,13 @@ describe('buildTimelineHead', () => {
     assert.equal(head.contextWindow, 128000)
     assert.ok(head.current.total > 0)
     // The retained records tally: one turn, two steps, the compaction event.
-    assert.deepEqual(head.counts, { turns: 1, steps: 2, injects: 0, compactions: 1, prunes: 0 })
+    assert.deepEqual(head.counts, { turns: 1, steps: 2, injects: 0, compactions: 1, prunes: 0, skills: 0 })
     // The whole-session tally rides the head too: the canonical log's one
     // user message (injections excluded).
     assert.equal(head.humanInputs, 1)
+    // …and both its textual assistant replies (a step counts as an answer
+    // only when the message carried text).
+    assert.equal(head.answers, 2)
     // The card preview rides the head: the canonical log's own user message.
     assert.equal(head.lastUser, 'hello there')
     // The headline anchor is the newest retained request's billing summary.
@@ -122,13 +125,32 @@ describe('buildTimelineHead', () => {
       assistantMessage(3, {}), // no turn: the replay shape folds as turn 0
     ])
     const head = buildTimelineHead(state)
-    assert.deepEqual(head.counts, { turns: 1, steps: 1, injects: 1, compactions: 0, prunes: 1 })
+    assert.deepEqual(head.counts, { turns: 1, steps: 1, injects: 1, compactions: 0, prunes: 1, skills: 0 })
+  })
+
+  test('the skills counter tallies DISTINCT loaded-skill names — the catalog digest never counts', () => {
+    const { state } = driveTimeline([
+      // A `/name` invocation and a `skill`-tool load both load a skill; the
+      // available-skills catalog digest is the directory listing, not a load.
+      userMessage(1, [{ type: 'text', text: 'run' }], { kind: 'skill-invocation', form: 'skill', name: 'grilling' }),
+      toolCall(2, { callId: 'c1', name: 'skill' }),
+      toolResult(3, { callId: 'c1', content: [{ type: 'text', text: '<skill_content name="grilling">instructions</skill_content>' }] }),
+      userMessage(4, [{ type: 'text', text: 'catalog' }], { kind: 'skill-catalog', form: 'catalog' }),
+      userMessage(5, [{ type: 'text', text: 'again' }], { kind: 'skill-invocation', form: 'skill', name: 'ponytail' }),
+      userMessage(6, [{ type: 'text', text: 'once more' }], { kind: 'skill-invocation', form: 'skill', name: 'grilling' }),
+    ])
+    const head = buildTimelineHead(state)
+    // 'grilling' loaded twice counts once; the catalog digest rides an
+    // untagged inject event — five injects, two distinct skills.
+    assert.deepEqual(head.counts, { turns: 0, steps: 0, injects: 5, compactions: 0, prunes: 0, skills: 2 })
+    assertPlainJson(head)
   })
 
   test('a fresh state serves zeroed counters and no last/detailRev payload keys beyond the marker', () => {
     const head = buildTimelineHead(timelineDef().init())
-    assert.deepEqual(head.counts, { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 })
+    assert.deepEqual(head.counts, { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0, skills: 0 })
     assert.equal(head.humanInputs, 0, 'the tally defaults to zero on the wire')
+    assert.equal(head.answers, 0, 'the answers tally defaults to zero on the wire too')
     assert.equal(head.lastUser, undefined, 'no user message yet — the preview stays absent')
     assert.ok(!('lastUser' in head), 'no own key on the wire')
     assert.equal(head.last, undefined, 'no request yet — the anchor stays absent')

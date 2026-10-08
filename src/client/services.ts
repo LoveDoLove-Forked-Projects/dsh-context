@@ -436,6 +436,7 @@ export function timelineOf(value: unknown): ContextTimeline | null {
     ...(typeof data.images === 'number' ? { images: data.images } : {}),
     ...(typeof data.toolCalls === 'number' ? { toolCalls: data.toolCalls } : {}),
     ...(typeof data.humanInputs === 'number' ? { humanInputs: data.humanInputs } : {}),
+    ...(typeof data.answers === 'number' && Number.isFinite(data.answers) ? { answers: data.answers } : {}),
     ...(typeof data.lastUser === 'string' && data.lastUser !== '' ? { lastUser: data.lastUser.slice(0, 200) } : {}),
     ...(counts !== undefined ? { counts } : {}),
     ...(last !== undefined ? { last } : {}),
@@ -501,6 +502,7 @@ function countsOf(value: unknown): ContextTimeline['counts'] {
     injects: numOf(data.injects),
     compactions: numOf(data.compactions),
     prunes: numOf(data.prunes),
+    skills: numOf(data.skills),
   }
 }
 

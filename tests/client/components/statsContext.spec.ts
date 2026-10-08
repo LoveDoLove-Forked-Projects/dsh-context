@@ -2,7 +2,7 @@
 // React: the session-as-a-flow diagram — the two source cards (I/O: the
 // whole-session human-input tally plus the file read/write/search/image
 // pills; Context Events broken down by kind) feeding the session node
-// (turns/steps/subagents), which drains into the two effect cards (Tool
+// (turns/steps/skill loads), which drains into the two effect cards (Tool
 // Calls with the most-called pills; the Agent Team ledger — the family's
 // billed-token and estimated-cost totals, then one row per scope: the
 // current agent and the subagent subtree — ALL levels, the fold walks the
@@ -54,6 +54,11 @@ function ev(kind: ContextEventRecord['kind']): ContextEventRecord {
   return { seq: 0, time: 0, kind }
 }
 
+/** A skill-tagged inject event the way the host fold stamps it (fold.ts). */
+function skillEv(name: string): ContextEventRecord {
+  return { seq: 0, time: 0, kind: 'inject', form: 'instructions', sub: 'skill', name }
+}
+
 /** The five flow nodes in DOM order: inputs / events / session / tools / cost. */
 function flowNodes(container: HTMLElement): HTMLElement[] {
   return queryAll(container, '.lc-flow-node')
@@ -88,18 +93,30 @@ afterEach(() => {
 })
 
 describe('countsOfRecords (the inline generation derivation)', () => {
-  test('tallies distinct turns, records, and the three priced event kinds', () => {
+  test('tallies distinct turns, records, the three priced event kinds, and the distinct loaded skills', () => {
     // Two steps in turn 1, one in turn 2, one without a turn (folds as turn 0).
     const counts = countsOfRecords(
       [req(1), req(1), req(2), req()],
-      [ev('inject'), ev('inject'), ev('inject'), ev('compaction'), ev('compaction'), ev('prune'), ev('model'), ev('mode')],
+      [
+        ev('inject'), ev('inject'), ev('inject'), ev('compaction'), ev('compaction'), ev('prune'), ev('model'), ev('mode'),
+        // Skill loads and a `/name` invocation count by DISTINCT name; the
+        // available-skills catalog digest rides an untagged inject event and
+        // never lands in the tally.
+        skillEv('grilling'), skillEv('grilling'), skillEv('ponytail'),
+        { ...ev('inject'), name: 'available-skills' },
+        // Hostile shapes skip: a nameless tag and a non-string name.
+        { ...ev('inject'), sub: 'skill' },
+        { ...ev('inject'), sub: 'skill', name: 5 } as unknown as ContextEventRecord,
+      ],
     )
-    // model/mode events do not appear (only the three priced kinds do).
-    assert.deepEqual(counts, { turns: 3, steps: 4, injects: 3, compactions: 2, prunes: 1 })
+    // model/mode events do not appear (only the three priced kinds do); every
+    // inject above rides kind 'inject', the catalog digest and hostile shapes
+    // included — only the skills TALLY filters by the tag.
+    assert.deepEqual(counts, { turns: 3, steps: 4, injects: 9, compactions: 2, prunes: 1, skills: 2 })
   })
 
   test('empty collections tally zero', () => {
-    assert.deepEqual(countsOfRecords([], []), { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0 })
+    assert.deepEqual(countsOfRecords([], []), { turns: 0, steps: 0, injects: 0, compactions: 0, prunes: 0, skills: 0 })
   })
 })
 
@@ -177,8 +194,9 @@ describe('measureFlow (the connector geometry)', () => {
 describe('StatsContext', () => {
   test('folds the flow: source cards feed the session node, which drains into the effect cards', async () => {
     const m = await mount(h(StatsContext, {
-      counts: { turns: 3, steps: 4, injects: 3, compactions: 2, prunes: 1 },
+      counts: { turns: 3, steps: 4, injects: 3, compactions: 2, prunes: 1, skills: 2 },
       humanInputs: 7,
+      answers: 3,
       toolCalls: 12,
       files: { reads: 9, writes: 2, searches: 4, images: 1 },
       tools: [['read', 8], ['bash', 3], ['grep', 2], ['edit', 1], ['glob', 1]],
@@ -199,10 +217,12 @@ describe('StatsContext', () => {
     assert.deepEqual(pillsOf(nodes[3]), ['read8', 'bash3', 'grep2', '+2 more'])
     // The team ledger: the current agent's own share, then the (empty) subtree.
     assert.deepEqual(rowsOf(nodes[4]), ['Current Agent1.0M/$0.30', 'Subagents × 0?0/—'])
-    // The session node carries the three shape figures under its label (no subagents here).
+    // The session node carries two figure rows under its label — turns/steps
+    // above skill loads/answers (two skills, three answers above).
     assert.equal(nodes[2].querySelector('.lc-flow-label')?.textContent, 'Current Session')
-    assert.deepEqual(queryAll(nodes[2], '.lc-flow-kv b').map(el => el.textContent), ['3', '4', '0'])
-    assert.deepEqual(queryAll(nodes[2], '.lc-flow-kv i').map(el => el.textContent), ['Turns', 'Steps', 'Subagents'])
+    const selfRows = queryAll(nodes[2], '.lc-flow-self-stats')
+    assert.deepEqual(selfRows.map(row => queryAll(row, '.lc-flow-kv b').map(el => el.textContent)), [['3', '4'], ['2', '3']])
+    assert.deepEqual(selfRows.map(row => queryAll(row, '.lc-flow-kv i').map(el => el.textContent)), [['Turns', 'Steps'], ['Skill Loads', 'Answers']])
     // The event pills tint by the events card's own kind classes.
     assert.ok(nodes[1].querySelector('.lc-flow-pill.lc-kind-inject') !== null)
     assert.ok(nodes[1].querySelector('.lc-flow-pill.lc-kind-prune') !== null)
@@ -348,7 +368,8 @@ describe('StatsContext', () => {
 
   test('the zh locale localizes the cards and prices the cost in CNY at 1 CNY = 0.15 USD', async () => {
     const m = await mount(h(StatsContextZh, {
-      counts: { turns: 1, steps: 1, injects: 0, compactions: 1, prunes: 0 },
+      counts: { turns: 1, steps: 1, injects: 0, compactions: 1, prunes: 0, skills: 5 },
+      answers: 4,
       files: { reads: 2, writes: 1, searches: 0, images: 0 },
       tools: [['read', 2]],
       cost: COST,
@@ -366,7 +387,9 @@ describe('StatsContext', () => {
     assert.deepEqual(pillsOf(nodes[3]), ['read2'])
     assert.deepEqual(rowsOf(nodes[4]), ['当前 Agent1.0M/¥2.00', '子 Agent × 0?0/—'])
     assert.equal(nodes[2].querySelector('.lc-flow-label')?.textContent, '当前会话')
-    assert.deepEqual(queryAll(nodes[2], '.lc-flow-kv i').map(el => el.textContent), ['轮次', '步数', '子 Agent'])
+    const selfRowsZh = queryAll(nodes[2], '.lc-flow-self-stats')
+    assert.deepEqual(selfRowsZh.map(row => queryAll(row, '.lc-flow-kv i').map(el => el.textContent)), [['轮次', '步数'], ['技能加载', '模型回复']])
+    assert.deepEqual(selfRowsZh.map(row => queryAll(row, '.lc-flow-kv b').map(el => el.textContent)), [['1', '1'], ['5', '4']])
     const costTip = text(queryAll(m.container, '.lc-stat-tip')[1])
     assert.ok(costTip.includes('含当前智能体及所有层级的子智能体'), 'the cost tip names the family scope too — all levels')
     assert.ok(costTip.includes('每百万 Token 价格'))
@@ -543,8 +566,8 @@ describe('StatsContext — the subagent split (injected seat)', () => {
     // Family total: 1M × $0.30 (the doubled peak) + 2M × $0.075; own share $0.30, the subagents' $0.15.
     assert.equal(headsOf(m.container).totals[3], '3.0M/$0.45')
     assert.deepEqual(rowsOf(flowNodes(m.container)[4]), ['Current Agent1.0M/$0.30', 'Subagents × 2?2.0M/$0.15'])
-    // The session node's third figure counts the subtree.
-    assert.deepEqual(queryAll(flowNodes(m.container)[2], '.lc-flow-kv b').map(el => el.textContent), ['0', '0', '2'])
+    // The team ledger's subtree row carries the session count.
+    assert.deepEqual(queryAll(flowNodes(m.container)[4], '.lc-flow-row-label').map(el => el.textContent), ['Current Agent', 'Subagents × 2?'])
     const tips = queryAll(m.container, '.lc-stat-tip').map(el => text(el))
     // The rate table covers BOTH sides' models in either tip.
     assert.ok(tips[1].includes('for deepseek · deepseek-v4-flash.'))
@@ -699,8 +722,8 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     assert.equal(headsOf(m.container).totals[3], '2.0M/$0.15')
     assert.deepEqual(rowsOf(flowNodes(m.container)[4]), ['Current Agent0/—', 'Subagents × 2?2.0M/$0.15'])
     assert.deepEqual(calls, ['cold'], 'only the timeline-less relative fetched')
-    // Both descendants count toward the session node's third figure, cold included.
-    assert.deepEqual(queryAll(flowNodes(m.container)[2], '.lc-flow-kv b').map(el => el.textContent), ['0', '0', '2'])
+    // Both descendants count in the ledger's subtree row, cold included.
+    assert.deepEqual(queryAll(flowNodes(m.container)[4], '.lc-flow-row-label').map(el => el.textContent), ['Current Agent', 'Subagents × 2?'])
     // A snapshot tick while the read is in flight re-attaches the SAME
     // pending read; when it lands, the duplicate settle bails on identity.
     await act(async () => {
@@ -757,8 +780,8 @@ describe('StatsContext — the real subagent-cost seat (makeSubagentCost)', () =
     assert.deepEqual(calls, ['cold'])
     assert.equal(headsOf(m.container).totals[3], '0/—')
     assert.deepEqual(rowsOf(flowNodes(m.container)[4]), ['Current Agent0/—', 'Subagents × 1?0/—'])
-    // The cold descendant still counts — a subagent is one whether or not its usage priced.
-    assert.deepEqual(queryAll(flowNodes(m.container)[2], '.lc-flow-kv b').map(el => el.textContent), ['0', '0', '1'])
+    // The cold descendant still counts in the ledger's subtree row — a subagent is one whether or not its usage priced.
+    assert.deepEqual(queryAll(flowNodes(m.container)[4], '.lc-flow-row-label').map(el => el.textContent), ['Current Agent', 'Subagents × 1?'])
     // A later snapshot tick re-folds the subtree; the sticky failure never re-fetches.
     await act(async () => {
       face.setState({ root: { running: false, updatedAt: 1 }, cold: { parentId: 'root', updatedAt: 2 } })

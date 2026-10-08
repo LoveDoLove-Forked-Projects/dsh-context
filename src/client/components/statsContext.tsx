@@ -83,8 +83,8 @@ function priceRowsOf(usage: SessionCostUsage | undefined, book: ModelBook | null
 /**
  * The inline generation's counter derivation — the exact tally the card ran
  * over the served collections before the split (distinct turn values, record
- * count, per-kind event tallies). The host's split-generation counts match
- * it by construction (fold.ts buildTimelineHead).
+ * count, per-kind event tallies, the distinct loaded-skill names). The host's
+ * split-generation counts match it by construction (fold.ts buildTimelineHead).
  */
 export function countsOfRecords(requests: readonly RequestRecord[], events: readonly ContextEventRecord[]): TimelineCounts {
   const turns = new Set<number>()
@@ -92,12 +92,18 @@ export function countsOfRecords(requests: readonly RequestRecord[], events: read
   let injects = 0
   let compactions = 0
   let prunes = 0
+  // Loaded skills: the distinct names among the skill-tagged inject events —
+  // the host fold's exact tag set (`sub: 'skill'` on `/name` invocations and
+  // `skill`-tool loads; the available-skills catalog digest rides an untagged
+  // inject event, so it never lands here).
+  const skills = new Set<string>()
   for (const ev of events) {
     if (ev.kind === 'inject') injects++
     else if (ev.kind === 'compaction') compactions++
     else if (ev.kind === 'prune') prunes++
+    if (ev.sub === 'skill' && typeof ev.name === 'string' && ev.name !== '') skills.add(ev.name)
   }
-  return { turns: turns.size, steps: requests.length, injects, compactions, prunes }
+  return { turns: turns.size, steps: requests.length, injects, compactions, prunes, skills: skills.size }
 }
 
 /**
@@ -184,7 +190,7 @@ const FLOW_LINKS: readonly { from: FlowNodeKey; to: FlowNodeKey; fromAt: number;
 ]
 
 /** The events card's kind pills, tinted by its own kind semantics (events.css `.lc-kind-*`). */
-const EVENT_PILLS: readonly { kind: 'inject' | 'compaction' | 'prune'; tally: keyof TimelineCounts; cls: string }[] = [
+const EVENT_PILLS: readonly { kind: 'inject' | 'compaction' | 'prune'; tally: 'injects' | 'compactions' | 'prunes'; cls: string }[] = [
   { kind: 'inject', tally: 'injects', cls: 'lc-kind-inject' },
   { kind: 'compaction', tally: 'compactions', cls: 'lc-kind-compaction' },
   { kind: 'prune', tally: 'prunes', cls: 'lc-kind-prune' },
@@ -215,6 +221,8 @@ interface StatsContextProps {
   counts: TimelineCounts
   /** The whole-session human-input tally (the user's messages + question answers; absent on older hosts). */
   humanInputs?: number
+  /** The whole-session answers tally — assistant messages carrying text (absent on older hosts/rows). */
+  answers?: number
   /** Tool calls with a result live in the current context (absent on older hosts). */
   toolCalls?: number
   /** The whole-session file-op tallies (op counts by kind), for the I/O card's pills. */
@@ -504,7 +512,10 @@ export function makeStatsContext(
               <span className="lc-flow-self-stats">
                 <span className="lc-flow-kv"><b>{fmt(props.counts.turns)}</b><i>{t('stats.turns')}</i></span>
                 <span className="lc-flow-kv"><b>{fmt(props.counts.steps)}</b><i>{t('stats.steps')}</i></span>
-                <span className="lc-flow-kv"><b>{fmt(sub.count)}</b><i>{t('stats.subagents')}</i></span>
+              </span>
+              <span className="lc-flow-self-stats">
+                <span className="lc-flow-kv"><b>{fmt(props.counts.skills ?? 0)}</b><i>{t('stats.skills')}</i></span>
+                <span className="lc-flow-kv"><b>{fmt(props.answers ?? 0)}</b><i>{t('stats.answers')}</i></span>
               </span>
             </div>
           </div>

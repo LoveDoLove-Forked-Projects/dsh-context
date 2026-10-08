@@ -92,6 +92,15 @@ export interface TimelineCounts {
   injects: number
   compactions: number
   prunes: number
+  /**
+   * Distinct skills loaded this session — the unique names among the retained
+   * inject events the fold tagged `sub: 'skill'` (a user-explicit `/name`
+   * invocation's instructions or a `skill`-tool load's content). The
+   * `<available_skills>` catalog digest is injected context without a name
+   * and never counts. Additive-optional: a head served without it (a partial
+   * record re-proved at the client's boundary) reads as zero.
+   */
+  skills?: number
 }
 
 /**
@@ -230,6 +239,14 @@ export interface Snapshot {
    * from older hosts; clients treat absence as zero.
    */
   humanInputs?: number
+  /**
+   * Whole-session answers tally: one per assistant message carrying a
+   * non-blank text block — steps that only dispatched tool calls are not
+   * replies. Running total over the complete log, like `humanInputs`.
+   * Additive-optional — absent from rows folded before the field existed;
+   * clients treat absence as zero.
+   */
+  answers?: number
   /**
    * The user's newest own message as a one-line bounded preview (first text
    * block, whitespace collapsed, ~80 chars): the session cards' footer line.
