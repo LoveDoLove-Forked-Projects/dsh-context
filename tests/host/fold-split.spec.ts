@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { buildTimelineDetail, buildTimelineHead } from '../../src/host/fold'
+import { buildTimelineDetail, buildTimelineHead, skillNameOf } from '../../src/host/fold'
 import type { TimelineEvent } from '../../src/host/fold'
 import { resolveBounds } from '../../src/host/config'
 import {
@@ -128,8 +128,7 @@ describe('buildTimelineHead', () => {
     assert.deepEqual(head.counts, { turns: 1, steps: 1, injects: 1, compactions: 0, prunes: 1, skills: 0 })
   })
 
-  test('the skills counter tallies DISTINCT loaded-skill names — the catalog digest never counts', () => {
-    const { state } = driveTimeline([
+  test('the skills counter tallies DISTINCT loaded-skill names — the catalog digest never counts', () => {    const { state } = driveTimeline([
       // A `/name` invocation and a `skill`-tool load both load a skill; the
       // available-skills catalog digest is the directory listing, not a load.
       userMessage(1, [{ type: 'text', text: 'run' }], { kind: 'skill-invocation', form: 'skill', name: 'grilling' }),
@@ -144,6 +143,14 @@ describe('buildTimelineHead', () => {
     // untagged inject event — five injects, two distinct skills.
     assert.deepEqual(head.counts, { turns: 0, steps: 0, injects: 5, compactions: 0, prunes: 0, skills: 2 })
     assertPlainJson(head)
+  })
+
+  test('skillNameOf narrows hostile messages to no name (the activity fold’s reuse)', () => {
+    assert.equal(skillNameOf(null), '')
+    assert.equal(skillNameOf('text'), '')
+    assert.equal(skillNameOf(42), '')
+    assert.equal(skillNameOf({}), '')
+    assert.equal(skillNameOf({ content: [{ type: 'text', text: '<skill_content name="tdd">…' }] }), 'tdd')
   })
 
   test('a fresh state serves zeroed counters and no last/detailRev payload keys beyond the marker', () => {

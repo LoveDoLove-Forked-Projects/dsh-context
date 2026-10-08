@@ -135,6 +135,15 @@ export interface ActivityDay {
    * provider left unmetered — the usage chart degrades to tokens-only bars.
    */
   cost?: SessionCostUsage
+  /**
+   * The day's skill loads, skill name → its tally (`n` loads, `last` load
+   * instant in epoch ms): both durable load gestures — a user-explicit
+   * `/name` invocation's `skill-invocation` injection and a `skill`-tool
+   * load's `<skill_content>` result. ADDITIVE-OPTIONAL: absent on rows folded
+   * before the field existed and on days without a load — the Insights page's
+   * skill card treats a missing record as an empty day.
+   */
+  skills?: Record<string, { n: number; last: number }>
 }
 
 /**
@@ -145,6 +154,25 @@ export interface ActivityDay {
  */
 export interface ContextActivity {
   days: Record<string, ActivityDay>
+}
+
+/**
+ * One available skill's catalog metadata, served by the plugin's
+ * `/api/dsh-context/skills` route (host/skills.ts) off the harness's skill
+ * registry: the Insights page's skill card joins it by name onto the load
+ * tallies to show what a skill IS (description, origin, on-disk path). Every
+ * field but `name` is best-effort — a registry that omits one still serves
+ * the rest, and the card renders the tally alone when the route is absent.
+ */
+export interface SkillInfo {
+  /** Kebab-case identifier — the join key onto `ActivityDay.skills`. */
+  name: string
+  /** The registry's routing description (may be empty). */
+  description: string
+  /** Absolute instruction file path, when the provider is filesystem-backed. */
+  path?: string
+  /** Discovery source bucket (e.g. 'project-agents', 'user-dsh', 'bundled'). */
+  source?: string
 }
 
 /**

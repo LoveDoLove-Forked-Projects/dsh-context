@@ -550,9 +550,13 @@ function firstFullText(blocks: unknown): string {
  * The skill name a `skill`-tool result carries. Loaded skills are rendered as
  * `<skill_content name="…">…</skill_content>` in the result's text, so the name
  * is recovered from the content rather than trusted from the call envelope.
+ * Exported for the activity fold's skill-load tally (host/activity.ts), which
+ * reads the raw `data.message` off the same durable event — the structural
+ * narrow keeps a hostile payload total.
  */
-function skillNameOf(msg: MessageLike | null | undefined): string {
-  const text = firstFullText(msg?.content)
+export function skillNameOf(msg: unknown): string {
+  const content = msg !== null && typeof msg === 'object' ? (msg as MessageLike).content : undefined
+  const text = firstFullText(content)
   const match = text.match(/<skill_content\s+name="([^"]+)"/)
   return match === null ? '' : match[1]
 }

@@ -31,6 +31,7 @@ import { watchDetailChannel } from './detail'
 import { createFallbackActivityDefinition, createFallbackHeadersDefinition, createFallbackTimelineDefinition } from './fallback'
 import { createContextHeadersDefinition } from './headers'
 import { watchStepIdentity } from './stepIdentity'
+import { watchSkillCatalog } from './skills'
 import { createContextTimelineDefinition } from './timeline'
 import { detectHarnessVersion } from './version'
 import { meetsBaseline } from '../shared/version'
@@ -51,6 +52,11 @@ export function apply(ctx: Context, config: Config): void {
   // every face it reads is runtime-proved, and an unarmed route just means
   // the dashboard's capsule never appears.
   watchBalanceChannel(ctx)
+  // The skill-catalog route (skills.ts): the Insights page's skill-card
+  // enrichment (description / origin / path per name), off the host's skill
+  // registry. Same independence as the balance route — armed on either side
+  // of the gate, unarmed just means unenriched rows.
+  watchSkillCatalog(ctx)
   // The baseline gate: a harness BELOW the supported baseline (detected at
   // apply time — see version.ts) never gets the real folds, since its log
   // shapes and seam faces are outside the compat matrix. Fallback units
@@ -100,7 +106,7 @@ export function apply(ctx: Context, config: Config): void {
 
 export type { Category, ContextEventRecord, RequestRecord, Snapshot, ContextTimeline, SurfaceNode } from '../shared/types'
 export type { ActivityDay, ContextActivity, ContextHeaders, HeaderRecord, HeaderTool, ContextTimelineDetail, TimelineCounts, TimelineLast } from '../shared/types'
-export type { PlatformBalance, PlatformBalanceEntry } from '../shared/types'
+export type { PlatformBalance, PlatformBalanceEntry, SkillInfo } from '../shared/types'
 export type { ActivityState } from './activity'
 export type { TimelineState } from './fold'
 export type { HeadersState } from './headers'
