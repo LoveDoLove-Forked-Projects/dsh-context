@@ -22,6 +22,7 @@ import type { ContextSettings } from '../settings'
 import type { ViewKit } from '../viewkit'
 import { makeAgentHeads } from '../agentHeads'
 import { makeContextBrowser } from './browser'
+import type { CatFocus } from './browser'
 import { makeAgentGraph } from './agentGraph'
 import { makeDonut } from './donut'
 import { makeCurrentComposition } from './currentComposition'
@@ -178,6 +179,20 @@ export function makeContextView(
     const scrollerRef = useRef<HTMLElement | null>(null)
     // The session whose position was already applied this mount — re-applying on re-renders would yank the reader's scroll.
     const restoredRef = useRef<string | null>(null)
+    // The stats card's second-row figures jump here: open the Context Browser's
+    // matching section on the live surface ('answers' also picks the answer
+    // kind chip), then scroll the browser card into view.
+    const [catFocus, setCatFocus] = useState<CatFocus | null>(null)
+    const clearCatFocus = useCallback(() => { setCatFocus(null) }, [])
+    const onFigureClick = useCallback((figure: 'skills' | 'answers'): void => {
+      setCatFocus(figure === 'skills' ? { cat: 'skill' } : { cat: 'assistant', kind: 'answer' })
+      /* v8 ignore start -- the stats card and the browser card render in the
+         same view, so the target always resolves here; the guard stays for
+         defensive parity with revealAgents. */
+      const browser = rootRef.current?.querySelector('.lc-col-browser') ?? null
+      if (browser !== null) revealInScrollParent(browser)
+      /* v8 ignore stop */
+    }, [])
 
     // Restore the saved position (or the top on first visit) in a layout effect, so the chat's bottom-anchored position never flashes in
     // first.
@@ -589,6 +604,8 @@ export function makeContextView(
         loadImage={loadImage}
         detailState={source.detailState}
         onDetailRetry={source.retryDetail}
+        catFocus={catFocus}
+        onCatFocusHandled={clearCatFocus}
         // The DNA switch is shared with the trend card: both toggles move as one.
         dna={dna}
         onDnaChange={setDna}
@@ -607,7 +624,8 @@ export function makeContextView(
           <div className="lc-cols lc-head">
             <StatsContext counts={counts} humanInputs={data.humanInputs} answers={data.answers} toolCalls={data.toolCalls}
               files={ioTotals} tools={toolTally}
-              cost={data.cost} locale={activeLocale} sessionId={typeof sessionId === 'string' ? sessionId : undefined} />
+              cost={data.cost} locale={activeLocale} sessionId={typeof sessionId === 'string' ? sessionId : undefined}
+              onFigureClick={onFigureClick} />
             <PluginInfo />
           </div>
         )}

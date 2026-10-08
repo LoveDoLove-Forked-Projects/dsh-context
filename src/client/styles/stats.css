@@ -167,6 +167,12 @@ a.lc-flow-head:hover .lc-flow-label { color: var(--dsw-alias-label-primary); }
 /* Each figure cell takes half its row and centers within — the two rows share
    one column pair no matter how wide a label runs (技能加载 vs 轮次). */
 .lc-flow-kv { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+/* The second-row figures are jumps into the Context Browser: pointer plus a
+   soft hover wash and label brightening (the team card's affordance). */
+.lc-flow-kv-btn { cursor: pointer; border-radius: 6px; }
+.lc-flow-kv-btn:hover { background: var(--dsw-alias-bg-layer-2); }
+.lc-flow-kv-btn:hover i { color: var(--dsw-alias-label-primary); }
+.lc-flow-kv-btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 .lc-flow-kv b { font-size: 17px; font-weight: 700; line-height: 1.2; color: var(--dsw-alias-label-primary); font-variant-numeric: tabular-nums; }
 .lc-flow-kv i { font-style: normal; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 /* Right-column tips open leftward so the wide bubble never spills past the card edge. */

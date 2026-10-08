@@ -546,6 +546,39 @@ describe('StatsContext', () => {
     await click(query(m.container, '.lc-flow-team'))
     await m.unmount()
   })
+
+  test('the second-row figures fire onFigureClick on click and keyboard', async () => {
+    const calls: string[] = []
+    const m = await mount(h(StatsContext, {
+      counts: NO_COUNTS,
+      answers: 1,
+      files: NO_FILES,
+      tools: [],
+      locale: 'en',
+      onFigureClick: (f) => { calls.push(f) },
+    }))
+    await flush()
+    const cells = queryAll(m.container, '.lc-flow-kv-btn')
+    assert.equal(cells.length, 2)
+    assert.equal(cells[0].getAttribute('role'), 'button')
+    assert.ok(cells[0].getAttribute('title') !== null && cells[0].getAttribute('title') !== '', 'the jump tip rides')
+    await click(cells[0])
+    assert.deepEqual(calls, ['skills'])
+    // Keyboard parity: Enter fires, other keys stay quiet.
+    cells[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    assert.deepEqual(calls, ['skills', 'answers'])
+    cells[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }))
+    assert.deepEqual(calls, ['skills', 'answers'])
+    await m.unmount()
+  })
+
+  test('without onFigureClick the figure cells stay inert', async () => {
+    const m = await mount(h(StatsContext, { counts: NO_COUNTS, answers: 1, files: NO_FILES, tools: [], locale: 'en' }))
+    await flush()
+    const cells = queryAll(m.container, '.lc-flow-kv')
+    assert.ok(cells.every(c => c.getAttribute('role') === null && !c.className.includes('lc-flow-kv-btn')))
+    await m.unmount()
+  })
 })
 
 describe('StatsContext — the subagent split (injected seat)', () => {

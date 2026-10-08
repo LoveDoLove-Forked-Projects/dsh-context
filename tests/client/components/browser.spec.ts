@@ -2075,6 +2075,51 @@ describe('ContextBrowser open-category reporting', () => {
     assert.deepEqual(opens, [null, null, 'tool'], 'the reveal opens the node category')
     await m.unmount()
   })
+
+  test('catFocus opens the named category on the live surface, picking the kind chip', async () => {
+    const data = tl({
+      requests: [req({ seq: 10, turn: 1, step: 0 })],
+      nodes: [
+        surfaceNode({ seq: 1, cat: 'skill', tokens: 5, skill: 'pdf', text: 'instructions' }),
+        surfaceNode({ seq: 2, cat: 'assistant', tokens: 5, text: 'an answer' }),
+        surfaceNode({ seq: 3, cat: 'assistant', tokens: 5, calls: ['bash'] }),
+      ],
+    })
+    const opens: (string | null)[] = []
+    const onOpenCat = (c: string | null): void => { opens.push(c) }
+    let handled = 0
+    const m = await mount(h(Browser, props({ data, onOpenCat })))
+    // The stats card's Answers figure: assistant open, the answer chip picked —
+    // the tool-call-only row filters out.
+    await m.update(h(Browser, props({
+      data,
+      onOpenCat,
+      catFocus: { cat: 'assistant', kind: 'answer' },
+      onCatFocusHandled: () => { handled += 1 },
+    })))
+    assert.equal(handled, 1)
+    assert.deepEqual(opens, [null, 'assistant'])
+    assert.ok(catRow(m, 'assistant').className.includes('lc-br-cat-open'))
+    const assistantCat = catRow(m, 'assistant').parentElement as HTMLElement
+    const chips = queryAll(assistantCat, '.lc-gran-btn')
+    const answerChip = chips.find(b => text(b).includes('Answer'))
+    assert.ok(answerChip !== undefined && answerChip.className.includes('lc-gran-on'), 'the answer chip is picked')
+    const shownRows = queryAll(assistantCat, '.lc-br-elem')
+    assert.equal(shownRows.length, 1, 'only the textual reply survives the answer filter')
+    assert.ok(text(shownRows[0]).includes('an answer'))
+    // The stats card's Skill Loads figure: skill open, no chip picked, lens cleared.
+    await m.update(h(Browser, props({
+      data,
+      onOpenCat,
+      catFocus: { cat: 'skill' },
+      onCatFocusHandled: () => { handled += 1 },
+    })))
+    assert.equal(handled, 2)
+    assert.deepEqual(opens, [null, 'assistant', 'skill'])
+    assert.ok(catRow(m, 'skill').className.includes('lc-br-cat-open'))
+    assert.ok(!catRow(m, 'assistant').className.includes('lc-br-cat-open'), 'the previous category closed')
+    await m.unmount()
+  })
 })
 
 describe('ContextBrowser DNA mode and the open-category bar pin', () => {

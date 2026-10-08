@@ -63,6 +63,15 @@ export interface ContextBrowserProps {
    */
   nodeFocus?: { step: number | 'live'; key: string; cat: Category | 'system' | 'tools' } | null
   onNodeFocusHandled?: () => void
+  /**
+   * One-shot CATEGORY reveal (the stats card's figure cells): open the named
+   * category on the live surface, optionally with the assistant kind chip
+   * picked ('answer' for the Answers figure), the row lens cleared. No element
+   * row opens — the lens is the destination. Handed back via
+   * `onCatFocusHandled` so the same cell can fire again.
+   */
+  catFocus?: CatFocus | null
+  onCatFocusHandled?: () => void
   hoverKey?: string | null
   onHoverKey?: (key: string | null) => void
   /**
@@ -635,6 +644,14 @@ function reasoningTextOf(conv: ConversationNodeLike | undefined): string {
 const ROW_KINDS = ['think', 'tool', 'answer'] as const
 type RowKind = (typeof ROW_KINDS)[number]
 
+/** A one-shot category-open request (the stats card's figure cells). */
+export interface CatFocus {
+  /** The category to open ('skill' for Skill Loads, 'assistant' for Answers). */
+  cat: string
+  /** The assistant category's picked kind chip ('answer' from the Answers figure). */
+  kind?: RowKind
+}
+
 function countOf(asm: Assembled, byCat: Partial<Record<Category, SurfaceNode[]>>, c: string): number {
   if (c === 'system') return asm.system !== null ? 1 : 0
   if (c === 'tools') return asm.header !== null ? asm.header.tools.length : 0
@@ -790,6 +807,19 @@ export function makeContextBrowser(
       focusScrollRef.current = true
       if (props.onNodeFocusHandled !== undefined) props.onNodeFocusHandled()
     }, [nodeFocus, props.onNodeFocusHandled, onOpenCat])
+    // One-shot category reveal (the stats card's figure cells): the LIVE
+    // surface, the named category open, its kind chip picked when the caller
+    // carries one, the row lens cleared so nothing hides the rows.
+    const catFocus = props.catFocus
+    useEffect(() => {
+      if (catFocus === null || catFocus === undefined) return
+      setSel('live')
+      setCat(catFocus.cat)
+      setOpenElem(null)
+      setRowQuery('')
+      setRowKind(catFocus.kind ?? null)
+      if (props.onCatFocusHandled !== undefined) props.onCatFocusHandled()
+    }, [catFocus, props.onCatFocusHandled, onOpenCat])
     useLayoutEffect(() => {
       if (!focusScrollRef.current) return
       focusScrollRef.current = false

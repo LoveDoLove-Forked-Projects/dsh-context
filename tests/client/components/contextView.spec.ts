@@ -1421,6 +1421,49 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
     await m.unmount()
   })
 
+  test('the stats figures jump into the browser: skill loads open the skill section, answers open assistant filtered to Answer', async () => {
+    const rich = richTimeline()
+    const nodes = [...rich.nodes, { seq: 7, cat: 'skill', tokens: 5, skill: 'pdf', text: 'instructions', time: T0 + 6000 }]
+    const ctx = slimCtx(async () => ({
+      ok: true,
+      value: { rev: 6, requests: rich.requests, events: rich.events, nodes, droppedNodes: rich.droppedNodes, archive: rich.archive },
+    }))
+    const View = makeView(ctx)
+    const m = await mount(h(View, {
+      sessionId: 'sv-slim',
+      useProjection: projectionsFor(slimHead({
+        counts: { turns: 1, steps: 3, injects: 1, compactions: 1, prunes: 0, skills: 1 },
+        answers: 3,
+      })),
+    }))
+    await until(() => queryAll(m.container, '.lc-bar').length === 3, 'the detail never landed')
+    const openCat = (): HTMLElement => {
+      const on = queryAll(m.container, '.lc-br-cat-row.lc-br-cat-open')
+      assert.equal(on.length, 1)
+      const parent = on[0].parentElement
+      assert.ok(parent !== null)
+      return parent
+    }
+
+    // Answers: the assistant section opens with the Answer chip picked.
+    const cells = queryAll(m.container, '.lc-flow-kv-btn')
+    assert.equal(cells.length, 2)
+    await click(cells[1])
+    await flush()
+    const assistantCat = openCat()
+    const answerChip = queryAll(assistantCat, '.lc-gran-btn').find(b => text(b).includes('Answer'))
+    assert.ok(answerChip !== undefined && answerChip.className.includes('lc-gran-on'), 'the Answer chip is picked')
+    assert.equal(queryAll(assistantCat, '.lc-br-elem').length, 3, 'all three textual replies survive the filter')
+
+    // Skill Loads: the skill section opens, no chip there — the loaded skill rides.
+    await click(cells[0])
+    await flush()
+    const skillCat = openCat()
+    assert.ok(text(skillCat).includes('pdf'), 'the loaded skill row shows')
+    assert.equal(queryAll(skillCat, '.lc-br-elem').length, 1)
+    await m.unmount()
+  })
+
   test('a failed detail read arms the retry notes; one click refires and the cards land', async () => {
     let online = false
     const ctx = slimCtx(async () => {

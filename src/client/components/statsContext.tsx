@@ -223,6 +223,13 @@ interface StatsContextProps {
   humanInputs?: number
   /** The whole-session answers tally — assistant messages carrying text (absent on older hosts/rows). */
   answers?: number
+  /**
+   * The second-row figure cells' jump: 'skills' opens the Context Browser's
+   * skill-injection section, 'answers' its assistant section filtered to
+   * answers (absent — e.g. a host page without the browser — the cells stay
+   * inert).
+   */
+  onFigureClick?: (figure: 'skills' | 'answers') => void
   /** Tool calls with a result live in the current context (absent on older hosts). */
   toolCalls?: number
   /** The whole-session file-op tallies (op counts by kind), for the I/O card's pills. */
@@ -423,6 +430,28 @@ export function makeStatsContext(
         {tip !== undefined && <span className="lc-tip lc-stat-tip group-hover/tip:opacity-100" role="tooltip">{tip}</span>}
       </span>
     )
+    // One second-row figure cell: the bold tally over its label, a jump into
+    // the Context Browser's matching section on click/Enter (the team card's
+    // role=button + keydown idiom). Inert when the caller mounts no browser.
+    const onFigureClick = props.onFigureClick
+    const figure = (key: 'skills' | 'answers', value: number, label: string, tip: string): ReactElement => (
+      <span
+        key={key}
+        role={onFigureClick === undefined ? undefined : 'button'}
+        tabIndex={onFigureClick === undefined ? undefined : 0}
+        className={'lc-flow-kv' + (onFigureClick === undefined ? '' : ' lc-flow-kv-btn')}
+        title={onFigureClick === undefined ? undefined : tip}
+        onClick={onFigureClick === undefined ? undefined : () => { onFigureClick(key) }}
+        onKeyDown={onFigureClick === undefined ? undefined : (ev: KeyboardEvent) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ') return
+          ev.preventDefault()
+          onFigureClick(key)
+        }}
+      >
+        <b>{fmt(value)}</b>
+        <i>{label}</i>
+      </span>
+    )
     // The cost card links to the listing when ONE models.dev provider priced
     // the whole scope — the natural "check these rates" destination. A
     // multi-provider scope names each face in the tooltip instead and stays
@@ -514,8 +543,8 @@ export function makeStatsContext(
                 <span className="lc-flow-kv"><b>{fmt(props.counts.steps)}</b><i>{t('stats.steps')}</i></span>
               </span>
               <span className="lc-flow-self-stats">
-                <span className="lc-flow-kv"><b>{fmt(props.counts.skills ?? 0)}</b><i>{t('stats.skills')}</i></span>
-                <span className="lc-flow-kv"><b>{fmt(props.answers ?? 0)}</b><i>{t('stats.answers')}</i></span>
+                {figure('skills', props.counts.skills ?? 0, t('stats.skills'), t('stats.skillsJump'))}
+                {figure('answers', props.answers ?? 0, t('stats.answers'), t('stats.answersJump'))}
               </span>
             </div>
           </div>
