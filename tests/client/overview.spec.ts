@@ -8,13 +8,15 @@ import {
   aggregateDays,
   billedOf,
   createdDayOf,
+  dayRangeWindow,
   filterRows,
   groupCountsOf,
   inGroup,
   kpisOf,
+  orderedDayRange,
   pageOf,
   projectOf,
-  rangeStartOf,
+  rangeWindowOf,
   refreshSessions,
   relativeTime,
   requestActivityBackfill,
@@ -27,15 +29,20 @@ import {
   timingSumOf,
   tokenPartsOf,
   turnsOf,
+  OPEN_WINDOW,
   UNGROUPED_KEY,
   usageTotalsOf,
   workspacesSnapshotOf,
+  type OverviewRange,
   type OverviewRow,
 } from '../../src/client/overview'
 import type { ClientCtx } from '../../src/client/services'
 import { dayKeyOf } from '../../src/shared/days'
 import type { ContextActivity, ContextTimeline, SessionCostUsage } from '../../src/shared/types'
 import { mergeCostUsage, priceIndexOf } from '../../src/client/cost'
+
+/** A preset's resolved scope window at `now` — the page's own resolution, spelled the way the panel spells it. */
+const win = (range: OverviewRange, now: number) => rangeWindowOf(range, now)
 
 /** The minimal wire-valid timeline head, overridable per case. */
 function timelineOf(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -193,14 +200,48 @@ describe('billedOf / turnsOf', () => {
   })
 })
 
-describe('rangeStartOf', () => {
-  test('each window’s start instant; all is unbounded', () => {
+describe('rangeWindowOf', () => {
+  test('each preset pins its start; all is the open window', () => {
     // Local anchors, so the calendar-day window reads the same in every zone.
     const now = new Date(2026, 8, 20, 12).getTime()
-    assert.equal(rangeStartOf('today', now), new Date(2026, 8, 20).getTime(), 'today opens on the local midnight')
-    assert.equal(rangeStartOf('7d', now), now - 7 * 86_400_000)
-    assert.equal(rangeStartOf('30d', now), now - 30 * 86_400_000)
-    assert.equal(rangeStartOf('all', now), null)
+    const midnight = new Date(2026, 8, 20).getTime()
+    assert.deepEqual(rangeWindowOf('today', now), { start: midnight, end: null }, 'today opens on the local midnight')
+    assert.deepEqual(rangeWindowOf('7d', now), { start: now - 7 * 86_400_000, end: null })
+    assert.deepEqual(rangeWindowOf('30d', now), { start: now - 30 * 86_400_000, end: null })
+    assert.deepEqual(rangeWindowOf('all', now), OPEN_WINDOW, 'no bound at either end')
+    assert.deepEqual(OPEN_WINDOW, { start: null, end: null })
+  })
+})
+
+describe('dayRangeWindow', () => {
+  test('a picked range spans both of its days whole', () => {
+    assert.deepEqual(dayRangeWindow({ from: '2026-09-10', to: '2026-09-12' }), {
+      start: new Date(2026, 8, 10).getTime(),
+      end: new Date(2026, 8, 12, 23, 59, 59, 999).getTime(),
+    }, 'start at the first midnight, end at the last millisecond')
+    assert.deepEqual(dayRangeWindow({ from: '2026-09-10', to: '2026-09-10' }), {
+      start: new Date(2026, 8, 10).getTime(),
+      end: new Date(2026, 8, 10, 23, 59, 59, 999).getTime(),
+    }, 'a one-day range counts that whole day')
+  })
+
+  test('a malformed key on either end yields no window at all', () => {
+    assert.equal(dayRangeWindow({ from: 'garbage', to: '2026-09-12' }), null)
+    assert.equal(dayRangeWindow({ from: '2026-09-10', to: '2026-02-30' }), null)
+  })
+
+  test('a pair that arrives backwards is ordered on the way in', () => {
+    // The pick path sorts already; this is the seam that keeps a hand-built
+    // pair from filtering the page down to an empty window.
+    assert.deepEqual(dayRangeWindow({ from: '2026-09-12', to: '2026-09-10' }), dayRangeWindow({ from: '2026-09-10', to: '2026-09-12' }))
+  })
+})
+
+describe('orderedDayRange', () => {
+  test('a backwards pair swaps its ends rather than inverting', () => {
+    assert.deepEqual(orderedDayRange('2026-09-10', '2026-09-12'), { from: '2026-09-10', to: '2026-09-12' })
+    assert.deepEqual(orderedDayRange('2026-09-12', '2026-09-10'), { from: '2026-09-10', to: '2026-09-12' })
+    assert.deepEqual(orderedDayRange('2026-09-10', '2026-09-10'), { from: '2026-09-10', to: '2026-09-10' })
   })
 })
 
@@ -219,36 +260,50 @@ describe('filterRows', () => {
   ]
 
   test('the range window filters by last activity', () => {
-    assert.deepEqual(filterRows(rows, { range: 'today', day: null, query: '' }, now).map(r => r.id), ['new', 'active'])
-    assert.deepEqual(filterRows(rows, { range: '7d', day: null, query: '' }, now).map(r => r.id), ['new', 'active'])
-    assert.deepEqual(filterRows(rows, { range: 'all', day: null, query: '' }, now).map(r => r.id), ['old', 'new', 'active'])
+    assert.deepEqual(filterRows(rows, { scope: win('today', now), day: null, query: '' }).map(r => r.id), ['new', 'active'])
+    assert.deepEqual(filterRows(rows, { scope: win('7d', now), day: null, query: '' }).map(r => r.id), ['new', 'active'])
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: null, query: '' }).map(r => r.id), ['old', 'new', 'active'])
     // Today's own boundary: hours in, one minute before the local midnight out.
     const dRows = [
       rowOf({ id: 'in', title: 'this morning', updatedAt: now - 2 * 3_600_000 }),
       rowOf({ id: 'out', title: 'last night', updatedAt: midnight - 60_000 }),
     ]
-    assert.deepEqual(filterRows(dRows, { range: 'today', day: null, query: '' }, now).map(r => r.id), ['in'])
-    assert.deepEqual(filterRows(dRows, { range: '7d', day: null, query: '' }, now).map(r => r.id), ['in', 'out'], 'last night is still inside the week')
+    assert.deepEqual(filterRows(dRows, { scope: win('today', now), day: null, query: '' }).map(r => r.id), ['in'])
+    assert.deepEqual(filterRows(dRows, { scope: win('7d', now), day: null, query: '' }).map(r => r.id), ['in', 'out'], 'last night is still inside the week')
+  })
+
+  test('a picked range closes both ends of the window', () => {
+    // A two-day window: the day before its start and the day after its end are
+    // both out, and the end day's last millisecond is still in.
+    const scope = dayRangeWindow({ from: '2026-09-10', to: '2026-09-11' })
+    assert.ok(scope !== null)
+    const window = [
+      rowOf({ id: 'before', updatedAt: new Date(2026, 8, 9, 23, 59).getTime() }),
+      rowOf({ id: 'first', updatedAt: new Date(2026, 8, 10).getTime() }),
+      rowOf({ id: 'last', updatedAt: new Date(2026, 8, 11, 23, 59, 59, 999).getTime() }),
+      rowOf({ id: 'after', updatedAt: new Date(2026, 8, 12).getTime() }),
+    ]
+    assert.deepEqual(filterRows(window, { scope, day: null, query: '' }).map(r => r.id), ['first', 'last'])
   })
 
   test('the day pin keeps only sessions contributing to that day', () => {
-    assert.deepEqual(filterRows(rows, { range: 'all', day: '2026-09-16', query: '' }, now).map(r => r.id), ['active'])
-    assert.deepEqual(filterRows(rows, { range: 'all', day: '2026-09-10', query: '' }, now), [], 'a zero day is no contribution')
-    assert.deepEqual(filterRows(rows, { range: 'all', day: '2026-09-11', query: '' }, now), [], 'no ledger entry')
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: '2026-09-16', query: '' }).map(r => r.id), ['active'])
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: '2026-09-10', query: '' }), [], 'a zero day is no contribution')
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: '2026-09-11', query: '' }), [], 'no ledger entry')
   })
 
   test('the query matches title, directory, or last message, case-insensitively', () => {
-    assert.deepEqual(filterRows(rows, { range: 'all', day: null, query: 'FRESH' }, now).map(r => r.id), ['new'])
-    assert.deepEqual(filterRows(rows, { range: 'all', day: null, query: '/repo' }, now).map(r => r.id), ['new'])
-    assert.deepEqual(filterRows(rows, { range: 'all', day: null, query: '  ' }, now).length, 3, 'a blank query matches all')
-    assert.deepEqual(filterRows(rows, { range: 'all', day: null, query: 'zzz' }, now), [])
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: null, query: 'FRESH' }).map(r => r.id), ['new'])
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: null, query: '/repo' }).map(r => r.id), ['new'])
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: null, query: '  ' }).length, 3, 'a blank query matches all')
+    assert.deepEqual(filterRows(rows, { scope: win('all', now), day: null, query: 'zzz' }), [])
     // The session's newest own message joins the haystack.
     const talked = rowOf({ id: 'talk', title: 'quiet title', timeline: { lastUser: 'ship the QUARTERLY report' } as unknown as ContextTimeline })
-    assert.deepEqual(filterRows([talked], { range: 'all', day: null, query: 'quarterly' }, now).map(r => r.id), ['talk'])
-    assert.deepEqual(filterRows([talked], { range: 'all', day: null, query: 'quiet' }, now).map(r => r.id), ['talk'], 'the title still matches')
+    assert.deepEqual(filterRows([talked], { scope: win('all', now), day: null, query: 'quarterly' }).map(r => r.id), ['talk'])
+    assert.deepEqual(filterRows([talked], { scope: win('all', now), day: null, query: 'quiet' }).map(r => r.id), ['talk'], 'the title still matches')
     // A non-string last message (a hostile fold shape) never matches.
     const odd = rowOf({ id: 'odd', title: 'odd one', timeline: { lastUser: 42 } as unknown as ContextTimeline })
-    assert.deepEqual(filterRows([odd], { range: 'all', day: null, query: '42' }, now), [])
+    assert.deepEqual(filterRows([odd], { scope: win('all', now), day: null, query: '42' }), [])
   })
 })
 
@@ -747,18 +802,33 @@ describe('skillLoadsOf', () => {
         [day(1)]: { tokens: 1, requests: 1, skills: { tdd: { n: 3, last: NOW - 2000 }, grill: { n: 1, last: NOW - 500 } } },
       }),
     ]
-    assert.deepEqual(skillLoadsOf(rows, { range: '7d', day: null }, NOW), [
+    assert.deepEqual(skillLoadsOf(rows, { scope: win('7d', NOW), day: null }), [
       { name: 'tdd', loads: 5, sessions: 2, last: NOW - 1000 },
       { name: 'grill', loads: 1, sessions: 1, last: NOW - 500 },
     ], 'the 10-days-ago entries fall below the floor')
-    assert.deepEqual(skillLoadsOf(rows, { range: 'today', day: null }, NOW), [
+    assert.deepEqual(skillLoadsOf(rows, { scope: win('today', NOW), day: null }), [
       { name: 'tdd', loads: 2, sessions: 1, last: NOW - 1000 },
     ], "today's floor admits this very day only")
-    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW), [
+    assert.deepEqual(skillLoadsOf(rows, { scope: win('all', NOW), day: null }), [
       { name: 'tdd', loads: 10, sessions: 2, last: NOW - 1000 },
       { name: 'grill', loads: 1, sessions: 1, last: NOW - 500 },
       { name: 'stale', loads: 1, sessions: 1, last: NOW - 900_000 },
     ])
+  })
+
+  test('a picked range closes the ledger window at its end day', () => {
+    const rows = [
+      rowWith('a', {
+        [day(0)]: { tokens: 1, requests: 1, skills: { fresh: { n: 1, last: NOW } } },
+        [day(1)]: { tokens: 1, requests: 1, skills: { edge: { n: 2, last: NOW } } },
+        [day(5)]: { tokens: 1, requests: 1, skills: { late: { n: 4, last: NOW } } },
+      }),
+    ]
+    const scope = dayRangeWindow({ from: day(4), to: day(1) })
+    assert.ok(scope !== null)
+    assert.deepEqual(skillLoadsOf(rows, { scope, day: null }).map(s => s.name), ['edge'], 'the end day counts whole; the day past it does not')
+    assert.equal(rowLoadedSkill(rows[0], 'late', { scope, day: null }), false)
+    assert.equal(rowLoadedSkill(rows[0], 'edge', { scope, day: null }), true)
   })
 
   test('the loader tally counts a row once however many of its days carry the name', () => {
@@ -769,7 +839,7 @@ describe('skillLoadsOf', () => {
       }),
       rowWith('b', { [day(0)]: { tokens: 1, requests: 1, skills: { tdd: { n: 1, last: NOW - 500 } } } }),
     ]
-    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW), [
+    assert.deepEqual(skillLoadsOf(rows, { scope: win('all', NOW), day: null }), [
       { name: 'tdd', loads: 3, sessions: 2, last: NOW - 500 },
     ])
   })
@@ -792,7 +862,7 @@ describe('skillLoadsOf', () => {
       rowWith('b', { [day(0)]: { tokens: 1, requests: 1, skills: { beta: { n: 1, last: NOW - 2000 } } } }),
     ]
     const names = (sort?: 'loads' | 'recent'): string[] =>
-      skillLoadsOf(rows, { range: 'all', day: null, sort }, NOW).map(s => s.name)
+      skillLoadsOf(rows, { scope: win('all', NOW), day: null, sort }).map(s => s.name)
     assert.deepEqual(names(), ['alpha', 'gamma', 'beta', 'delta', 'epsilon'], 'loads (the default): loads desc, then recent — the gamma/beta tie breaks on freshness')
     assert.deepEqual(names('loads'), ['alpha', 'gamma', 'beta', 'delta', 'epsilon'], 'the explicit key matches the omission')
     assert.deepEqual(names('recent'), ['gamma', 'delta', 'epsilon', 'beta', 'alpha'], 'recent: the freshest first')
@@ -805,7 +875,7 @@ describe('skillLoadsOf', () => {
         [day(1)]: { tokens: 1, requests: 1, skills: { grill: { n: 4, last: NOW - 80_000 } } },
       }),
     ]
-    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: day(1) }, NOW), [
+    assert.deepEqual(skillLoadsOf(rows, { scope: win('all', NOW), day: day(1) }), [
       { name: 'grill', loads: 4, sessions: 1, last: NOW - 80_000 },
     ])
   })
@@ -827,7 +897,7 @@ describe('skillLoadsOf', () => {
         },
       }),
     ]
-    assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW).map(s => s.name), ['delta', 'alpha', 'beta', 'gamma'])
+    assert.deepEqual(skillLoadsOf(rows, { scope: win('all', NOW), day: null }).map(s => s.name), ['delta', 'alpha', 'beta', 'gamma'])
   })
 })
 
@@ -851,13 +921,13 @@ describe('rowLoadedSkill', () => {
         },
       },
     })
-    assert.equal(rowLoadedSkill(row, 'tdd', { range: 'today', day: null }, NOW), true, "loaded today — inside today's floor")
-    assert.equal(rowLoadedSkill(row, 'grill', { range: 'today', day: null }, NOW), false, 'the 10-days-ago load falls below the floor')
-    assert.equal(rowLoadedSkill(row, 'grill', { range: 'all', day: null }, NOW), true)
-    assert.equal(rowLoadedSkill(row, 'tdd', { range: 'all', day: day(1) }, NOW), false, 'the pinned day admits only itself')
-    assert.equal(rowLoadedSkill(row, 'grill', { range: 'all', day: day(10) }, NOW), true)
-    assert.equal(rowLoadedSkill(row, 'never', { range: 'all', day: null }, NOW), false, 'a name no day carries')
-    assert.equal(rowLoadedSkill(rowOf({ id: 'bare' }), 'tdd', { range: 'all', day: null }, NOW), false, 'no ledger at all')
+    assert.equal(rowLoadedSkill(row, 'tdd', { scope: win('today', NOW), day: null }), true, "loaded today — inside today's floor")
+    assert.equal(rowLoadedSkill(row, 'grill', { scope: win('today', NOW), day: null }), false, 'the 10-days-ago load falls below the floor')
+    assert.equal(rowLoadedSkill(row, 'grill', { scope: win('all', NOW), day: null }), true)
+    assert.equal(rowLoadedSkill(row, 'tdd', { scope: win('all', NOW), day: day(1) }), false, 'the pinned day admits only itself')
+    assert.equal(rowLoadedSkill(row, 'grill', { scope: win('all', NOW), day: day(10) }), true)
+    assert.equal(rowLoadedSkill(row, 'never', { scope: win('all', NOW), day: null }), false, 'a name no day carries')
+    assert.equal(rowLoadedSkill(rowOf({ id: 'bare' }), 'tdd', { scope: win('all', NOW), day: null }), false, 'no ledger at all')
   })
 })
 

@@ -108,6 +108,13 @@ async function openPanel(
 /** The fetch calls the page fired (the warm-up trigger POST), per test. */
 const backfillPosts: string[] = []
 
+/** One day cell of the page's portaled calendar picker, by its day key. */
+function calendarDay(key: string): HTMLElement {
+  const el = queryAll(document.body, '.lc-dp-cell').find(d => d.getAttribute('aria-label') === key)
+  assert.ok(el !== undefined, `the calendar drew ${key}`)
+  return el
+}
+
 beforeEach(() => {
   resetModelPrices()
   setModelPricesLoader(() => Promise.resolve(PROVIDERS))
@@ -206,15 +213,66 @@ describe('OverviewPanel', () => {
     const { m } = await openPanel(ctx)
     const rangeButtons = queryAll<HTMLButtonElement>(m.container, '.lc-ov-range .lc-gran-btn')
     assert.equal(rangeButtons.length, 4)
+    // The chip reads the LIVE window, so every preset prints its own days.
+    const span = () => queryAll(m.container, '.lc-dp-half').map(el => el.textContent)
+    const thirty = new Date(NOW - 30 * 86_400_000)
+    assert.deepEqual(span(), [dayKeyOf(thirty.getTime()), TODAY], '30d shows the thirty days it covers')
     await click(rangeButtons[3]) // All
+    assert.deepEqual(span(), ['Start date', 'End date'], 'an unbounded scope has no span to print')
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 3, 'the stale session joins')
     assert.equal(queryAll(m.container, '.lc-stat-value')[0].textContent, '3')
     await click(rangeButtons[0]) // Today
+    assert.deepEqual(span(), [TODAY, TODAY], "today's own day on both ends")
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1, "only today's session stays")
     await click(rangeButtons[1]) // Last 7 days
+    assert.deepEqual(span(), [dayKeyOf(NOW - 7 * 86_400_000), TODAY])
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1, 'only the freshest stays')
     await click(rangeButtons[2]) // back to 30d
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2)
+    await m.unmount()
+  })
+
+  test('a picked calendar range scopes the page and hands the presets back', async () => {
+    const ctx = makeCtx()
+    const { m } = await openPanel(ctx)
+    const rangeButtons = queryAll<HTMLButtonElement>(m.container, '.lc-ov-range .lc-gran-btn')
+    await click(query(m.container, '.lc-dp-trigger'))
+    await click(calendarDay(YESTERDAY))
+    await click(calendarDay(TODAY))
+    assert.ok(query(m.container, '.lc-dp-trigger').className.includes('lc-dp-trigger-on'), 'the chip carries the picked range')
+    assert.deepEqual(
+      queryAll(m.container, '.lc-dp-trigger .lc-dp-half').map(el => el.textContent),
+      [YESTERDAY, TODAY],
+      'the head names both ends, start first',
+    )
+    // The window closes at both ends: only the session last touched inside it stays.
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1)
+    assert.equal(queryAll(m.container, '.lc-stat-value')[0].textContent, '1', 'the KPI band narrowed with it')
+    assert.ok(
+      rangeButtons.every(b => !b.className.includes('lc-gran-on')),
+      'a picked range and a preset are never both lit',
+    )
+    // Clicking any preset takes the scope back and drops the chip's voice.
+    await click(rangeButtons[3])
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 3, 'the stale session joins again')
+    assert.ok(!query(m.container, '.lc-dp-trigger').className.includes('lc-dp-trigger-on'))
+    await m.unmount()
+  })
+
+  test('a backwards pick still scopes the window the short way round', async () => {
+    const ctx = makeCtx()
+    const { m } = await openPanel(ctx)
+    await click(query(m.container, '.lc-dp-trigger'))
+    // The end day first, then a start day BEFORE it: the pair swaps rather
+    // than leaving the page with a window that runs backwards.
+    await click(calendarDay(TODAY))
+    await click(calendarDay(YESTERDAY))
+    assert.deepEqual(
+      queryAll(m.container, '.lc-dp-trigger .lc-dp-half').map(el => el.textContent),
+      [YESTERDAY, TODAY],
+      'the picked pair is sorted, start day first',
+    )
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1, 'the same window a forward pick would have left')
     await m.unmount()
   })
 

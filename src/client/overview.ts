@@ -21,7 +21,7 @@
  */
 
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
-import { dayKeyOf } from '../shared/days'
+import { dayKeyOf, endOfDayKey, startOfDayKey } from '../shared/days'
 import { billedParts } from './categories'
 import { cacheHitPercent } from './format'
 import { estimateSessionCost, mergeCostUsage } from './cost'
@@ -328,23 +328,77 @@ function mergeSkillTallies(a: ActivityDay['skills'], b: NonNullable<ActivityDay[
 
 // ---- range / filter / sort -------------------------------------------------
 
+/** The range group's preset keys — each a rolling window anchored on `now`. */
 export type OverviewRange = 'today' | '7d' | '30d' | 'all'
 
 /**
- * The range window's start instant (epoch ms), or null for "all". "Today"
- * opens on the local calendar day's midnight — date-field arithmetic (the
- * harness's own `setHours(0, 0, 0, 0)` idiom) keeps a DST-short or long day
- * exact, where an epoch-ms subtract would drift into the neighbouring day.
+ * A resolved scope window: inclusive epoch-ms bounds, each null when that end
+ * is open. The presets only ever pin the start ("last 7 days" is a floor, not
+ * a closed interval); the calendar picker's own range closes both ends.
  */
-export function rangeStartOf(range: OverviewRange, now: number): number | null {
+export interface RangeWindow {
+  start: number | null
+  end: number | null
+}
+
+/** The open window — the "all" preset. Frozen: it is handed straight to every scope reader. */
+export const OPEN_WINDOW: RangeWindow = Object.freeze({ start: null, end: null })
+
+/**
+ * A calendar-picked range: two inclusive local day keys, ALWAYS ordered
+ * (`from <= to`). The picker sorts the pair on its second click (a backwards
+ * drag just swaps the ends), and {@link dayRangeWindow} sorts it again at the
+ * seam, so no reader downstream — window, ledger predicate, or the chip that
+ * names it — can ever see a reversed range, and an inverted pair can never
+ * filter the page down to nothing.
+ */
+export interface DayRange {
+  from: string
+  to: string
+}
+
+/** Two picked ends in calendar order — a backwards pair swaps rather than inverting. */
+export function orderedDayRange(a: string, b: string): DayRange {
+  return a <= b ? { from: a, to: b } : { from: b, to: a }
+}
+
+/**
+ * The preset's window (epoch ms). "Today" opens on the local calendar day's
+ * midnight — date-field arithmetic (the harness's own `setHours(0, 0, 0, 0)`
+ * idiom) keeps a DST-short or long day exact, where an epoch-ms subtract
+ * would drift into the neighbouring day. "All" is the open window; every
+ * other preset is a floor with an open end, exactly as before the calendar
+ * picker arrived.
+ */
+export function rangeWindowOf(range: OverviewRange, now: number): RangeWindow {
+  if (range === 'all') return OPEN_WINDOW
+  const start = rangeStartOf(range, now)
+  return { start, end: null }
+}
+
+/** The preset's start instant, the shared floor of {@link rangeWindowOf}. */
+function rangeStartOf(range: Exclude<OverviewRange, 'all'>, now: number): number {
   if (range === 'today') {
     const midnight = new Date(now)
     midnight.setHours(0, 0, 0, 0)
     return midnight.getTime()
   }
-  if (range === '7d') return now - 7 * 86_400_000
-  if (range === '30d') return now - 30 * 86_400_000
-  return null
+  return now - (range === '7d' ? 7 : 30) * 86_400_000
+}
+
+/**
+ * A picked range's window: the start day's midnight through the end day's
+ * last millisecond, so both picked days count whole. The pair is ordered on
+ * the way in, which is what keeps an end picked before its start from reading
+ * as an empty window. Null when a key is malformed — the caller then keeps the
+ * preset scope rather than filtering on a window it cannot prove.
+ */
+export function dayRangeWindow(range: DayRange): RangeWindow | null {
+  const ordered = orderedDayRange(range.from, range.to)
+  const start = startOfDayKey(ordered.from)
+  const end = endOfDayKey(ordered.to)
+  if (start === null || end === null) return null
+  return { start, end }
 }
 
 export type OverviewSort = 'recent' | 'tokens' | 'context'
@@ -382,20 +436,20 @@ export function createdDayOf(activity: ContextActivity | null): string | undefin
 }
 
 /**
- * The panel's row pipeline: range (by last-activity), then the heatmap's
- * picked day (sessions contributing to that day's merged ledger), then the
- * search box (title, directory, or last-message substring). Each stage keeps
- * the rows it cannot prove out of the result — never an exception.
+ * The panel's row pipeline: the scope window (by last-activity), then the
+ * heatmap's picked day (sessions contributing to that day's merged ledger),
+ * then the search box (title, directory, or last-message substring). Each
+ * stage keeps the rows it cannot prove out of the result — never an
+ * exception.
  */
 export function filterRows(
   rows: readonly OverviewRow[],
-  opts: { range: OverviewRange; day: string | null; query: string },
-  now: number,
+  opts: { scope: RangeWindow; day: string | null; query: string },
 ): OverviewRow[] {
-  const start = rangeStartOf(opts.range, now)
   const query = opts.query.trim().toLowerCase()
   return rows.filter((row) => {
-    if (start !== null && row.updatedAt < start) return false
+    if (opts.scope.start !== null && row.updatedAt < opts.scope.start) return false
+    if (opts.scope.end !== null && row.updatedAt > opts.scope.end) return false
     if (opts.day !== null) {
       const entry = row.activity?.days[opts.day]
       if (entry === undefined || (entry.tokens <= 0 && entry.requests <= 0)) return false
@@ -451,16 +505,18 @@ export type SkillSort = 'loads' | 'recent'
 
 /**
  * The scope's ledger-day predicate: the heatmap's pinned day admits exactly
- * that day, else the range's day floor admits its own and later days (the
- * ledger is day-grained: "today" starts at this very day's key and the 7d/30d
- * windows admit their start day whole, the same resolution the heatmap reads
- * at); 'all' admits every day.
+ * that day, else the scope window admits its own days whole (the ledger is
+ * day-grained: "today" starts at this very day's key and the 7d/30d windows
+ * admit their start day whole, the same resolution the heatmap reads at; a
+ * picked range closes the top at its end day's key); an open window admits
+ * every day.
  */
-function skillDayPredicate(opts: { range: OverviewRange; day: string | null }, now: number): (key: string) => boolean {
+function skillDayPredicate(opts: { scope: RangeWindow; day: string | null }): (key: string) => boolean {
   if (opts.day !== null) return key => key === opts.day
-  const start = rangeStartOf(opts.range, now)
+  const { start, end } = opts.scope
   const floor = start === null ? null : dayKeyOf(start)
-  return floor === null ? () => true : key => key >= floor
+  const ceiling = end === null ? null : dayKeyOf(end)
+  return key => (floor === null || key >= floor) && (ceiling === null || key <= ceiling)
 }
 
 /**
@@ -474,10 +530,9 @@ function skillDayPredicate(opts: { range: OverviewRange; day: string | null }, n
  */
 export function skillLoadsOf(
   rows: readonly OverviewRow[],
-  opts: { range: OverviewRange; day: string | null; sort?: SkillSort },
-  now: number,
+  opts: { scope: RangeWindow; day: string | null; sort?: SkillSort },
 ): SkillLoadStat[] {
-  const admit = skillDayPredicate(opts, now)
+  const admit = skillDayPredicate(opts)
   const stats = new Map<string, SkillLoadStat>()
   for (const row of rows) {
     const days = row.activity?.days
@@ -518,10 +573,9 @@ export function skillLoadsOf(
 export function rowLoadedSkill(
   row: OverviewRow,
   name: string,
-  opts: { range: OverviewRange; day: string | null },
-  now: number,
+  opts: { scope: RangeWindow; day: string | null },
 ): boolean {
-  const admit = skillDayPredicate(opts, now)
+  const admit = skillDayPredicate(opts)
   const days = row.activity?.days
   if (days === undefined) return false
   for (const key of Object.keys(days)) {

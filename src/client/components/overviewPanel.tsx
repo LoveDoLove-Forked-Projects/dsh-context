@@ -10,13 +10,21 @@
  *
  * The chrome keeps the shipped first-level pages' discipline — one scroll
  * region that opens with the page heading, the title beside the preferences
- * chip, the range group (and the DeepSeek balance capsule when it serves) —
+ * chip, the scope cluster (the calendar date-range picker beside the range
+ * group, with the DeepSeek balance capsule to their left) —
  * but the content column spans the pane's full width rather than the shipped
  * pages' centered 960px frame: the dashboard's grids and legends adapt to the
  * pane, so the width reads as more dashboard, not wider lines. The page
  * element is the `lc-ov` query container, so every fold keys off the pane's
  * own width. Hover tips portal to <body> (hoverTip.tsx) because the container
  * would otherwise capture their fixed positioning.
+ *
+ * The cluster holds ONE scope: a picked calendar range (an ordered day pair,
+ * resolved into a closed window by dayRangeWindow) replaces the rolling
+ * preset, and clicking any preset hands it back — the preset chips and the
+ * picker never both claim it. Everything the presets scope (KPI band,
+ * aggregate cards, skill card, session list) reads that one resolved window,
+ * so a picked range narrows the whole page at once.
  *
  * The body's first row is a 1:1 column pair: the KPI metrics band (the
  * range's six figures — sessions, billed tokens, cost, cache hit, tool
@@ -45,18 +53,20 @@ import { estimateSessionCost, formatCost, type CostCurrency, type ModelBook } fr
 import { fmt } from '../format'
 import { useModelPrices } from '../modelPrices'
 import {
-  aggregateDays, filterRows, groupCountsOf, inGroup, kpisOf,
-  pageOf, refreshSessions, requestActivityBackfill, rowsOfSnapshot,
+  aggregateDays, dayRangeWindow, filterRows, groupCountsOf, inGroup, kpisOf,
+  pageOf, rangeWindowOf, refreshSessions, requestActivityBackfill, rowsOfSnapshot,
   rowLoadedSkill, sessionGroupsOf, sessionsSnapshotOf, skillLoadsOf, sortRows,
   UNGROUPED_KEY, workspacesSnapshotOf,
-  type OverviewRange, type OverviewRow, type OverviewSort, type SkillSort,
+  type DayRange, type OverviewRange, type OverviewRow, type OverviewSort, type SkillSort,
 } from '../overview'
 import { openSessionVia, type ClientCtx } from '../services'
 import { readSkillCatalog } from '../skills'
 import { openPluginSettings } from '../settingsJump'
 import type { SkillInfo } from '../../shared/types'
+import { dayKeyOf } from '../../shared/days'
 import type { ViewKit } from '../viewkit'
 import { makeBalanceCapsule } from './balanceCapsule'
+import { makeDateRange } from './dateRange'
 import { makeErrorBoundary } from './errorBoundary'
 import { makeHeatmap, todayKey, type HeatMetric } from './heatmap'
 import { makeDonut } from './donut'
@@ -85,6 +95,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   const Heatmap = makeHeatmap(kit)
   const OverviewCard = makeOverviewCard(kit)
   const BalanceCapsule = makeBalanceCapsule(ctx, kit)
+  const DateRange = makeDateRange(kit)
   // The first row's aggregate pair: the range's sessions folded into the two
   // donut cards the per-session Context tab opens with (Timing Stats reused
   // verbatim over the summed totals).
@@ -95,11 +106,15 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   const OverviewSkills = makeOverviewSkills(kit)
   const ErrorBoundary = makeErrorBoundary(t)
 
-  /** The display currency follows the active locale (zh → CNY), read per render — the slot outlet re-renders on a locale switch. */
-  function activeCurrency(): CostCurrency {
+  /** The active locale tag, read per render — the slot outlet re-renders on a locale switch. */
+  function activeLocale(): string {
     const locale = ctx.locale
-    const active = typeof locale.getLocale === 'function' ? locale.getLocale().active : 'en'
-    return active === 'zh' ? 'cny' : 'usd'
+    return typeof locale.getLocale === 'function' ? locale.getLocale().active : 'en'
+  }
+
+  /** The display currency follows the active locale (zh → CNY). */
+  function activeCurrency(): CostCurrency {
+    return activeLocale() === 'zh' ? 'cny' : 'usd'
   }
 
   function OverviewBody(props: OverviewPanelProps): ReactElement | null {
@@ -107,7 +122,9 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     // The hook-level standard-kit reads (unconditional; guarded inside).
     const snapshot = sessionsSnapshotOf(props)
     const wsSnapshot = workspacesSnapshotOf(props)
-    const [range, setRange] = useState<OverviewRange>('30d')
+    const [preset, setPreset] = useState<OverviewRange>('30d')
+    // The calendar picker's own range; while set it replaces the preset scope.
+    const [custom, setCustom] = useState<DayRange | null>(null)
     const [day, setDay] = useState<string | null>(null)
     const [query, setQuery] = useState('')
     const [group, setGroup] = useState<string | null>(null)
@@ -146,17 +163,27 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     }, [])
 
     // Any filter change re-anchors the pager at the first page.
-    useEffect(() => { setPage(0) }, [range, day, query, group, skill, sort])
+    useEffect(() => { setPage(0) }, [preset, custom, day, query, group, skill, sort])
 
     const currency = activeCurrency()
     const now = Date.now()
     const allRows = rows ?? []
-    // The range scopes the KPI band, the composition donut, and the grid;
+    // The scope window every figure below reads: the calendar's own picked
+    // range while one is set (a malformed key keeps the preset, never an
+    // unprovable window), else the preset's rolling floor.
+    const scope = (custom !== null ? dayRangeWindow(custom) : null) ?? rangeWindowOf(preset, now)
+    // The head's date span, read off that same window so the picker and the
+    // presets can never disagree: a picked range's own two days, a preset's
+    // floor through today (its end is open), nothing at all under "all".
+    const spanFrom = scope.start === null ? null : dayKeyOf(scope.start)
+    const spanTo = scope.start === null ? null : dayKeyOf(scope.end ?? now)
+    const span = spanFrom !== null && spanTo !== null ? { from: spanFrom, to: spanTo } : null
+    // The scope scopes the KPI band, the composition donut, and the grid;
     // the heatmap keeps its own fixed window over the whole list.
-    const ranged = filterRows(allRows, { range, day: null, query: '' }, now)
+    const ranged = filterRows(allRows, { scope, day: null, query: '' })
     // The group chips count the day/query-scoped rows BEFORE the group filter
     // applies, so selecting a chip never collapses the row itself.
-    const scoped = filterRows(ranged, { range: 'all', day, query }, now)
+    const scoped = filterRows(ranged, { scope, day, query })
     const counts = groupCountsOf(scoped, wsSnapshot)
     // A selection whose group fell out of scope keeps a phantom chip (count
     // 0) so the active filter stays visible and one click out of it.
@@ -166,8 +193,8 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     const visible = sortRows(
       (group === null ? scoped : scoped.filter(row => inGroup(row, group, groups)))
         // The skill card's row pin narrows the list to the skill's loaders
-        // within the card's own scope (the range floor plus the pinned day).
-        .filter(row => skill === null || rowLoadedSkill(row, skill, { range, day }, now)),
+        // within the card's own scope (the scope window plus the pinned day).
+        .filter(row => skill === null || rowLoadedSkill(row, skill, { scope, day })),
       sort,
     )
     const paged = pageOf(visible, page)
@@ -198,15 +225,28 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
               {/* The DeepSeek platform balance (client/balance.ts): renders nothing
                   until a live figure lands, so the heading row never reflows for it. */}
               <BalanceCapsule />
-              <div className="lc-gran lc-ov-range" role="group" aria-label={t('ov.range.label')}>
-                {RANGES.map(r => (
-                  <button
-                    key={r}
-                    type="button"
-                    className={'lc-gran-btn' + (range === r ? ' lc-gran-on' : '')}
-                    onClick={() => { setRange(r) }}
-                  >{t('ov.range.' + r)}</button>
-                ))}
+              {/* One wrapper so the head's right cluster pushes once: the
+                  calendar picker, then the preset group. A bare `.lc-gran`
+                  sibling would eat a second slice of the free space and the
+                  two would drift apart. */}
+              <div className="lc-ov-headctl">
+                <DateRange
+                  value={span}
+                  picked={custom !== null}
+                  onChange={(next) => { setCustom(next) }}
+                  today={todayKey()}
+                  locale={activeLocale()}
+                />
+                <div className="lc-gran lc-ov-range" role="group" aria-label={t('ov.range.label')}>
+                  {RANGES.map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={'lc-gran-btn' + (custom === null && preset === r ? ' lc-gran-on' : '')}
+                      onClick={() => { setPreset(r); setCustom(null) }}
+                    >{t('ov.range.' + r)}</button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -291,7 +331,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                         or group chips (those are list-local). A row pin narrows
                         the session list to the skill's loaders. */}
                     <OverviewSkills
-                      stats={skillLoadsOf(ranged, { range, day, sort: skillSort }, now)}
+                      stats={skillLoadsOf(ranged, { scope, day, sort: skillSort })}
                       day={day}
                       selected={skill}
                       onSelect={setSkill}

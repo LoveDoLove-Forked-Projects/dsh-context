@@ -61,6 +61,7 @@ import './styles/detailSections.css'
 import './styles/attachments.css'
 import './styles/agentGraph.css'
 import './styles/overview.css'
+import './styles/dateRange.css'
 
 const NS = 'dsh-context'
 

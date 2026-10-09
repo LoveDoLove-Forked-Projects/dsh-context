@@ -3,8 +3,9 @@
  * panel-list entry opens it in the shell's center column), a sibling of the
  * shipped Plugins and Automation tasks pages. The chrome mirrors those
  * pages: one scroll region whose content column spans the pane's own
- * width and opens with the page heading — the title beside the
- * range group and the balance capsule — then the first row (a 1:1 pair: the
+ * width and opens with the page heading — the title beside the scope cluster
+ * (the calendar picker and the range group, with the balance capsule left of
+ * it) — then the first row (a 1:1 pair: the
  * KPI metrics band, the range's six figures three per row, beside the
  * last-7-days usage chart's token/cost bar columns) over the aggregate
  * stats row (Token Stats | Timing Stats, the range's sessions folded into
@@ -40,13 +41,18 @@
 /* The first-level page title on the shipped pages' own step (20px/28px/500);
    the theme carries no size token for it, so every first-level page states
    the same literal. flex: 0 1 auto (it only shrinks) so the preferences
-   chip rides the title's right edge — the range group's own auto margin
-   (`.lc-gran`) keeps the head's right side pinned. */
+   chip rides the title's right edge — the scope cluster's own auto margin
+   (`.lc-ov-headctl`) keeps the head's right side pinned. */
 .lc-ov-pagetitle { flex: 0 1 auto; min-width: 0; margin: 0; font-size: 20px; line-height: 28px; font-weight: 500; }
 /* The preferences entry: a quiet chip beside the title, cut like the balance
    pill below it (layer-2 fill, l2 border, secondary label), with the long
    "open plugin settings" hint on the hover title. */
 .lc-ov-settings { flex: none; display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); border-radius: 999px; padding: 3px 12px; font: inherit; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); white-space: nowrap; cursor: pointer; transition: border-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+/* The head's right cluster: the calendar picker beside the preset range group
+   (the balance capsule sits left of it, outside). One wrapper so the free space
+   is pushed once — two bare auto-margin siblings would split it and the cluster
+   would drift apart (the card-title wrapper idiom, base.css). */
+.lc-ov-headctl { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .lc-ov-settings:hover { border-color: var(--dsw-alias-label-secondary); color: var(--dsw-alias-label-primary); }
 /* The DeepSeek balance pill (balanceCapsule.tsx): a quiet chip between the
    title and the range group, one link to the platform's usage console —
