@@ -315,7 +315,8 @@ export default defineConfig([
       },
       load(id: string) {
         if (!id.endsWith('.svg?raw')) return null
-        return `export default ${JSON.stringify(readFileSync(id.slice(0, -'?raw'.length), 'utf8'))}`
+        const markup = readFileSync(id.slice(0, -'?raw'.length), 'utf8').trim().replace(/>\s+</g, '><')
+        return `export default ${JSON.stringify(markup)}`
       },
     }, {
       name: 'dsh-client-bundle-purity',
