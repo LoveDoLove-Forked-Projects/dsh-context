@@ -215,9 +215,13 @@ button.lc-heat-cell:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--col
 .lc-heat-on { box-shadow: 0 0 0 1.5px var(--color-blue-500); }
 /* GitHub's Less→More key: right-aligned under the grid; the swatches reuse
    the grid's own depth classes, so the key can never drift from the cells it
-   explains. Labels share the month label's secondary type. */
-.lc-heat-legend { display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding-top: 6px; }
-.lc-heat-key { font-size: 9px; color: var(--dsw-alias-label-secondary); }
+   explains. They sit at HALF the grid's 20px, though — at cell size the key
+   reads as a second row of cells instead of a caption for them. The labels'
+   2px margins keep them off the swatches without loosening the scale's own
+   2px gap. Labels share the month label's secondary type. */
+.lc-heat-legend { display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding-top: 6px; }
+.lc-heat-legend .lc-heat-cell { width: 10px; height: 10px; }
+.lc-heat-key { font-size: 9px; color: var(--dsw-alias-label-secondary); margin: 0 2px; }
 
 /* ---- the skill card (the activity column's second card): one row per
    scoped skill — a name-hashed color dot, the name, the load tally, the last
