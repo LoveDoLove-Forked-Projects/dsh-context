@@ -8,14 +8,10 @@ import { Scanner } from '@tailwindcss/oxide'
 import { transform } from 'lightningcss'
 import { defineConfig } from 'tsdown'
 
-// Read the manifest from cwd: the config file's own URL is not guaranteed to
-// sit at the package root under every loader, and `pnpm run build` runs here.
+// Read from cwd: the config file's own URL is not guaranteed to sit at the package root under every loader.
 const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
 
-// Header prepended to every built JS artifact so a deployed lib/*.js can be
-// traced back to its sources. Git state is read per build (not at config
-// load), so `tsdown --watch` rebuilds pick up new commits; every line
-// degrades to omission when unavailable, e.g. building from an npm tarball.
+// Prepended to every built JS artifact, and read per build so `tsdown --watch` rebuilds pick up new commits; each line degrades to omission when git is unavailable.
 interface GitState { commit: string; branch: string; date: string; dirty: boolean }
 
 function readGitState(): GitState | undefined {
@@ -59,12 +55,7 @@ function artifactBanner(): string {
   return ['/**', ...lines, ' */', ''].join('\n')
 }
 
-// Mirrors packages/client/web/src/platform.ts in deepseek-harness: the shell
-// seeds these specifiers into the frozen browser module table, so client
-// bundles leave them to the injected `require` instead of inlining. (Since
-// dsh 0.1.2 the preloaded-client-externals channel is gone —
-// `@deepseek-ai/dsh-client-runtime` was deleted and `dsh-client-store` joined
-// the platform baseline; bundles must require nothing beyond this list.)
+// The platform-module subset this plugin requires: the shell seeds these specifiers into the frozen browser module table, so the bundle must leave them to the injected `require`.
 const PLATFORM_MODULES = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-store',
@@ -72,12 +63,7 @@ const PLATFORM_MODULES = [
   '@deepseek-ai/dsh-client-ui-primitives',
 ]
 
-// Mirrors the purity-gate allowances in packages/client/tsdown.client.ts:
-// wire/type layers with no shared runtime identity may inline; every other
-// @deepseek-ai/* value import is a build error (cross-plugin collaboration
-// goes through cordis services). `util-workspace-path` is the browser-safe
-// file-address layer (`fileAddressFor`) the right Sidebar's own file types
-// inline too, so the preview addresses this plugin builds are the harness's.
+// The purity-gate allowances this plugin uses, from packages/client/tsdown.client.ts: wire/type layers with no shared runtime identity may inline, every other `@deepseek-ai/*` value import is a build error, and cross-plugin collaboration goes through cordis services.
 const INLINE_SAFE = /^@deepseek-ai\/dsh-(host-apiproxy|file-reference|session|llm|tools|brand|util-workspace-path)(\/|$)/
 const VENDORED_LIBRARY = /^@deepseek-ai\/(cosmokit|schemastery)(\/|$)/
 const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
@@ -88,9 +74,7 @@ const requested = new Set([
 ])
 const isRequested = (specifier: string): boolean => requested.has(specifier)
 
-// Host half: a production dependency is on disk in a real install and stays
-// an import; everything else inlines. Both halves are stated so moving a
-// dependency between npm sections never silently re-bundles it.
+// A production dependency is on disk in a real install and stays an import; everything else inlines.
 const productionDeps = new Set([
   ...Object.keys(pkg.dependencies ?? {}),
   ...Object.keys(pkg.peerDependencies ?? {}),
@@ -103,9 +87,7 @@ const isProductionDependency = (specifier: string): boolean =>
 
 const NODE_ENV = process.env.NODE_ENV ?? 'production'
 
-// CSS channels, mirrored from packages/client/tsdown.client.ts. The virtual
-// ids must NOT end in `.css` — tsdown's own css-pipeline guard matches on that
-// suffix; the plugin's flat lc-* class namespace is the anti-collision rule.
+// CSS channels, mirrored from packages/client/tsdown.client.ts. The virtual ids must NOT end in `.css`: tsdown's css-pipeline guard matches on that suffix.
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const GLOBAL_CSS_VIRTUAL_PREFIX = '\0dsh-global-css:'
 const INLINE_CSS_VIRTUAL_PREFIX = '\0dsh-inline-css:'
@@ -137,9 +119,7 @@ function sourceAssetPath(source: string, importer: string): string {
   return resolvePath(dirname(importer), source)
 }
 
-// The one sheet whose Tailwind utilities are compiled (src/client/styles/tailwind.css):
-// its @source directives name the scanned client sources, and the resolved sources
-// drive the oxide scanner here. Every other sheet stays plain CSS.
+// The one sheet whose Tailwind utilities are compiled; every other sheet stays plain CSS.
 const TAILWIND_ENTRY = 'tailwind.css'
 
 interface WatchCapable {
@@ -153,8 +133,7 @@ async function compileTailwindSheet(loader: WatchCapable, fileId: string, source
   })
   const scanner = new Scanner({ sources: compiler.sources })
   const candidates = scanner.scan()
-  // Scanned sources feed the candidates, so a watch rebuild must also fire when
-  // a component's class list changes, not just when a stylesheet does.
+  // A component's class list changes the scanned candidates, so it must fire a watch rebuild too.
   for (const file of scanner.files) loader.addWatchFile(file)
   return compiler.build(candidates)
 }
@@ -213,9 +192,7 @@ function cssChannels(id: string) {
       const fileId = virtualId.slice(GLOBAL_CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
       this.addWatchFile(fileId)
       const raw = await readFile(fileId)
-      // The Tailwind entry compiles to a CSS string first; every other sheet
-      // hands its Buffer straight to lightningcss. Either way the binding
-      // reads the TypedArray, so the code must never arrive as a string.
+      // The Tailwind entry compiles to a CSS string first; every other sheet hands its Buffer straight to lightningcss, whose binding reads a TypedArray.
       const code = basename(fileId) === TAILWIND_ENTRY
         ? Buffer.from(await compileTailwindSheet(this, fileId, raw.toString()))
         : raw
@@ -225,10 +202,7 @@ function cssChannels(id: string) {
   }]
 }
 
-// Published artifacts drop their comments: `index.d.ts` keeps the JSDoc (where
-// the API documentation belongs), and annotation/coverage hints
-// (`/* @__PURE__ */`, `/* v8 ignore */`) are build-time input whose only
-// remaining effect in the output is bytes. Legal comments stay for licenses.
+// JSDoc belongs to index.d.ts, and annotation/coverage hints are build-time input whose only remaining effect in the output is bytes. Legal comments stay for licenses.
 const OUTPUT_COMMENTS = { legal: true, annotation: false, jsdoc: false } as const
 
 export default defineConfig([
@@ -240,15 +214,11 @@ export default defineConfig([
     platform: 'node',
     target: 'es2024',
     fixedExtension: false,
-    // The host half's Config/projection types are the integration contract
-    // other plugins and tooling compile against; ship them next to the JS.
+    // The host half's Config/projection types are the integration contract other plugins compile against.
     dts: true,
     clean: true,
-    // Left unminified on purpose: this half runs in Node straight off disk
-    // (parse time is irrelevant) and ships no sourcemap, so minifying would
-    // only cost stack-trace readability. The browser half below stays minified.
-    // The banner stays off index.d.ts (the { js } scope) so the published
-    // types remain a pure declaration file.
+    // Left unminified: this half runs in Node straight off disk and ships no sourcemap, so minifying would only cost stack-trace readability.
+    // The banner stays off index.d.ts so the published types remain a pure declaration file.
     banner: () => ({ js: artifactBanner() }),
     outputOptions: { comments: OUTPUT_COMMENTS },
     deps: {
@@ -262,32 +232,22 @@ export default defineConfig([
     outDir: 'lib',
     format: 'cjs',
     platform: 'browser',
-    // The artifact is a classic script the shell loads into its module table,
-    // never a Node module: pin the browser target explicitly. Without it
-    // tsdown falls back to package.json engines.node, which also trips its
-    // legacy-CJS warning — a false positive for this artifact.
+    // A classic script the shell loads into its module table, never a Node module: without this, tsdown falls back to engines.node and trips its legacy-CJS warning.
     target: 'es2024',
-    // dts would wrap the banner/footer into a .d.cts and break parsing;
-    // browser profiling consumes the bundle's own sourcemap instead.
+    // A .d.cts would wrap the banner/footer and break parsing; profiling consumes the bundle's own sourcemap instead.
     dts: false,
     sourcemap: true,
     clean: false,
-    // The one artifact the browser downloads and parses: keep it minified.
+    // The one artifact the browser downloads and parses.
     minify: true,
     deps: {
-      // A require() the module table cannot answer is a guaranteed runtime
-      // throw: requested specifiers stay imports, everything else inlines.
+      // A require() the module table cannot answer is a guaranteed runtime throw.
       neverBundle: isRequested,
       alwaysBundle: (specifier: string) => !isRequested(specifier),
-      // "Everything else inlines" stays auditable: only these browser-safe
-      // packages may come from node_modules. A dependency that starts being
-      // bundled fails the build instead of silently growing the artifact; a
-      // stale entry here is reported by tsdown.
+      // Keeps "everything else inlines" auditable: a dependency that starts being bundled fails the build instead of silently growing the artifact.
       onlyBundle: ['@opencode-ai/models', '@deepseek-ai/dsh-util-workspace-path', 'simple-icons'],
     },
-    // Browser bundles inline node-idiom deps that read process.env.NODE_ENV
-    // or probe import.meta.env(.MODE); without these substitutions the
-    // factory throws ReferenceError at boot.
+    // Inlined node-idiom deps read process.env.NODE_ENV or probe import.meta.env(.MODE); without these substitutions the factory throws ReferenceError at boot.
     define: {
       'process.env': '{}',
       'process.env.NODE_ENV': JSON.stringify(NODE_ENV),
@@ -298,16 +258,11 @@ export default defineConfig([
         String((pkg.repository && pkg.repository.url) || '').replace(/^git\+/, '').replace(/\.git$/, ''),
       ),
     },
-    // tsdown routes top-level `banner` to rolldown's postBanner, which lands
-    // after minification — the header comment keeps its formatting instead
-    // of being re-printed by the chunk renderer, and it stays ahead of the
-    // outputOptions.banner loader handoff above.
+    // Top-level `banner` routes to rolldown's postBanner, which lands after minification, so the header comment keeps its formatting.
     banner: () => ({ js: artifactBanner() }),
     plugins: [{
       name: 'dsh-svg-raw',
-      // `*.svg?raw` inlines a file's markup as its default export — the
-      // emblem (icon.svg) is the package's single graphic source, shared
-      // with the Host's package-meta reader through package.json `icon`.
+      // The emblem (icon.svg) is the package's single graphic source, shared with the Host's package-meta reader through package.json `icon`.
       resolveId(source: string, importer: string | undefined) {
         if (!source.endsWith('.svg?raw')) return null
         const target = source.slice(0, -'?raw'.length)
@@ -335,8 +290,7 @@ export default defineConfig([
     outputOptions: {
       comments: OUTPUT_COMMENTS,
       entryFileNames: 'client.js',
-      // The closure-factory handoff every `dsh.client` package's ./client
-      // export must use; mirrors tsdown.client.ts banner/intro/footer.
+      // The closure-factory handoff every `dsh.client` package's ./client export must use; mirrors tsdown.client.ts.
       banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(pkg.name)}, factory: (require) => {`,
       intro: 'var module = { exports: {} }; var exports = module.exports;',
       footer: 'return module.exports; } });',
