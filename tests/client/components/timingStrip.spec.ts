@@ -68,6 +68,22 @@ describe('TimingStrip', () => {
     await m.unmount()
   })
 
+  test('the grow-in rides ONE wrapper, never a per-band animation (a packed strip must not storm the compositor)', async () => {
+    // A long session's strip: hundreds of bands, one sweep.
+    const spans: TimingSpan[] = []
+    for (let i = 0; i < 300; i++) spans.push({ kind: 'tools', start: i * 1_000, end: i * 1_000 + 500 })
+    const m = await mount(h(Strip, { spans }))
+    const wrapper = queryAll(m.container, '.lc-tstrip-fill')
+    assert.equal(wrapper.length, 1)
+    assert.ok(wrapper[0].className.includes('animate-lc-stacked-in'))
+    assert.ok(wrapper[0].className.includes('motion-reduce:animate-none'))
+    // Every band sits INSIDE the wrapper (their percent offsets keep the bar's own box) and carries no
+    // animation of its own.
+    assert.equal(wrapper[0].querySelectorAll('.lc-tstrip-seg').length, 300)
+    assert.deepEqual(queryAll(m.container, '.lc-tstrip-seg').filter(s => /animate-/.test(s.className)), [])
+    await m.unmount()
+  })
+
   test('a span hover floats its tip — slice label, true duration, start instant — and relays the kind; leaving clears both', async () => {
     let relayed: string | null = 'unset'
     const m = await mount(h(Strip, { spans: SPANS, hoverKey: null, onHoverKey: (k) => { relayed = k } }))

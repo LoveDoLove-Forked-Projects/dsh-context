@@ -205,12 +205,15 @@ a.lc-flow-head:hover .lc-flow-label { color: var(--dsw-alias-label-primary); }
  the cumulative active time, idle time takes no track. The bands sit
  absolutely positioned at their cumulative percent offsets; the neutral track
  only reads through sub-pixel rounding seams and during the grow-in. Hover
- chrome mirrors the stacked bar: staggered grow-in, dim rest.
+ chrome mirrors the stacked bar: dim rest, lit kind.
+ The grow-in rides `.lc-tstrip-fill` — ONE scaled wrapper around the bands — so a long session's thousands
+ of bands cost a single composited transform instead of one animation (and one layer) each.
  */
 .lc-tstrip { margin-top: 10px; }
 .lc-tstrip-wrap { position: relative; }
 .lc-tstrip-bar { position: relative; width: 100%; height: 12px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--color-neutral-500) 18%, transparent); }
-.lc-tstrip-seg { position: absolute; top: 0; height: 100%; transform-origin: 0 50%; transition: opacity var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), filter var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
+.lc-tstrip-fill { position: absolute; inset: 0; transform-origin: 0 50%; }
+.lc-tstrip-seg { position: absolute; top: 0; height: 100%; transition: opacity var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), filter var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
 .lc-tstrip-seg-on { filter: brightness(1.18); }
 .lc-tstrip-dim .lc-tstrip-seg { opacity: 0.35; }
 .lc-tstrip-dim .lc-tstrip-seg-on { opacity: 1; }
