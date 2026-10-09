@@ -116,6 +116,11 @@ export function addDecode(timing: TimingTotals, kind: DecodeKind, ms: number, bl
 
 /** A new name beyond the cap evicts the smallest tally, so the state stays bounded even over a hostile log of unique names. */
 export function bumpToolTotals(timing: TimingTotals, name: string, ms: number): void {
+  // `__proto__` is the one key that assigns the prototype instead of a row: the tally would be lost, the cap would
+  // never see it, and `foldWire`'s `for...in` would then copy the inherited `calls`/`ms` as `{}` — failing the strict
+  // wire schema, which throws inside the registry's uncontained drive and stalls this unit's push feed for good. The
+  // client boundary skips the same name.
+  if (name === '__proto__') return
   // hasOwn, not an index check: a missing key IS possible at runtime (a name outside the persisted tally).
   if (!Object.hasOwn(timing.tools, name)) {
     if (Object.keys(timing.tools).length >= TOOL_TIMING_CAP) {

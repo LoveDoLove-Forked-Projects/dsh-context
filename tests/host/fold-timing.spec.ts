@@ -395,6 +395,25 @@ describe('timing — served wire view', () => {
     assert.equal(view.timing, undefined)
   })
 
+  test('a hostile __proto__ tool name books no row and keeps the served view schema-valid', () => {
+    const def = timelineDef({})
+    // One hostile tool only: a later tool-run event re-clones the tally through a spread, which would launder
+    // the damage and hide it from this probe.
+    const drive = driveTimeline([
+      toolCall(5, { callId: 'c1', name: '__proto__' }),
+      toolResult(6, { callId: 'c1', content: text('ok') }),
+    ])
+    const tools = drive.state.timing?.tools ?? {}
+    assert.equal(Object.getPrototypeOf(tools), Object.prototype, 'the tally keeps a plain prototype')
+    assert.deepEqual(Object.keys(tools), [], 'the reserved name books no row')
+    assert.deepEqual(drive.view.timing?.tools, {}, 'nothing inherited rides the wire')
+    // The consequence this guards: assigning that name sets the prototype instead of a row, so foldWire's
+    // `for...in` copies the inherited `calls`/`ms` as `{}` — which the strict tool-timing schema rejects, and the
+    // registry's drive has no error boundary, so the throw would stall this unit's push feed for good.
+    const wire = def as unknown as { wire: { viewSchema: { parse(v: unknown): unknown } } }
+    assert.doesNotThrow(() => wire.wire.viewSchema.parse(drive.view))
+  })
+
   test('the persisted-state schema accepts the timing shape (stamped slot included)', () => {
     const def = timelineDef({})
     const drive = driveTimeline([...step(1, 0, 1_000, { tokenMs: 300 }),
