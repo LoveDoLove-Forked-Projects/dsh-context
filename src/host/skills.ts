@@ -11,9 +11,10 @@
  * The transport is Connection's fetch-route registry through a deferred inject.
  */
 
+import { asRecord } from './record'
 import type { Context } from '@deepseek-ai/cordis'
 import type { SkillInfo } from '../shared/types'
-import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
+import { type ConnectionHostFace, registerPostRoute } from './connection'
 
 export const SKILLS_ROUTE = '/api/dsh-context/skills'
 
@@ -22,12 +23,6 @@ const MAX_SKILLS = 500
 
 interface SkillRegistryLike {
   list(options: { cwd?: string; scope?: unknown }): Promise<unknown>
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
 }
 
 function stringOf(value: unknown): string | undefined {
@@ -134,8 +129,6 @@ async function resolveRegistry(
  * through request-time re-proved `ctx.get`s, so a missing subsystem answers `null`. */
 export function watchSkillCatalog(ctx: Context): void {
   ctx.inject(['connection'], (c) => {
-    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
-    if (register === undefined) return
 
     const handler = async (request: Request): Promise<Response> => {
       let value: { skills: SkillInfo[] } | null = null
@@ -169,15 +162,6 @@ export function watchSkillCatalog(ctx: Context): void {
       return Response.json({ ok: true, value }, { headers: { 'cache-control': 'no-store' } })
     }
 
-    try {
-      c.effect(() => register({
-        path: SKILLS_ROUTE,
-        methods: ['POST'],
-        requestBody: 'buffered',
-        fetch: handler,
-      }), 'dsh-context: skills route')
-    } catch {
-      return
-    }
+    registerPostRoute(c, c.get('connection') as ConnectionHostFace | undefined, SKILLS_ROUTE, handler, 'dsh-context: skills route')
   })
 }

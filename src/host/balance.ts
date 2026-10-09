@@ -14,9 +14,10 @@
  * never matters and a harness without the registry simply never arms the route.
  */
 
+import { asRecord } from './record'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PlatformBalance, PlatformBalanceEntry } from '../shared/types'
-import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
+import { type ConnectionHostFace, registerPostRoute } from './connection'
 
 /** The plugin's balance route, under the authenticated `/api` fence. */
 export const BALANCE_ROUTE = '/api/dsh-context/balance'
@@ -36,12 +37,6 @@ interface SettingsHostFace {
 
 interface CredentialsHostFace {
   resolve?(ref: string): Promise<{ value?: unknown } | undefined>
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
 }
 
 function amountOf(value: unknown): number | null {
@@ -175,8 +170,6 @@ async function readBalance(facts: DeepSeekFacts): Promise<PlatformBalance | null
  * injected fiber, so unloading withdraws it. */
 export function watchBalanceChannel(ctx: Context): void {
   ctx.inject(['connection'], (c) => {
-    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
-    if (register === undefined) return
 
     const handler = async (): Promise<Response> => {
       const facts = await resolveFacts(ctx)
@@ -184,15 +177,6 @@ export function watchBalanceChannel(ctx: Context): void {
       return Response.json({ ok: true, value }, { headers: { 'cache-control': 'no-store' } })
     }
 
-    try {
-      c.effect(() => register({
-        path: BALANCE_ROUTE,
-        methods: ['POST'],
-        requestBody: 'buffered',
-        fetch: handler,
-      }), 'dsh-context: balance route')
-    } catch {
-      return
-    }
+    registerPostRoute(c, c.get('connection') as ConnectionHostFace | undefined, BALANCE_ROUTE, handler, 'dsh-context: balance route')
   })
 }

@@ -20,7 +20,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { FoldBounds } from './config'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
-import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
+import { type ConnectionHostFace, registerPostRoute } from './connection'
 import { applyTimeline } from './fold'
 import { createTimelineState } from './foldState'
 import { buildTimelineDetail } from './foldWire'
@@ -57,10 +57,9 @@ export function watchDetailChannel(ctx: Context, bounds: FoldBounds, coldReads: 
   const gate = { live: false }
   ctx.inject(['connection', 'sessions'], (c) => {
     const sessions = c.get('sessions') as SessionsHostFace | undefined
-    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
     // Bind at extraction: an unbound hand-off loses `this` on the real face.
     const getSession = typeof sessions?.get === 'function' ? sessions.get.bind(sessions) : undefined
-    if (register === undefined || getSession === undefined) return
+    if (getSession === undefined) return
     const projections = ctx.sessionProjections
 
     const handler = async (request: Request): Promise<Response> => {
@@ -111,17 +110,8 @@ export function watchDetailChannel(ctx: Context, bounds: FoldBounds, coldReads: 
       }
     }
 
-    try {
-      c.effect(() => register({
-        path: DETAIL_ROUTE,
-        methods: ['POST'],
-        requestBody: 'buffered',
-        fetch: handler,
-      }), 'dsh-context: detail route')
-    } catch {
-      // A hostile or rejecting registry must not take the plugin down: gate stays closed.
-      return
-    }
+    // A hostile or rejecting registry leaves the route absent: the gate stays closed.
+    if (!registerPostRoute(c, c.get('connection') as ConnectionHostFace | undefined, DETAIL_ROUTE, handler, 'dsh-context: detail route')) return
     gate.live = true
     return () => {
       gate.live = false

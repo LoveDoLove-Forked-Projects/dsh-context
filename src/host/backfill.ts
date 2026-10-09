@@ -19,11 +19,12 @@
  * debug and the pass ends with one summary info line.
  */
 
+import { asRecord } from './record'
 import type { Context } from '@deepseek-ai/cordis'
 import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
-import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
+import { type ConnectionHostFace, registerPostRoute } from './connection'
 
 /** The plugin's warm-up trigger route, under the authenticated `/api` fence. */
 export const BACKFILL_ROUTE = '/api/dsh-context/backfill'
@@ -58,10 +59,6 @@ const YIELD_MS = 100
 /** The `name` family dsh raises for a durable log it cannot interpret: the persistence seam
  * translates the format edge's refusal into `SessionFormatUnsupportedError`, so classify by prefix and import no dsh symbol. */
 const UNSUPPORTED_FORMAT = 'SessionFormatUnsupported'
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' ? value as Record<string, unknown> : null
-}
 
 function headerOf(record: unknown): SessionHeader | null {
   const header = asRecord(asRecord(record)?.header)
@@ -157,23 +154,12 @@ export function watchActivityBackfill(ctx: Context, coldReads: ColdReadGate = ma
   }
 
   const routeFiber = ctx.inject(['connection'], (c) => {
-    const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
-    if (register === undefined) return
-    try {
-      c.effect(() => register({
-        path: BACKFILL_ROUTE,
-        methods: ['POST'],
-        requestBody: 'buffered',
-        fetch: () => {
-          requested = true
-          tryLaunch()
-          return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } })
-        },
-      }), 'dsh-context: backfill route')
-    } catch {
-      // A hostile or rejecting registry leaves the route absent — the pass simply never arms.
-      return
+    const handler = () => {
+      requested = true
+      tryLaunch()
+      return Response.json({ ok: true }, { headers: { 'cache-control': 'no-store' } })
     }
+    registerPostRoute(c, c.get('connection') as ConnectionHostFace | undefined, BACKFILL_ROUTE, handler, 'dsh-context: backfill route')
   })
 
   const runnerFiber = ctx.inject(['sessionQuery', 'sessionProjectionCache', 'sessionPersistence', 'sessions'], (raw) => {
