@@ -94,6 +94,10 @@ function fail(): void {
   failures++
   timer = setTimeout(() => {
     timer = null
+    // Nobody reads the book anymore (the panel that subscribed is gone):
+    // end the cycle here — the next subscribe kicks a fresh one — instead of
+    // polling an unreachable registry for the rest of the page's life.
+    if (listeners.size === 0) return
     void fire()
   }, RETRY_BASE_MS * 2 ** Math.min(failures - 1, 3))
 }

@@ -155,6 +155,26 @@ describe('the price store', () => {
     assert.ok(getModelPricesSnap().book !== null)
   })
 
+  test('the retry cycle stops once its last subscriber leaves, and a new subscribe kicks it again', async () => {
+    let calls = 0
+    setModelPricesLoader(() => {
+      calls++
+      return Promise.reject(new Error('down'))
+    })
+    const off = subscribeModelPrices(() => {})
+    await settle()
+    assert.equal(calls, 1)
+    off()
+    // The armed retry fires once, finds nobody subscribed, and ends the cycle.
+    await vi.advanceTimersByTimeAsync(30_000)
+    assert.equal(calls, 1, 'the idle cycle reaches no loader')
+    await vi.advanceTimersByTimeAsync(20 * 60_000)
+    assert.equal(calls, 1, 'no poll happens without a subscriber')
+    subscribeModelPrices(() => {})
+    await settle()
+    assert.equal(calls, 2, 'a fresh subscribe kicks a fresh read')
+  })
+
   test('a rejected fetch backs off too and stays capped', async () => {
     setModelPricesLoader(() => Promise.reject(new Error('down')))
     subscribeModelPrices(() => snaps.push(getModelPricesSnap()))
