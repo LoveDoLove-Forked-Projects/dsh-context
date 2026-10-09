@@ -31,6 +31,7 @@ Complete ALL of these before ANY commit:
 - Close out the to-do list, ensuring every item is completed, cleaned up or explicitly closed.
 - Review the full diff independently: every change necessary, correct, and not over-engineered.
 - Clean up generated temporary files and temporary or unhelpful comments.
+- Load the [code-review](https://github.com/mattpocock/skills/tree/main/skills/engineering/code-review) skill if available, run it to review all the changes, and independently verify or follow each of its suggestions when its multi-axis analysis done.
 - Run `pnpm run lint:fix && pnpm run test && pnpm run build` as a single command and capture the FULL output.
   - Example for per-file 100% coverage output:
     ```
