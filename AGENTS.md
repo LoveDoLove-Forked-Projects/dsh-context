@@ -18,6 +18,7 @@ A DeepSeek Harness plugin for context insight, actions, and management.
 
 ## Coding
 - Make the minimal change that fully solves the problem, with the most efficient implementation.
+- User experience, features, and especially the data accuracy and integrity are the top priority. Never sacrifice them for code refactors, performance, or any other reason. Dive deep and run real tests to verify the correctness of every change.
 - Reuse the classes, utilities, styles, style tokens, events, presets, and lifecycles that DeepSeek Harness already provides.
 - Keep code and tests small, loosely coupled, and modular; avoid duplication.
 - Add comments only for major decisions or significant value, and update or delete outdated ones when modifying the code.
