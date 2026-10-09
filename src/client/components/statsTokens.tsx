@@ -20,7 +20,7 @@ import { cacheHitPercent } from '../format'
 import { numOf } from '../services'
 import type { ViewKit } from '../viewkit'
 
-import { makeSliceList } from './sliceList'
+import { SliceList } from './sliceList'
 import type { SliceRow } from './sliceList'
 import type { DonutProps } from './donut'
 
@@ -32,7 +32,6 @@ export function makeStatsTokens(kit: ViewKit, Donut: (props: DonutProps) => Reac
   breakdown: ContextBreakdown | null
 }) => ReactElement {
   const { t, fmt, fmtShare, catLabel } = kit
-  const SliceList = makeSliceList()
   return function StatsTokens(props: {
     usage: TokenUsage | null
     current: Snapshot['current']

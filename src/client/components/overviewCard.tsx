@@ -3,7 +3,7 @@ import { billedOf, createdDayOf, projectOf, relativeTime, turnsOf, type Overview
 import { partsOf } from '../categories'
 import { fmt, fmtShare } from '../format'
 import type { ViewKit } from '../viewkit'
-import { makeDonut } from './donut'
+import { Donut } from './donut'
 
 export interface OverviewCardProps {
   row: OverviewRow
@@ -15,7 +15,6 @@ export interface OverviewCardProps {
 
 export function makeOverviewCard(kit: ViewKit): (props: OverviewCardProps) => ReactElement {
   const { t } = kit
-  const Donut = makeDonut()
   return function OverviewCard(props: OverviewCardProps): ReactElement {
     const { row } = props
     const timeline = row.timeline

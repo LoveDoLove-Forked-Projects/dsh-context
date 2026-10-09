@@ -9,7 +9,7 @@ import { useState, type ReactElement } from 'react'
 import type { TokenPartTotal } from '../overview'
 import type { ViewKit } from '../viewkit'
 
-import { makeSliceList } from './sliceList'
+import { SliceList } from './sliceList'
 import type { SliceRow } from './sliceList'
 import type { DonutProps } from './donut'
 
@@ -18,7 +18,6 @@ export function makeOverviewTokens(kit: ViewKit, Donut: (props: DonutProps) => R
   tokens: { parts: TokenPartTotal[]; total: number } | null
 }) => ReactElement {
   const { t, fmt, fmtShare, catLabel } = kit
-  const SliceList = makeSliceList()
   return function OverviewTokens(props: { tokens: { parts: TokenPartTotal[]; total: number } | null }): ReactElement {
     // The legend row ↔ donut segment hover link (shared key, set from either side).
     const [hoverKey, setHoverKey] = useState<string | null>(null)

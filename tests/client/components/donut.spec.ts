@@ -1,11 +1,10 @@
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { makeDonut } from '../../../src/client/components/donut'
+import { Donut } from '../../../src/client/components/donut'
 import type { DonutSegment } from '../../../src/client/components/donut'
 import { hover, mount, query, queryAll, text, unhover } from '../helpers/kit'
 
-const Donut = makeDonut()
 
 /** A parent that really holds the hover key, so hovering re-renders the ring. */
 function HoverHarness(props: { segments: DonutSegment[] }) {

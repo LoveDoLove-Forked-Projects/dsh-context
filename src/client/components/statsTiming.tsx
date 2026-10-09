@@ -23,7 +23,7 @@ import { useState, type ReactElement } from 'react'
 import type { TimingSpan, TimingTotals } from '../../shared/types'
 import type { ViewKit } from '../viewkit'
 
-import { makeSliceList } from './sliceList'
+import { SliceList } from './sliceList'
 import type { SliceRow } from './sliceList'
 import { makeTimingStrip, TIMING_COLOR } from './timingStrip'
 import type { DonutProps, DonutSegment } from './donut'
@@ -57,7 +57,6 @@ export function makeStatsTiming(kit: ViewKit, Donut: (props: DonutProps) => Reac
   spans?: TimingSpan[]
 }) => ReactElement {
   const { t, fmt, fmtDuration, fmtShare } = kit
-  const SliceList = makeSliceList()
   const TimingStrip = makeTimingStrip(kit)
   return function StatsTiming(props: { timing: TimingTotals | null; spans?: TimingSpan[] }): ReactElement {
     // The legend row ↔ donut segment hover link (shared key, set from either side).

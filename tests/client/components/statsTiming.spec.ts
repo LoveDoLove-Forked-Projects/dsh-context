@@ -1,15 +1,15 @@
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { makeDonut } from '../../../src/client/components/donut'
+import { Donut } from '../../../src/client/components/donut'
 import { makeStatsTiming } from '../../../src/client/components/statsTiming'
 import type { TimingSpan, TimingTotals } from '../../../src/shared/types'
 import { makeKit, mount, query, queryAll, text, hover } from '../helpers/kit'
 
 const kit = makeKit()
 const kitZh = makeKit('zh')
-const StatsTiming = makeStatsTiming(kit, makeDonut())
-const StatsTimingZh = makeStatsTiming(kitZh, makeDonut())
+const StatsTiming = makeStatsTiming(kit, Donut)
+const StatsTimingZh = makeStatsTiming(kitZh, Donut)
 
 /** Local HH:MM:SS exactly as the kit's fmtTime renders it (a timezone-free assertion). */
 const timeOf = (ms: number): string => new Date(ms).toLocaleTimeString('en-GB', { hour12: false })

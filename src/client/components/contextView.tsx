@@ -17,7 +17,7 @@ import { makeAgentHeads } from '../agentHeads'
 import { makeContextBrowser } from './browser'
 import type { CatFocus } from './browser'
 import { makeAgentGraph } from './agentGraph'
-import { makeDonut } from './donut'
+import { Donut } from './donut'
 import { makeCurrentComposition } from './currentComposition'
 import { makeEventList } from './events'
 import { makeFileCard } from './fileCard'
@@ -55,7 +55,6 @@ export function makeContextView(
   const RequestDetail = makeRequestDetail(kit, StackedBar)
   const EventList = makeEventList(kit)
   const FileCard = makeFileCard(kit, settings)
-  const Donut = makeDonut()
   // One page-scope cold-head cache serves both subagent-data readers: the
   // Agent network card's composition rings and the stats board's subagent-cost cell fetch each relative once.
   const heads = makeAgentHeads()

@@ -1,11 +1,10 @@
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
-import { makeSliceList } from '../../../src/client/components/sliceList'
+import { SliceList } from '../../../src/client/components/sliceList'
 import type { SliceRow } from '../../../src/client/components/sliceList'
 import { hover, mount, query, queryAll, text, unhover } from '../helpers/kit'
 
-const SliceList = makeSliceList()
 
 /** A parent that really holds the hover key, so hovering re-renders the rows. */
 function HoverHarness(props: { rows: SliceRow[] }) {

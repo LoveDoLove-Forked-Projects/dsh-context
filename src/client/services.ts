@@ -170,7 +170,7 @@ export function numOf(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
-export function objectsOf<T>(value: unknown): T[] {
+function objectsOf<T>(value: unknown): T[] {
   if (!Array.isArray(value)) return []
   return value.filter((v): v is T => v !== null && typeof v === 'object')
 }
@@ -665,7 +665,7 @@ const CAN_OPEN_ENDPOINT = 'session/canOpenWorkspacePath'
 const OPEN_ENDPOINT = 'session/openWorkspacePath'
 
 /** The connection's bound generic-RPC caller, or undefined off an absent/hostile service. */
-export function rpcCallOf(ctx: ClientCtx): ((channel: string, endpoint: string, payload: unknown) => Promise<unknown>) | undefined {
+function rpcCallOf(ctx: ClientCtx): ((channel: string, endpoint: string, payload: unknown) => Promise<unknown>) | undefined {
   try {
     const rpc = asRecord((ctx.get('connection') as ConnectionFace | undefined)?.rpc)
     const fn = rpc?.call

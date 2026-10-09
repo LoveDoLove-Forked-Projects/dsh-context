@@ -35,7 +35,7 @@ import { makeBalanceCapsule } from './balanceCapsule'
 import { makeDateRange } from './dateRange'
 import { makeErrorBoundary } from './errorBoundary'
 import { makeHeatmap, todayKey, type HeatMetric } from './heatmap'
-import { makeDonut } from './donut'
+import { Donut } from './donut'
 import { useHoverTip } from './hoverTip'
 import { makeOverviewTokens } from './overviewTokens'
 import { makeOverviewUsage } from './overviewUsage'
@@ -60,7 +60,6 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   const OverviewCard = makeOverviewCard(kit)
   const BalanceCapsule = makeBalanceCapsule(ctx, kit)
   const DateRange = makeDateRange(kit)
-  const Donut = makeDonut()
   const OverviewTokens = makeOverviewTokens(kit, Donut)
   const StatsTiming = makeStatsTiming(kit, Donut)
   const OverviewUsage = makeOverviewUsage(kit)
