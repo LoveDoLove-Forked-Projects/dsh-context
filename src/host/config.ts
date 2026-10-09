@@ -10,43 +10,23 @@
  */
 
 import z from '@deepseek-ai/schemastery'
-import type { DefaultFileSort, DefaultGranularity, DefaultDurationCurve, DefaultPlacement, DefaultTrendMode, DefaultToolSort, InsightsEntry } from '../shared/types'
+import type { PluginSettings } from '../shared/types'
 
-export interface Config {
-  maxRequestSteps?: number
-  /** Newest whole-turn window kept; trimming crosses whole turns, never mid-turn. */
-  maxKeptTurns?: number
-  maxEvents?: number
-  /** Pathological-session backstop only: each push ships the whole value (~150B/node). */
-  maxNodes?: number
-  maxArchiveNodes?: number
-  maxFileOps?: number
-  defaultPlacement?: DefaultPlacement
-  defaultGranularity?: DefaultGranularity
-  defaultTrendMode?: DefaultTrendMode
-  defaultToolSort?: DefaultToolSort
-  defaultFileSort?: DefaultFileSort
-  insightsEntry?: InsightsEntry
-  defaultDurationCurve?: DefaultDurationCurve
-}
-
-export interface FoldBounds {
-  maxRequestSteps: number
-  maxKeptTurns: number
-  maxEvents: number
-  maxNodes: number
-  maxArchiveNodes: number
-  maxFileOps: number
-}
-
-export const DEFAULT_BOUNDS: FoldBounds = {
+export const DEFAULT_BOUNDS = {
   maxRequestSteps: 1500,
+  /** Newest whole-turn window kept; trimming crosses whole turns, never mid-turn. */
   maxKeptTurns: 300,
   maxEvents: 400,
+  /** Pathological-session backstop only: each push ships the whole value (~150B/node). */
   maxNodes: 2000,
   maxArchiveNodes: 400,
   maxFileOps: 400,
 }
+
+/** The resolved fold bounds; derived from {@link DEFAULT_BOUNDS} so the two cannot drift. */
+export type FoldBounds = typeof DEFAULT_BOUNDS
+
+export type Config = Partial<FoldBounds> & Partial<PluginSettings>
 
 /** Mark a field live-editable where the harness's schemastery ships `.volatile()`; a plain
  * field where the modifier is absent, so one schema serves every harness the gate admits. */

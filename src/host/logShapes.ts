@@ -37,13 +37,9 @@ export function decodeKindOfBlock(blockType: unknown): DecodeKind | undefined {
   return undefined
 }
 
-type DecodeSpans = Record<DecodeKind, number>
-
-type DecodeCounts = Record<DecodeKind, number>
-
 export interface DecodeTally {
-  spans: DecodeSpans
-  blocks: DecodeCounts
+  spans: Record<DecodeKind, number>
+  blocks: Record<DecodeKind, number>
 }
 
 /** Decode spans and `block-start` counts inside one embedded assistant stream, tiling
