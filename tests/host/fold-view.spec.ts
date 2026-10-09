@@ -16,8 +16,7 @@ const bucket = (uncached: number, cacheRead: number, cacheWrite: number, output:
 describe('buildTimelineView unknown-model shape', () => {
   test('optional scalars stay ABSENT keys until known — never undefined-valued (issue #29)', () => {
     // A fold over events that name no model/provider/capacity: the served
-    // view must not carry `undefined`-valued properties, which fail the
-    // harness's lossless-JSON push pipeline whole.
+    // view must not carry `undefined`-valued properties, which fail the harness's lossless-JSON push pipeline whole.
     const { view } = driveTimeline([
       userMessage(1, [{ type: 'text', text: 'aaaa' }]),
       assistantMessage(2, { turn: 1, step: 1 }),

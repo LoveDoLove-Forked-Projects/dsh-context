@@ -536,8 +536,7 @@ describe('layoutForest', () => {
     assert.equal(linkG.y2, (pointOf.get('g')?.y as number) - AGENT_NODE_R - 10)
     assert.equal(linkG.running, false)
     assert.equal(layout.links.find(l => l.to === 'b')?.running, true)
-    // Links carry the family hue of the child's level-1 subtree: g inherits
-    // a's family (0); b is its own family (1).
+    // Links carry the family hue of the child's level-1 subtree: g inherits a's family (0); b is its own family (1).
     assert.equal(linkG.color, familyHue(0))
     assert.equal(layout.links.find(l => l.to === 'b')?.color, familyHue(1))
     assert.equal(layout.links.length, 3)
@@ -619,8 +618,7 @@ describe('layoutForest', () => {
 
   test('responsive: child bands interleave with later parent bands (kinship order)', () => {
     // Stage 224 → perLevel = 2. Root's children split [p1,p2] / [p3]; p1's
-    // kids' band lands right after p1's own band — BEFORE p3's band, so a
-    // family never straddles a stranger's row.
+    // kids' band lands right after p1's own band — BEFORE p3's band, so a family never straddles a stranger's row.
     const layout = layoutForest(forestOf([
       ['root'],
       ['p1', 'root'],
@@ -636,8 +634,7 @@ describe('layoutForest', () => {
     assert.equal(pointOf.get('p3')?.y, 56 + 3 * 154)
     // Kinship interleave: p1's grandchildren sit between p1's band and p3's band.
     assert.ok((pointOf.get('k1')?.y as number) < (pointOf.get('p3')?.y as number))
-    // Links keep their family hue through the interleave: p1's subtree is
-    // family 0, p3 is family 2.
+    // Links keep their family hue through the interleave: p1's subtree is family 0, p3 is family 2.
     assert.equal(layout.links.find(l => l.to === 'k1')?.color, familyHue(0))
     assert.equal(layout.links.find(l => l.to === 'p3')?.color, familyHue(2))
     assert.equal(layout.width, 224)

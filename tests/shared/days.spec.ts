@@ -79,8 +79,7 @@ describe('DAY_KEY_RE', () => {
 
 describe('startOfDayKey / endOfDayKey', () => {
   test('a picked range spans the whole local day', () => {
-    // Endpoints, not a duration: a DST-short day is 23 hours long, so the
-    // difference is not a fixed number of milliseconds.
+    // Endpoints, not a duration: a DST-short day is 23 hours long, so the difference is not a fixed number of milliseconds.
     assert.equal(startOfDayKey('2026-09-16'), new Date(2026, 8, 16, 0, 0, 0, 0).getTime())
     assert.equal(endOfDayKey('2026-09-16'), new Date(2026, 8, 16, 23, 59, 59, 999).getTime())
     assert.equal(startOfDayKey('2026-03-08'), new Date(2026, 2, 8, 0, 0, 0, 0).getTime(), 'a DST-short day still opens on its own midnight')

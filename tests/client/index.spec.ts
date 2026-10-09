@@ -1,7 +1,6 @@
 // Client entry (src/client/index.ts): the plugin's apply() wiring asserted
 // through the faithful harness-context seams — dictionaries, slots, the
-// /context trigger source, and the deferred configForms inject — plus real
-// renders of the registered components.
+// /context trigger source, and the deferred configForms inject — plus real renders of the registered components.
 
 import { createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'

@@ -49,8 +49,7 @@ describe('estimateMessage', () => {
 
   test('a retired wrapper block prices as generic JSON (the meter parity branch)', () => {
     // The supported log generation carries no wrapper blocks; a hostile one
-    // prices through the same structural-JSON arm the meter applies to every
-    // unknown block.
+    // prices through the same structural-JSON arm the meter applies to every unknown block.
     const block = { type: 'tool-result', content: [{ type: 'text', text: 'ok' }] }
     assert.equal(
       estimateMessage({ content: [block] }),

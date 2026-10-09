@@ -4,8 +4,7 @@
 // route hits no-op), the deferred inject's service gating, the per-session
 // skip ladder (malformed, invisible, live, already fully served), the
 // cold-read → coldSnapshot fold path, per-session failure isolation with
-// the migration-refusal accounting (debug detail, one summary info), and
-// abort-on-dispose.
+// the migration-refusal accounting (debug detail, one summary info), and abort-on-dispose.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -48,8 +47,7 @@ interface LogLine {
 /** Capture the pass's log lines through the logger service's exporter sink. */
 function captureLogs(ctx: Context): LogLine[] {
   const lines: LogLine[] = []
-  // Lift every source's threshold to debug: the default exporter drops
-  // warn/debug records before they reach the sink.
+  // Lift every source's threshold to debug: the default exporter drops warn/debug records before they reach the sink.
   ctx.logger.exporter({
     levels: { root: 3, 'dsh-context': 3 },
     export(message) {
@@ -59,12 +57,10 @@ function captureLogs(ctx: Context): LogLine[] {
   return lines
 }
 
-/**
- * One format-refusal face of the persistence seam. The format edge throws
+/** One format-refusal face of the persistence seam. The format edge throws
  * `SessionFormatUnsupportedMigrationError`, but the seam translates it — with
  * the "source vN artifact remains unchanged (raw log: …)" suffix — into
- * `SessionFormatUnsupportedError` before the error escapes (issue #75): the
- * pass must classify BOTH faces as the same refusal.
+ * `SessionFormatUnsupportedError` before the error escapes (issue #75): the pass must classify BOTH faces as the same refusal.
  */
 function unsupportedFormatError(name: string): Error {
   const error = new Error(
@@ -613,8 +609,7 @@ describe('watchActivityBackfill', () => {
     ctx.provide('connection', connectionOf(route))
     const dispose = watchActivityBackfill(ctx)
     await trigger(route)
-    // The request landed while only the route half existed; the faces land
-    // now and the pass must still run.
+    // The request landed while only the route half existed; the faces land now and the pass must still run.
     ctx.provide('sessionQuery', { listSessions: async () => state.listed })
     ctx.provide('sessionProjectionCache', {
       cachedSnapshot: () => undefined,

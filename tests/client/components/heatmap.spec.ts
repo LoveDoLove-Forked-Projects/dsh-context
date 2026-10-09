@@ -1,6 +1,5 @@
 // The activity heatmap (src/client/components/heatmap.tsx): grid math off
-// the injected today key, depth levels, day pinning, future cells, and the
-// empty/degraded paths — rendered with real React.
+// the injected today key, depth levels, day pinning, future cells, and the empty/degraded paths — rendered with real React.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -82,8 +81,7 @@ describe('Heatmap', () => {
     const spans = queryAll(m.container, 'span.lc-heat-cell')
     assert.ok(spans.length > 0)
     assert.ok(spans.some(s => s.className.includes('lc-heat-future')), 'future placeholders present')
-    // Weekday labels sit on the rows they name (Sunday-first: row 1 = Mon):
-    // Mon/Wed/Fri carry their names, the rest blank.
+    // Weekday labels sit on the rows they name (Sunday-first: row 1 = Mon): Mon/Wed/Fri carry their names, the rest blank.
     const wds = queryAll(m.container, '.lc-heat-wd')
     assert.deepEqual(wds.map(w => w.textContent), ['', 'Mon', '', 'Wed', '', 'Fri', ''])
     await m.unmount()
@@ -92,8 +90,7 @@ describe('Heatmap', () => {
   test('month labels mark the columns where a month begins', async () => {
     const days = { '2026-09-16': { tokens: 10, requests: 1, sessions: 1, cost: null } }
     // The default 8-week window runs Sunday 2026-07-26 → 2026-09-13: July
-    // began outside it, August begins in the Jul 26 column (Sat Aug 1) and
-    // September in the Aug 30 column (Tue Sep 1).
+    // began outside it, August begins in the Jul 26 column (Sat Aug 1) and September in the Aug 30 column (Tue Sep 1).
     const m = await mount(h(Heatmap, { days, today: TODAY }))
     assert.deepEqual(queryAll(m.container, '.lc-heat-mon').map(s => s.textContent), ['Aug', 'Sep'])
     await m.unmount()

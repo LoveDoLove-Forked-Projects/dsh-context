@@ -1,6 +1,5 @@
 // Donut (src/client/components/donut.tsx) rendered with real React:
-// proportional SVG segments around the center label, with the empty ring
-// fallback and hostile-value skips.
+// proportional SVG segments around the center label, with the empty ring fallback and hostile-value skips.
 
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'

@@ -4,11 +4,9 @@
 // data-plugin style tags, platform-module requires) only exists after tsdown
 // runs. Skipped cleanly when lib/ is absent (run `pnpm run build` first);
 // the release workflow builds before `pnpm test`, so it always runs there.
-//
 // Everything here runs against the REAL bundle in its own JSDOM with REAL
 // React and the REAL ui-primitives — only the harness services
-// (locale/slots/effects) are in-memory implementations of their documented
-// contracts.
+// (locale/slots/effects) are in-memory implementations of their documented contracts.
 
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -48,8 +46,7 @@ describe.skipIf(staging.artifactsMissing())('bundle smoke — the built lib/clie
     // must require nothing else (the tsdown purity gate pins this too). The
     // primitives dist ships CSS modules Node cannot parse — the bundle only
     // references its components as React leaves, so inert stand-ins play the
-    // shell's role here (their real rendering is covered by the vitest
-    // jsdom lane).
+    // shell's role here (their real rendering is covered by the vitest jsdom lane).
     const inert = (name: string) => {
       const C = (): null => null
       ;(C as { displayName?: string }).displayName = name

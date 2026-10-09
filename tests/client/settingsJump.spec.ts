@@ -1,8 +1,7 @@
 // openPluginSettings (src/client/settingsJump.ts): the guarded DOM jump to
 // the plugin's preferences on the Plugins main panel — panel entry first,
 // the bundle card's open control after the page settles — plus the hostile
-// degradations (missing chrome, throwing elements, a card that never lists).
-// jsdom supplies the real document.
+// degradations (missing chrome, throwing elements, a card that never lists). jsdom supplies the real document.
 
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'vitest'

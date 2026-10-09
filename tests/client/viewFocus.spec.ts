@@ -1,6 +1,5 @@
 // viewFocus (src/client/viewFocus.ts) — the chat→Context jump relay, the
-// sidebar-tab opener, and the conversation-tab activation, driven against a
-// real jsdom tab bar.
+// sidebar-tab opener, and the conversation-tab activation, driven against a real jsdom tab bar.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -42,8 +41,7 @@ describe('context focus subscription', () => {
   test('a listener unsubscribing another mid-notify skips it (later records do not re-run it)', () => {
     let late = 0
     let offLate: () => void = () => {}
-    // Insertion order matters: the remover runs first and detaches the victim
-    // before Set iteration reaches it.
+    // Insertion order matters: the remover runs first and detaches the victim before Set iteration reaches it.
     const offRemover = subscribeContextFocus(() => { offLate() })
     offLate = subscribeContextFocus(() => { late++ })
     requestContextFocus('sv-mid', 1)

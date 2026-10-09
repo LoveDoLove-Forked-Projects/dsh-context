@@ -1,6 +1,5 @@
 // The Context Dashboard's data layer (src/client/overview.ts): the hostile-
-// snapshot row join, filters, sorts, aggregations, and relative time — every
-// guard branch with hostile fixtures.
+// snapshot row join, filters, sorts, aggregations, and relative time — every guard branch with hostile fixtures.
 
 import assert from 'node:assert/strict'
 import { describe, test, vi } from 'vitest'
@@ -149,8 +148,7 @@ describe('rowsOfSnapshot', () => {
     const rows = rowsOfSnapshot(snap, { archivedSessionIds: ['b', 7, null] })
     assert.ok(rows !== null)
     assert.deepEqual(rows.map(r => r.id), ['a', 'c'], 'archived ids drop; non-string entries archive nothing')
-    // Fail-open shapes: an absent seat, a bare record, a malformed set, and a
-    // throwing accessor all keep the full list.
+    // Fail-open shapes: an absent seat, a bare record, a malformed set, and a throwing accessor all keep the full list.
     assert.equal(rowsOfSnapshot(snap)?.length, 3)
     assert.equal(rowsOfSnapshot(snap, null)?.length, 3)
     assert.equal(rowsOfSnapshot(snap, 7)?.length, 3)

@@ -107,8 +107,7 @@ describe('volatileField', () => {
 
   test('returns the field unchanged on a schemastery without the modifier (the older lines)', () => {
     const plain = z.union(['a', 'b']).default('a')
-    // A schema-shaped value with no `volatile` member at all — the shape the
-    // older lines' schemastery presents.
+    // A schema-shaped value with no `volatile` member at all — the shape the older lines' schemastery presents.
     const legacy = { meta: plain.meta } as typeof plain
     assert.equal(volatileField(legacy), legacy)
     assert.equal(legacy.meta?.volatile, undefined)

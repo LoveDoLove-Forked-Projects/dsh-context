@@ -5,7 +5,6 @@
 // face and its response envelope (the remote.session gateway), and the
 // MarkdownText chrome prop (required `labels`). These are the seams whose
 // drift produced the recurring client-side incidents (issues #8, #12, #26).
-//
 // The real-code complement — the ACTUAL dsh sources per tag — runs in the
 // `compat` vitest project (tests/compat/matrix.spec.ts).
 
@@ -29,8 +28,7 @@ import { baselineCtx, chatSeat, convNodes } from './baselineFaces'
 const kit = makeKit()
 
 // The chrome-prop capture: the plugin must hand EVERY markdown render a
-// well-formed `labels` object (the primitives REQUIRE it). Intercept the
-// primitive.
+// well-formed `labels` object (the primitives REQUIRE it). Intercept the primitive.
 const captured = vi.hoisted(() => ({ markdownProps: undefined as Record<string, unknown> | undefined }))
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', async () => {
   const React = await import('react')
@@ -39,8 +37,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', async () => {
       captured.markdownProps = props
       return React.createElement('div', null, String(props.text ?? ''))
     },
-    // The rich-text copy control's glyphs and clipboard writer; the
-    // Plugin Info card's settings gear.
+    // The rich-text copy control's glyphs and clipboard writer; the Plugin Info card's settings gear.
     IconCopyOutlineRegular: () => React.createElement('span', null),
     IconCheckOutlineRegular: () => React.createElement('span', null),
     IconSettingsOutlineMedium: () => React.createElement('span', null),
@@ -193,8 +190,7 @@ for (const baseline of BASELINES) {
       // Issue #42: a traced proxy can throw on the property READ itself
       // ("cannot get property "remote.session" without inject") — arming the
       // declared inject with such a hostile facade must leave the slot unset
-      // (nothing escapes the callback) and the tab renders with its static
-      // hint instead of crashing.
+      // (nothing escapes the callback) and the tab renders with its static hint instead of crashing.
       const ctx = new TestClientCtx()
       ctx.setService('remote', {
         get session() { throw new Error('cannot get property "remote.session" without inject') },

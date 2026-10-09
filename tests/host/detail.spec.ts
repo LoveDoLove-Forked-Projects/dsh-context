@@ -2,8 +2,7 @@
 // on the connection/sessions faces (load-order independent), the gate's live
 // flip on unload, and the route's typed outcomes — the detail payload off the
 // live fold state, the typed `null` for a gone session or an absent unit, and
-// the failure envelope for bad payloads and hostile reads (the route must
-// never throw into the transport).
+// the failure envelope for bad payloads and hostile reads (the route must never throw into the transport).
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -25,11 +24,9 @@ interface CtxSpec {
   stateOf?: (session: unknown, key: string) => unknown
 }
 
-/**
- * A minimal host ctx double with cordis inject semantics: the callback runs
+/** A minimal host ctx double with cordis inject semantics: the callback runs
  * once its dependency list completes (here: immediately when the services
- * map has them, never otherwise), and its returned disposer is collected.
- */
+ * map has them, never otherwise), and its returned disposer is collected. */
 function ctxOf(spec: CtxSpec): { ctx: Context; captured: { path?: string; fetch?: RouteFetch }; disposers: (() => void)[] } {
   const captured: { path?: string; fetch?: RouteFetch } = {}
   const disposers: (() => void)[] = []

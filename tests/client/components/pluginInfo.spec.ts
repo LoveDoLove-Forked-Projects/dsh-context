@@ -1,7 +1,6 @@
 // PluginInfo (src/client/components/pluginInfo.tsx): static metadata rows
 // plus the live npm latest-version check. fetch is stubbed per test and the
-// modules are re-imported fresh (vi.resetModules) so the baked-in version
-// define and the fetch TTL cache both start clean.
+// modules are re-imported fresh (vi.resetModules) so the baked-in version define and the fetch TTL cache both start clean.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'

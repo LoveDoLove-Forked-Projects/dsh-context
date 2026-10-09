@@ -1,8 +1,7 @@
 // Integration tests for the Host-half plugin module (src/host/index.ts)
 // against the REAL cordis registry, session store, and session-projection
 // registry — the dsh-canonical harness: real envelopes appended to a real
-// session, folded by the registered units, read back through the snapshot
-// cut and the change feed.
+// session, folded by the registered units, read back through the snapshot cut and the change feed.
 
 import assert from 'node:assert/strict'
 import { join } from 'node:path'

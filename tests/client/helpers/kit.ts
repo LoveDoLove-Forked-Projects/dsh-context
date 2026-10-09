@@ -1,7 +1,6 @@
 // Client test kit: real dictionaries, real React rendering, and a faithful
 // harness-context implementation (the documented cordis/locale/slots
-// contracts, not mocks of plugin code). Shared by every client spec so each
-// test file stays small and stateless.
+// contracts, not mocks of plugin code). Shared by every client spec so each test file stays small and stateless.
 
 import { act, type ReactElement, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -20,11 +19,9 @@ export function surfaceNodeAt(seq: number, over: Partial<SurfaceNode> = {}): Sur
   return { seq, cat: 'user', tokens: 1, ...over }
 }
 
-/**
- * The harness locale chain: active-locale dictionary → en → the key itself,
+/** The harness locale chain: active-locale dictionary → en → the key itself,
  * with `{name}` interpolation. Built over the plugin's REAL dictionaries, so
- * assertions exercise the shipped strings rather than a test copy.
- */
+ * assertions exercise the shipped strings rather than a test copy. */
 export function makeTranslate(active: 'en' | 'zh' = 'en', dicts?: Record<string, Record<string, string>>): Translate {
   const table = dicts ?? { zh: DICT_ZH, en: DICT_EN }
   return (key, params) => {
@@ -76,13 +73,11 @@ export async function flush(): Promise<void> {
   await act(async () => {})
 }
 
-/**
- * Poll until the predicate holds, one short act() scope per tick: timers and
+/** Poll until the predicate holds, one short act() scope per tick: timers and
  * promise chains only get to run while a scope's sleep is awaiting, so the
  * state updates they land are act-attributed (no React act() warnings) and
  * committed when the scope exits — the check between ticks sees them. Real
- * timers ride the store's own debounce; `message` labels the give-up failure.
- */
+ * timers ride the store's own debounce; `message` labels the give-up failure. */
 export async function until(fn: () => boolean, message: string): Promise<void> {
   for (let i = 0; i < 400; i++) {
     await act(async () => {
@@ -94,13 +89,10 @@ export async function until(fn: () => boolean, message: string): Promise<void> {
   throw new Error(message)
 }
 
-/**
- * Silence a deliberately-thrown render error: React 18 dev replays a failed
+/** Silence a deliberately-thrown render error: React 18 dev replays a failed
  * render through a fake DOM event, which jsdom reports as an uncaught window
  * error and vitest forwards to an uncaughtException — a user error listener
- * that prevents the default keeps the throw inside the test. Returns the
- * cleanup that restores normal error reporting.
- */
+ * that prevents the default keeps the throw inside the test. Returns the cleanup that restores normal error reporting. */
 export function silenceWindowErrors(): () => void {
   const onError = (e: Event) => { e.preventDefault() }
   window.addEventListener('error', onError)
@@ -128,11 +120,8 @@ export async function click(el: HTMLElement): Promise<void> {
   })
 }
 
-/**
- * Pointer hover. React 18 synthesizes onMouseEnter/onMouseLeave from the
- * BUBBLING mouseover/mouseout pair — dispatching raw mouseenter/leave (they
- * do not bubble) never reaches React's handlers.
- */
+/** Pointer hover. React 18 synthesizes onMouseEnter/onMouseLeave from the
+ * BUBBLING mouseover/mouseout pair — dispatching raw mouseenter/leave (they do not bubble) never reaches React's handlers. */
 export async function hover(el: Element): Promise<void> {
   await act(async () => {
     el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))

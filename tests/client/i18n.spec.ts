@@ -1,6 +1,5 @@
 // Dictionaries (src/client/i18n.ts): both locales carry exactly the same
-// keys, every value is a non-empty string, and interpolation placeholders
-// agree between locales for every parametrized key.
+// keys, every value is a non-empty string, and interpolation placeholders agree between locales for every parametrized key.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

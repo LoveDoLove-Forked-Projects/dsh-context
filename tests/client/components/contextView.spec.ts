@@ -22,8 +22,7 @@ import { DICT_EN } from '../../../src/client/i18n'
 import { TestClientCtx, TestLocale, asClientCtx } from '../helpers/harness'
 import { click, flush, hover, makeKit, mount, query, queryAll, silenceWindowErrors, text, unhover, until } from '../helpers/kit'
 
-// pluginInfo's npm-registry probe stays inert (and '0.0.0-dev' short-circuits
-// it anyway).
+// pluginInfo's npm-registry probe stays inert (and '0.0.0-dev' short-circuits it anyway).
 vi.stubGlobal('fetch', () => Promise.resolve({ ok: false } as Response))
 
 const kit = makeKit()
@@ -32,8 +31,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   // The cold-start share (timelineSource.ts) is page-lifetime per session:
-  // drop it so one test's cold read never leaks its failed/ready state into
-  // a later test that reuses the same session id.
+  // drop it so one test's cold read never leaks its failed/ready state into a later test that reuses the same session id.
   resetTimelineDetailStores()
 })
 
@@ -195,8 +193,7 @@ describe('ContextView — projection guards', () => {
     assert.ok(text(m.container).includes(DICT_EN['overview.used']))
     // The Token card's center is the chat stats line's whole-session billed
     // total off the official tokenUsage projection (100 + 200 + 0 + 50), and
-    // its corner shows the line's own cache-hit rate two decimals deep
-    // (200 / 300, truncated).
+    // its corner shows the line's own cache-hit rate two decimals deep (200 / 300, truncated).
     const tokensCard = queryAll(m.container, '.lc-head > .lc-col-donut')[0]
     assert.equal(query(tokensCard, '.lc-donut-center b').textContent, '350')
     assert.equal(query(tokensCard, '.lc-card-rate').textContent, 'Cache Hit 66.66%')
@@ -871,8 +868,7 @@ describe('ContextView — file activity card', () => {
     const card = queryAll(m.container, '.lc-card').find(c => text(c).includes(DICT_EN['files.title']))
     assert.ok(card !== undefined)
     const name = query(query(card, '.lc-fa-row'), '.lc-fa-file')
-    // The preview affordance leads where the column exists; the system open
-    // stays unreached.
+    // The preview affordance leads where the column exists; the system open stays unreached.
     assert.equal(name.getAttribute('title'), DICT_EN['files.preview'])
     await click(name)
     assert.deepEqual(previewed, ['dsh-resource://file/session/sv-preview/src/a.ts'])
@@ -1014,8 +1010,7 @@ describe('ContextView — targeted content fetch and image loading', () => {
         },
       },
     })
-    // The direct `remote.session` service is hostile, as on the real host:
-    // the face resolves only through the declared inject.
+    // The direct `remote.session` service is hostile, as on the real host: the face resolves only through the declared inject.
     ctx.setService('remote.session', { get page() { throw new Error('cannot get property "remote.session" without inject') } })
     watchHistoryFaces(asClientCtx(ctx))
     const View = makeView(ctx)
@@ -1487,8 +1482,7 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
     const ctx = slimCtx(async () => ({ ok: true, value: slimDetail() }))
     const View = makeView(ctx)
     // The jump is armed BEFORE the view mounts (the chat action relay) — the
-    // detail read is still pending, so the pin must wait for it (not consume
-    // and clamp against an empty record list).
+    // detail read is still pending, so the pin must wait for it (not consume and clamp against an empty record list).
     requestContextFocus('sv-slim-jump', 4)
     const m = await mount(h(View, { sessionId: 'sv-slim-jump', useProjection: projectionsFor(slimHead()) }))
     assert.equal(queryAll(m.container, '.lc-bar-selected').length, 0, 'nothing pins before the detail')
@@ -1515,8 +1509,7 @@ describe('ContextView — the op-log generation (fileOps on the detail payload)'
           nodes: [],
           droppedNodes: 0,
           archive: [],
-          // The op log covers the full session — the conversation window
-          // join plays no role in this card on this generation.
+          // The op log covers the full session — the conversation window join plays no role in this card on this generation.
           fileOps: [
             { seq: 1, path: '/ws/README.md', kind: 'read', tool: 'read', err: false, added: 0, removed: 0, read: { start: 1, count: 12 } },
             { seq: 2, path: '/ws/src/a.ts', kind: 'write', tool: 'edit', err: false, added: 3, removed: 1 },

@@ -4,8 +4,7 @@
 // currency shows with the account's first currency as fallback, and the
 // non-zero parts of the breakdown (topped-up / granted; the pill itself
 // carries the total) ride the page's hover tip via the pill's data
-// attributes. The route read is stubbed per test; memory and storage are
-// reset between tests.
+// attributes. The route read is stubbed per test; memory and storage are reset between tests.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -85,8 +84,7 @@ describe('BalanceCapsule', () => {
     assert.equal(query(m.container, '.lc-ov-balance-value')?.textContent, '$12.50')
     // The breakdown lives in the pill's data attributes for the page's hover
     // tip (no native `title`): the pill already carries the total, so only
-    // the non-zero parts ride the bubble — the topped-up line leads the
-    // granted one, and the tip drops below the pill.
+    // the non-zero parts ride the bubble — the topped-up line leads the granted one, and the tip drops below the pill.
     assert.equal(pill?.getAttribute('title'), null)
     assert.equal(pill?.getAttribute('data-lc-tip'), 'Topped-up balance: $10.00\nGranted balance: $2.50')
     assert.equal(pill?.getAttribute('data-lc-tip-side'), 'bottom')
@@ -119,8 +117,7 @@ describe('BalanceCapsule', () => {
 
   test('the zh locale shows CNY with localized breakdown labels', async () => {
     stubRoute({ ok: true, value: WIRE_BALANCE })
-    // The kit's `t` is the harness's locale-bound translate (zh), while the
-    // ctx's locale service drives the currency pick.
+    // The kit's `t` is the harness's locale-bound translate (zh), while the ctx's locale service drives the currency pick.
     const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'zh' })), makeKit('zh'))
     const m = await mount(h(Capsule, {}))
     await flush()

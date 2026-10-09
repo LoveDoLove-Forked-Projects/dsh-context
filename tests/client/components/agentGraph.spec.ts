@@ -1,8 +1,7 @@
 // AgentGraph (src/client/components/agentGraph.tsx) — the Agent network card
 // rendered for real against a faithful in-memory sessions face: tree
 // rendering with donut/ring geometry, hover inspector, click/keyboard
-// navigation, catalog refresh, live snapshot updates, and every degrade arm
-// (no service, no anchor, no stats).
+// navigation, catalog refresh, live snapshot updates, and every degrade arm (no service, no anchor, no stats).
 
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -433,10 +432,7 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     }
   }
 
-  /**
-   * A programmable global fetch recording its reads: POSTs resolve `value`
-   * (or throw, or hold until released).
-   */
+  /** A programmable global fetch recording its reads: POSTs resolve `value` (or throw, or hold until released). */
   function detailFetch(options: { reject?: boolean; head?: unknown; nullValue?: boolean; defer?: boolean } = {}) {
     const calls: string[] = []
     let release: ((value: unknown) => void) | undefined
@@ -467,14 +463,12 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     const { View, face } = makeFetchingView()
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
 
-    // The cold relative fetched at mount; until the read lands it wears the
-    // pressure-only fused ring (arc + free outline).
+    // The cold relative fetched at mount; until the read lands it wears the pressure-only fused ring (arc + free outline).
     assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:done'])
     assert.equal(query(m.container, 'g[data-agent="done"]').querySelectorAll('circle.lc-agent-seg').length, 2)
 
     // A snapshot tick while the read is in flight re-attaches the SAME
-    // pending read; its duplicate landing settles on the identity bail-out
-    // instead of re-rendering.
+    // pending read; its duplicate landing settles on the identity bail-out instead of re-rendering.
     await act(async () => {
       face.setState(family())
     })

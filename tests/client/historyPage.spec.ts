@@ -232,8 +232,7 @@ describe('makeContentFetcher — the per-session targeted read', () => {
   test('a hostile or shapeless declared face leaves the slot unset (issue #42)', () => {
     // The traced proxy can throw on the property READ itself, or serve a
     // null / primitive / verb-less / hostile-verb face — the declared
-    // callback contains all of it, the slot stays unset, and the fetcher
-    // degrades instead of taking the view down.
+    // callback contains all of it, the slot stays unset, and the fetcher degrades instead of taking the view down.
     const remotes = [
       { get session() { throw new Error('traced read failed') } },
       { session: null },
@@ -259,8 +258,7 @@ describe('makeContentFetcher — the per-session targeted read', () => {
 
   test('the declared inject tolerates a shapeless remote service', () => {
     const ctx = new TestClientCtx()
-    // Both names exist but the facade bears no session namespace: the
-    // callback fires and leaves the slot unset, never throwing.
+    // Both names exist but the facade bears no session namespace: the callback fires and leaves the slot unset, never throwing.
     ctx.setService('remote', {})
     ctx.setService('remote.session', {})
     watchHistoryFaces(asClientCtx(ctx))

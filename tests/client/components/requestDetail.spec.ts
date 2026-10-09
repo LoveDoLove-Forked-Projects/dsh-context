@@ -368,8 +368,7 @@ describe('RequestDetail brief section', () => {
       44: { kind: 'assistant', seq: 44, blocks: [{ kind: 'tool-call', name: 'write', argsRaw: '{"file_path":"a.ts"}' }] },
     }
     // One row per input would need 11 rows; instead render them as one inputs
-    // list — chips are the unit under test (3 shown + overflow), so render
-    // batches through separate mounts.
+    // list — chips are the unit under test (3 shown + overflow), so render batches through separate mounts.
     const render = async (list: SurfaceNode[]) => {
       const m = await mount(h(RequestDetail, {
         request: req({}),
@@ -412,8 +411,7 @@ describe('RequestDetail brief section', () => {
     assert.ok(chipText(m6, 0).includes('Skill · ponytail') && chipText(m6, 0).includes('notes inside'))
     await m6.unmount()
 
-    // A category outside the fold's vocabulary (host drift) degrades into the
-    // user tail — a plain text row, never a throw.
+    // A category outside the fold's vocabulary (host drift) degrades into the user tail — a plain text row, never a throw.
     const m7 = await render([surfaceNode({ seq: 43, cat: 'mystery' as never, text: 'survivor' })])
     assert.equal(chipText(m7, 0), 'survivor', 'hostile cat renders its text plainly')
     await m7.unmount()
@@ -425,8 +423,7 @@ describe('RequestDetail brief section', () => {
     const m11 = await render([surfaceNode({ seq: 47, cat: 'skill', skill: 'grilling', tool: 'skill' })])
     assert.equal(chipText(m11, 0), 'Skill · grilling')
     await m11.unmount()
-    // The catalog digest tags its form; a nameless, formless skill row
-    // degrades to the context label.
+    // The catalog digest tags its form; a nameless, formless skill row degrades to the context label.
     const m11b = await render([
       surfaceNode({ seq: 471, cat: 'skill', form: 'catalog' }),
       surfaceNode({ seq: 472, cat: 'skill' }),

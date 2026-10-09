@@ -1,7 +1,6 @@
 // images.tsx — imageRefOf narrowing (pure) plus ImageCard and its preview
 // wiring, rendered with real React. The preview itself is the platform
-// ImageLightbox; its dialog behavior is covered upstream, so only the
-// plugin-owned open/close wiring is pinned here.
+// ImageLightbox; its dialog behavior is covered upstream, so only the plugin-owned open/close wiring is pinned here.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'

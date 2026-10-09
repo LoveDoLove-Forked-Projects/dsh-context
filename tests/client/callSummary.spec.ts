@@ -1,6 +1,5 @@
 // Tool-call summaries (src/client/callSummary.ts): argument JSON parsing,
-// the description/file_path/path/filePath key priority, and the
-// conversation-block scanners.
+// the description/file_path/path/filePath key priority, and the conversation-block scanners.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

@@ -1,8 +1,7 @@
 // The first row's usage chart (src/client/components/overviewUsage.tsx):
 // the fixed last-7-days window off the injected today key, the two series'
 // independent maxima, bar heights, the tick rails and gridlines framed off
-// the same maxima, unpriced/zero days, and the empty and degraded paths —
-// rendered with real React.
+// the same maxima, unpriced/zero days, and the empty and degraded paths — rendered with real React.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'

@@ -1,12 +1,9 @@
 // Staging + probe helpers for the compat matrix (matrix.spec.ts): stage the
 // REAL harness sources at a baseline tag, boot the plugin's BUILT host entry
-// on the tag's real registry + vendored cordis, and read the tag's client
-// seams straight from its sources.
-//
+// on the tag's real registry + vendored cordis, and read the tag's client seams straight from its sources.
 // The registry probe runs as a small spawned driver INSIDE the staging dir,
 // so the bare `@deepseek-ai/cordis` import resolves to the cordis release
-// that harness line vendors (not this repo's) — one process per baseline,
-// reported as one JSON line.
+// that harness line vendors (not this repo's) — one process per baseline, reported as one JSON line.
 
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -106,12 +103,9 @@ export interface DriverReport {
   poisonedSnapshotThrows: boolean
 }
 
-/**
- * The staged host driver: runs INSIDE the baseline's staging dir, applies the
+/** The staged host driver: runs INSIDE the baseline's staging dir, applies the
  * plugin's real host entry into the tag's real registry, drives a canonical
- * log through the registry's own snapshot / checkpoint / restore paths, and
- * reports as one JSON line.
- */
+ * log through the registry's own snapshot / checkpoint / restore paths, and reports as one JSON line. */
 function driverSource(pluginUrl: string, developerMessages: boolean): string {
   return `
 import { Context } from '@deepseek-ai/cordis'
@@ -188,8 +182,7 @@ if (${developerMessages}) {
 // A mis-accounting gateway's figures (negative uncached input from
 // cached_tokens > prompt_tokens, fractional counts, string buckets, a NaN a
 // hostile direct-drive could supply) ride the durable log legally; the
-// plugin's served values must stay schema-valid through the registry's own
-// strict parse on every later delivery.
+// plugin's served values must stay schema-valid through the registry's own strict parse on every later delivery.
 const hostile = [
   ev(12, 'step/start'),
   ev(13, 'assistant/message', { turn: 1, step: 2, message: { content: [{ type: 'text', text: 'h1' }] }, usage: { inputTokens: -80, cacheReadTokens: 150.7, cacheWriteTokens: '10', outputTokens: 22.4 } }),
@@ -294,26 +287,20 @@ export function bundleRequires(): string[] {
   return [...new Set([...source.matchAll(/require\("([^"]+)"\)/g)].map(m => m[1]))]
 }
 
-/**
- * The slot registrations the client half mounts on EVERY baseline (identical
+/** The slot registrations the client half mounts on EVERY baseline (identical
  * spellings in each generation's sources). The preferences card seat and the
  * settings transport are asserted separately, per generation — the matrix
- * spec pins them to the baseline's `settings` seam (`plugins.bundle.config` +
- * `configForms` on every supported line).
- */
+ * spec pins them to the baseline's `settings` seam (`plugins.bundle.config` + `configForms` on every supported line). */
 export const SLOT_SEAMS = [
   'conversation.view',
   'conversation.chat.assistant-actions',
   'conversation.input.overlay',
 ] as const
 
-/**
- * The ui-primitives icon seams the client bundle renders: every supported
+/** The ui-primitives icon seams the client bundle renders: every supported
  * line ships the `…OutlineRegular`/`…OutlineMedium` vocabulary, and a missing
  * name is `undefined` at the browser's runtime — React error #130.
- * `src/client/primitives.ts` resolves each by name; every one must exist per
- * tag.
- */
+ * `src/client/primitives.ts` resolves each by name; every one must exist per tag. */
 export const ICON_SEAMS = [
   'IconBranchOutlineRegular',
   'IconPlusOutlineRegular',
@@ -326,13 +313,10 @@ export const ICON_SEAMS = [
   'IconSearchOutlineRegular',
 ] as const
 
-/**
- * The event families the host fold switches on (src/host/fold.ts) — the UNION
+/** The event families the host fold switches on (src/host/fold.ts) — the UNION
  * over every supported generation. The per-baseline probe asserts the
  * baseline's own `foldEventTypes` subset, and a matrix test asserts this
- * union equals the baselines' union — a fold case added without a baseline
- * list fails loudly instead of going unprobed.
- */
+ * union equals the baselines' union — a fold case added without a baseline list fails loudly instead of going unprobed. */
 export const FOLD_EVENT_TYPES = [
   'request/header', 'request/context', 'step/start', 'step/end',
   'user/message', 'developer/message', 'tool/call', 'tool/result', 'assistant/message',

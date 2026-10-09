@@ -10,8 +10,7 @@
 // book (the store never reaches the network). The connector geometry is
 // pinned through measureFlow's unit tests (jsdom has no layout); the event
 // rows themselves live on the events card (contextView.spec.ts).
-// `countsOfRecords` and `toolTallyOf` derive the tallies the split
-// generation's wire head carries, pinned here.
+// `countsOfRecords` and `toolTallyOf` derive the tallies the split generation's wire head carries, pinned here.
 
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -100,8 +99,7 @@ describe('countsOfRecords (the inline generation derivation)', () => {
       [
         ev('inject'), ev('inject'), ev('inject'), ev('compaction'), ev('compaction'), ev('prune'), ev('model'), ev('mode'),
         // Skill loads and a `/name` invocation count by DISTINCT name; the
-        // available-skills catalog digest rides an untagged inject event and
-        // never lands in the tally.
+        // available-skills catalog digest rides an untagged inject event and never lands in the tally.
         skillEv('grilling'), skillEv('grilling'), skillEv('ponytail'),
         { ...ev('inject'), name: 'available-skills' },
         // Hostile shapes skip: a nameless tag and a non-string name.

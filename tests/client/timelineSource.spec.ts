@@ -1,8 +1,7 @@
 // The timeline source (src/client/timelineSource.ts): the detail payload
 // narrow, the Connection-RPC fetcher, the per-session detail store machine
 // (debounce / single-flight / latest-wins / refold / retry / backoff), and
-// the useTimelineSource hook merging both wire generations into the value
-// the cards render.
+// the useTimelineSource hook merging both wire generations into the value the cards render.
 
 import { act, createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'
@@ -735,8 +734,7 @@ describe('useTimelineSource', () => {
       return { body: { ok: true, value: detail(2, { head: slimHead(2) }) } }
     })
     const m = await mount(h(SourceProbe, { sessionId: 's1', value: undefined }))
-    // The first paint waits on the cold read — then the read's own slim head
-    // stands in for the never-pushed projection value.
+    // The first paint waits on the cold read — then the read's own slim head stands in for the never-pushed projection value.
     assert.equal(probeRead(m.container, 'state'), 'loading')
     await until(() => probeRead(m.container, 'state') === 'ready', 'the cold read never landed')
     assert.equal(probeRead(m.container, 'model'), 'm', 'the read head renders')
@@ -763,8 +761,7 @@ describe('useTimelineSource', () => {
     const m = await mount(h(PushProbe, null))
     await until(() => probeRead(m.container, 'state') === 'ready', 'the cold read never landed')
     assert.equal(probeRead(m.container, 'model'), 'cold-m')
-    // The pushed head outruns the cold read's revision: same per-session
-    // store, one trailing refetch, the pushed value renders.
+    // The pushed head outruns the cold read's revision: same per-session store, one trailing refetch, the pushed value renders.
     servedRev = 2
     pushed = slimHead(2, { model: 'pushed-m' })
     await m.update(h(PushProbe, null))
@@ -853,8 +850,7 @@ describe('useTimelineSource', () => {
     assert.equal(detailStoreOf('s1').getSnapshot().detail?.rev, 3)
     served = 4
     await m.update(h(SourceProbe, { sessionId: 's1', value: slimHead(4) }))
-    // The probe's rev cell reads the HEAD's marker (4 as pushed); the store's
-    // served detail proves the refetch.
+    // The probe's rev cell reads the HEAD's marker (4 as pushed); the store's served detail proves the refetch.
     assert.equal(probeRead(m.container, 'rev'), '4')
     await until(() => detailStoreOf('s1').getSnapshot().detail?.rev === 4, 'the refetch never landed')
     await m.unmount()

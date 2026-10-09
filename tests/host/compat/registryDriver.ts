@@ -1,11 +1,8 @@
 // A per-baseline driver over the session-projection registry's DOCUMENTED
 // semantics — the rules the REAL dsh registries enforce, mirrored from the
-// source at each baseline tag so the always-on suite pins the plugin's units
-// against every supported registry generation:
-//
+// source at each baseline tag so the always-on suite pins the plugin's units against every supported registry generation:
 //   dsh-v0.1.7-rc.2  packages/session/session-projection/src/index.ts
 //   dsh-v0.2.0-rc.2  packages/session/session-projection/src/index.ts
-//
 // The real-code matrix (tests/compat/matrix.spec.ts) runs the ACTUAL registry
 // sources per tag; this driver exists so `pnpm test` alone still detects a
 // definition that drifts from any supported generation's rules (a missing
@@ -61,9 +58,7 @@ export interface CheckpointRow {
 
 export type Checkpoint = Record<string, CheckpointRow>
 
-/**
- * The registry's register-time rules: a non-negative safe integer
- * `stateVersion`, and a shared key must agree on the version.
+/** The registry's register-time rules: a non-negative safe integer `stateVersion`, and a shared key must agree on the version.
  */
 export class RegistryViolationError extends Error {}
 
@@ -89,8 +84,7 @@ export class RegistryDriver {
     const def: ErasedDefinition = {
       key: definition.key,
       stateSchema: definition.stateSchema,
-      // The registry calls init(header, inheritedEventCount); the plugin's
-      // zero-argument init observes neither argument.
+      // The registry calls init(header, inheritedEventCount); the plugin's zero-argument init observes neither argument.
       init: (header, inheritedEventCount) => definition.init(header, inheritedEventCount),
       apply: (state, event) => definition.apply(state, event),
       wire,
@@ -171,13 +165,10 @@ export class RegistryDriver {
     return rows
   }
 
-  /**
-   * The projection cache's WRITE precondition (session-projection-cache
+  /** The projection cache's WRITE precondition (session-projection-cache
    * src/index.ts): every row must be losslessly JSON-serializable or the
    * whole write fails with a TypeError — one undefined-valued property in
-   * one unit's state once broke every session on the host (issues #5-#7,
-   * #27-#30). Returns the detached JSON image.
-   */
+   * one unit's state once broke every session on the host (issues #5-#7, #27-#30). Returns the detached JSON image. */
   checkpointJson(session: SessionLike): Record<string, unknown> | undefined {
     return snapshotJson(this.checkpoint(session)) as Record<string, unknown> | undefined
   }
@@ -211,11 +202,9 @@ export class RegistryDriver {
     return floor === undefined ? undefined : Math.max(floor - 1, 0)
   }
 
-  /**
-   * Cold read: seed usable rows through stateSchema.parse, refold the rest.
+  /** Cold read: seed usable rows through stateSchema.parse, refold the rest.
    * `inheritedEventCount` is the fork-inherited prefix length the registry
-   * hands to unit initialization (0 for a plain session).
-   */
+   * hands to unit initialization (0 for a plain session). */
   restore(checkpoint: Checkpoint, events: { seq: number }[], baseSeq: number, header: unknown, inheritedEventCount = 0): ProjectionSnapshot {
     const endSeq = events.at(-1)?.seq ?? baseSeq - 1
     const values: Record<string, unknown> = {}

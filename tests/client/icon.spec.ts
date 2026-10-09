@@ -54,8 +54,7 @@ describe('ContextIcon', () => {
     // complement mask that each eroding shift is painted through.
     assert.equal(queryAll<SVGPathElement>(m.container, 'path').length, 10)
     // The inset itself: a white flood minus one black shift per axis
-    // direction, 17 units each — the source's 98-unit bars less the harness
-    // weight's 64 makes for two 17s.
+    // direction, 17 units each — the source's 98-unit bars less the harness weight's 64 makes for two 17s.
     const [hole, thin] = queryAll<SVGMaskElement>(m.container, 'mask')
     assert.match(hole.id, /-hole$/)
     assert.match(thin.id, /-thin$/)

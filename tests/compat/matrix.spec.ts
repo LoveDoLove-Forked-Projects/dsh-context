@@ -6,15 +6,11 @@
 // on the cordis release that line vendors, the tag's own settings-namespace
 // pattern, its durable-event vocabulary, its platform module table, and its
 // client seam sources (slots, seats, image/history faces, markdown chrome).
-// A failing probe names the SEAM — the connection point to re-fit or
-// refactor — not just "it broke somewhere".
-//
+// A failing probe names the SEAM — the connection point to re-fit or refactor — not just "it broke somewhere".
 // Preconditions (skipped cleanly when absent; the release workflow fetches
 // the baseline tags before `pnpm test`, so it always runs there):
-//   - a dsh checkout with the baseline tags (env DSH_REPO, default
-//     ~/dev/deepseek-harness),
-//   - the built plugin (`pnpm run build` first — the matrix exercises the
-//     BUILT artifacts, lib/index.js + lib/client.js).
+//   - a dsh checkout with the baseline tags (env DSH_REPO, default     ~/dev/deepseek-harness),
+//   - the built plugin (`pnpm run build` first — the matrix exercises the     BUILT artifacts, lib/index.js + lib/client.js).
 
 import assert from 'node:assert/strict'
 import { beforeAll, describe, test } from 'vitest'
@@ -28,8 +24,7 @@ if (reasons.length > 0) {
 
 // The always-runnable part (no checkout needed): every specifier the built
 // bundle requires at runtime must be seeded by EACH baseline's platform
-// module table — a require the shell cannot answer is a guaranteed boot
-// crash on that generation.
+// module table — a require the shell cannot answer is a guaranteed boot crash on that generation.
 describe('compat matrix — the per-baseline fold vocabularies', () => {
   test('their union covers every event family the fold switches on', () => {
     const union = new Set(BASELINES.flatMap(baseline => baseline.foldEventTypes))
@@ -54,8 +49,7 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
   describe.each(BASELINES)('$id (tag $tag, cordis $cordis)', (baseline) => {
     let report: staging.DriverReport
     // 60s: the driver's own spawn budget. A cold stage dir (fresh clone,
-    // cache miss, dependency re-pin) runs a real npm install inside the hook,
-    // which the 10s default ceiling cannot cover.
+    // cache miss, dependency re-pin) runs a real npm install inside the hook, which the 10s default ceiling cannot cover.
     beforeAll(() => {
       report = staging.runDriver(baseline)
     }, 60_000)
@@ -87,8 +81,7 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
     test('host: hostile gateway usage keeps the served view schema-valid (issue #44)', () => {
       // Negative uncached input (cached_tokens > prompt_tokens), fractional
       // counts, string buckets, and a hostile NaN must all survive the REAL
-      // registry's strict wire parse — billed from sanitized buckets, never
-      // frozen.
+      // registry's strict wire parse — billed from sanitized buckets, never frozen.
       assert.equal(report.hostileSnapshotOk, true)
       assert.equal(report.hostilePrompt, 161)
       assert.equal(report.hostileCacheRead, 151)
@@ -120,8 +113,7 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
       // The balance route resolves the provider's settings row off the
       // Config-form `describe()` projection (the row matched by its own
       // apiKeyEnv-bearing section shape); the retired `get(ns)` section read
-      // is asserted absent, so a moved seam names itself instead of silently
-      // hiding the capsule.
+      // is asserted absent, so a moved seam names itself instead of silently hiding the capsule.
       const balance = baseline.balance
       assert.equal(
         staging.dshHasString(baseline.tag, balance.settingsGetNeedle, balance.settingsFile),
@@ -153,8 +145,7 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
       // transport it rides: the Plugins page's `plugins.bundle.config` +
       // `configForms` on every supported line. Asserted BOTH ways (like the
       // sidebar seam) so a moved seam cannot read as "unsupported here" — a
-      // slot the generation does not declare simply never receives the
-      // registration.
+      // slot the generation does not declare simply never receives the registration.
       const settings = baseline.settings
       assert.equal(
         settings.cardSlotFiles.some(pattern =>
@@ -214,8 +205,7 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
 
     test('client: the session-jump seam of this generation (issue #90)', () => {
       // The view owner's navigation verb (the sidebar row click's own), with
-      // the signature this line spells; and the retired sessions-service
-      // `open(id)` selection verb, probed staying gone.
+      // the signature this line spells; and the retired sessions-service `open(id)` selection verb, probed staying gone.
       const nav = baseline.client.sessionNav
       assert.equal(
         staging.dshHasString(baseline.tag, nav.workspaceNeedle, nav.workspaceFile),

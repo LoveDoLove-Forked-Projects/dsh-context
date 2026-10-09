@@ -74,8 +74,7 @@ describe('candidates', () => {
     const { source } = setup()
     const candidates = await source.candidates({ sessionId: 'cmd-empty' }, { query: '', position: 'leading', signal: SIGNAL })
     // The localized section replaces the menu's raw source-name title row;
-    // the localized label and glyph are display-only (older harness builds
-    // render the bare name).
+    // the localized label and glyph are display-only (older harness builds render the bare name).
     assert.deepEqual(candidates, [{
       name: 'context',
       label: DICT_EN['cmd.label'],

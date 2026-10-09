@@ -19,11 +19,9 @@ interface CtxSpec {
   credentials?: unknown
 }
 
-/**
- * A minimal host ctx double with cordis inject semantics: the callback runs
+/** A minimal host ctx double with cordis inject semantics: the callback runs
  * once its dependency list completes (here: immediately when the services
- * map has them, never otherwise), and its returned disposer is collected.
- */
+ * map has them, never otherwise), and its returned disposer is collected. */
 function ctxOf(spec: CtxSpec): { ctx: Context; captured: { path?: string; fetch?: RouteFetch }; disposers: (() => void)[] } {
   const captured: { path?: string; fetch?: RouteFetch } = {}
   const disposers: (() => void)[] = []

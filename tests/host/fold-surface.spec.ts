@@ -54,8 +54,7 @@ describe('applySurface tool/result branch', () => {
   })
 
   test('an unknown source callId pairs nothing (a replay window where the tool/call event is gone)', () => {
-    // Note the fold assigns the lookup miss onto the node, so this state is
-    // not assertPlainJson-able.
+    // Note the fold assigns the lookup miss onto the node, so this state is not assertPlainJson-able.
     const { state } = driveTimeline([toolResult(1, { callId: 'ghost', content: text('ok') })])
     assert.equal(state.surface.at(-1)?.tool, undefined)
     assert.deepEqual(state.callNames, {})
@@ -72,8 +71,7 @@ describe('applySurface tool/result branch', () => {
 
   test('a result without the source callId pairs nothing and leaves callNames untouched', () => {
     // A hostile/foreign envelope: the admission validation requires the
-    // source callId, so a source-less row can only arrive hostile — it folds
-    // to an unnamed node instead of throwing.
+    // source callId, so a source-less row can only arrive hostile — it folds to an unnamed node instead of throwing.
     const ev: TimelineEvent = {
       type: 'tool/result', seq: 2, time: at(),
       data: { message: { role: 'tool', toolCallId: 'keep', content: text('ok') } },
@@ -97,8 +95,7 @@ describe('applySurface tool/result branch', () => {
   test('the retired envelope-only error mark no longer flags the node', () => {
     // The pre-V4 spelling (an event-level `data.error` with no message mark)
     // is unreachable through the supported harnesses' admission validation;
-    // a hostile replay carrying it degrades to an unflagged node, never a
-    // throw.
+    // a hostile replay carrying it degrades to an unflagged node, never a throw.
     const ev: TimelineEvent = {
       type: 'tool/result', seq: 2, time: at(),
       data: {
@@ -287,8 +284,7 @@ describe('surfaceOp variants', () => {
   })
 
   test('restored state: claim without pendingShadowEventSeq skips the rewrite', () => {
-    // A checkpoint restore may carry the claim fields partially — def.apply
-    // accepts any TimelineState.
+    // A checkpoint restore may carry the claim fields partially — def.apply accepts any TimelineState.
     const def = timelineDef({})
     const base = driveTimeline([userMessage(1, text(big))]).state
     const restored: TimelineState = { ...base, pendingShadowedSeqs: [1] }

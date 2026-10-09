@@ -20,12 +20,9 @@ const specFile = path.normalize(fileURLToPath(import.meta.url))
  * registry); reading it yields the wrapped underlying service instance. */
 const CORDIS_ORIGINAL = Symbol.for('cordis.original')
 
-/**
- * A tracked tools service shaped like dsh's ToolRuntime: a real Service
+/** A tracked tools service shaped like dsh's ToolRuntime: a real Service
  * subclass whose `register` is a PROTOTYPE method — the shape that makes
- * cordis hand out a fresh traced proxy (closing over the reader's context)
- * on every `ctx.tools` property read.
- */
+ * cordis hand out a fresh traced proxy (closing over the reader's context) on every `ctx.tools` property read. */
 class TrackedTools extends Service {
   layers = { global: { tools: new Map() } }
   constructor(ctx: Context) { super(ctx, 'tools') }
@@ -211,8 +208,7 @@ describe('createToolAttribution', () => {
     const first = createToolAttribution(app)
     void first
     // The second hook incarnation (a reload) peels the first wrapper back to
-    // the original: a registration records into the NEW hook only, and the
-    // original register still runs exactly once.
+    // the original: a registration records into the NEW hook only, and the original register still runs exactly once.
     const second = createToolAttribution(app)
     await app.plugin({
       name: 'provider-b',

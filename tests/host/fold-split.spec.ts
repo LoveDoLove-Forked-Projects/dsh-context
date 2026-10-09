@@ -2,8 +2,7 @@
 // buildTimelineDetail + the detailRev ledger): the slim head carries the
 // counters and the headline anchor while the detail payload serves the heavy
 // collections, and the revision bumps exactly on detail-mutating folds.
-// Also pins the equivalence: inline view = head + detail, so the two
-// generations can never drift apart.
+// Also pins the equivalence: inline view = head + detail, so the two generations can never drift apart.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -50,8 +49,7 @@ function canonicalLog(): TimelineEvent[] {
 describe('the detailRev ledger', () => {
   test('bumps exactly on the detail-mutating folds of the canonical log', () => {
     // Mutations: userMessage(5), assistantMessage(6), toolResult(8),
-    // stepEnd(9, the strip's span flush), assistantMessage(10), compaction(11),
-    // planMode(12) — seven in total.
+    // stepEnd(9, the strip's span flush), assistantMessage(10), compaction(11), planMode(12) — seven in total.
     const { state } = driveTimeline(canonicalLog())
     assert.equal(state.detailRev, 7)
   })
@@ -59,8 +57,7 @@ describe('the detailRev ledger', () => {
   test('the working-slot and envelope folds do NOT bump (nothing to refetch)', () => {
     const { def, state } = driveTimeline(canonicalLog())
     // step/start (arms the step slot), tool/call (arms the call ledger),
-    // request/context (capacity metadata), and a header with an UNCHANGED
-    // model all leave the detail collections as-is.
+    // request/context (capacity metadata), and a header with an UNCHANGED model all leave the detail collections as-is.
     const follow: TimelineEvent[] = [
       requestContext(13, { contextWindow: 256000 }),
       header(14, { model: 'deepseek-v4-flash', provider: 'deepseek', reason: 'change' }),
@@ -97,11 +94,9 @@ describe('buildTimelineHead', () => {
     assert.ok(head.current.total > 0)
     // The retained records tally: one turn, two steps, the compaction event.
     assert.deepEqual(head.counts, { turns: 1, steps: 2, injects: 0, compactions: 1, prunes: 0, skills: 0 })
-    // The whole-session tally rides the head too: the canonical log's one
-    // user message (injections excluded).
+    // The whole-session tally rides the head too: the canonical log's one user message (injections excluded).
     assert.equal(head.humanInputs, 1)
-    // …and both its textual assistant replies (a step counts as an answer
-    // only when the message carried text).
+    // …and both its textual assistant replies (a step counts as an answer only when the message carried text).
     assert.equal(head.answers, 2)
     // The card preview rides the head: the canonical log's own user message.
     assert.equal(head.lastUser, 'hello there')
@@ -188,8 +183,7 @@ describe('buildTimelineDetail', () => {
     assert.deepEqual(detail.archive, view.archive)
     assert.equal(detail.surfaceFloor, view.surfaceFloor)
     assert.equal(detail.archiveFloor, view.archiveFloor)
-    // The slim head rides at the SAME cut: the composition the Agent
-    // network's cold-node ring fetch renders from.
+    // The slim head rides at the SAME cut: the composition the Agent network's cold-node ring fetch renders from.
     assert.ok(detail.head !== undefined)
     assert.deepEqual(detail.head.current, view.current)
     assert.deepEqual(detail.head.counts, buildTimelineHead(state).counts)

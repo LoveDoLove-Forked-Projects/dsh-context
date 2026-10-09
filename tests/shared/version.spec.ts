@@ -1,6 +1,5 @@
 // The version gate's arithmetic (src/shared/version.ts): parsing, the total
-// order (release > rc > beta > alpha at equal X.Y.Z), and the fail-open
-// baseline check.
+// order (release > rc > beta > alpha at equal X.Y.Z), and the fail-open baseline check.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

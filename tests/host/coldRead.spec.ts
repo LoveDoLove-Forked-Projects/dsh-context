@@ -70,8 +70,7 @@ describe('makeColdReadGate', () => {
       ran++
       return 'b'
     })
-    // Let the first read actually START (its check passed), then let pressure
-    // rise while the second read waits behind it.
+    // Let the first read actually START (its check passed), then let pressure rise while the second read waits behind it.
     await new Promise(resolve => setTimeout(resolve, 10))
     assert.ok(started, 'the front read started under the low reading')
     reading = HIGH

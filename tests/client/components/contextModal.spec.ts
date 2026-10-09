@@ -46,8 +46,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   // The cold-start share (timelineSource.ts) is page-lifetime per session:
-  // drop it so one test's cold read never leaks its state into a later test
-  // that reuses the same session id.
+  // drop it so one test's cold read never leaks its state into a later test that reuses the same session id.
   resetTimelineDetailStores()
 })
 
@@ -302,8 +301,7 @@ describe('ContextModal', () => {
       useContextModal: boundModalHook(sid),
       useProjection: () => undefined,
     }))
-    // Relocate the mount container under the frame before opening, so the
-    // measure walks the real ancestor chain.
+    // Relocate the mount container under the frame before opening, so the measure walks the real ancestor chain.
     seat.appendChild(m.container)
     await act(async () => {
       modalStoreOf(sid).set(true)
@@ -312,8 +310,7 @@ describe('ContextModal', () => {
     assert.equal(backdrop.style.left, '280px')
     assert.equal(backdrop.style.right, '360px')
 
-    // A sidebar rewrite while open (the right panel closed here) is followed
-    // through the observer on both edges.
+    // A sidebar rewrite while open (the right panel closed here) is followed through the observer on both edges.
     await act(async () => {
       frame.style.gridTemplateColumns = '56px minmax(0px, 1fr) minmax(0px, 0px)'
     })
@@ -506,8 +503,7 @@ describe('ContextModal — the split generation', () => {
 
     // The face lands mid-open (cordis replays the pending inject): the modal
     // re-renders, the fetcher builds, and the open epoch fetches by itself.
-    // The face rides INSIDE the `remote` facade; the `remote.session` service
-    // key stays hostile, as on the real host.
+    // The face rides INSIDE the `remote` facade; the `remote.session` service key stays hostile, as on the real host.
     await act(async () => {
       ctx.setService('remote.session', { get page() { throw new Error('cannot get property "remote.session" without inject') } })
       ctx.setService('remote', {

@@ -1,7 +1,6 @@
 // Unit tests for host/toolSources.ts — best-effort tool-to-plugin attribution:
 // MCP server recovery from the `mcp__` name prefix, and the pinned first-party
-// package map. (A harness-logged `plugin` field, when one appears, passes
-// through headers.ts ahead of everything here.)
+// package map. (A harness-logged `plugin` field, when one appears, passes through headers.ts ahead of everything here.)
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -29,8 +28,7 @@ describe('mcpServerOf', () => {
 
   test('hash-appended overlong names resolve the server that survived truncation', () => {
     const hex64 = '0123456789abcdef'.repeat(4)
-    // Overlong names get '_<64-hex>' appended; the last __ separator survives
-    // unless the truncation cut into it.
+    // Overlong names get '_<64-hex>' appended; the last __ separator survives unless the truncation cut into it.
     assert.equal(mcpServerOf(`mcp__github__tool_${hex64}`), 'github')
     assert.equal(mcpServerOf(`mcp__github__tool_${'z'.repeat(64)}`), 'github')
   })

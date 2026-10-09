@@ -1,8 +1,7 @@
 // The baseline gate's fallback units (src/host/fallback.ts), driven over the
 // REAL session-projection registry: the gate's value arrives through the
 // ordinary snapshot cut no matter what the log carries, both registry
-// contract generations read their own shape off the definition, and cached
-// rows from either direction seed harmlessly.
+// contract generations read their own shape off the definition, and cached rows from either direction seed harmlessly.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

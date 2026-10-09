@@ -1,7 +1,6 @@
 // revealScroll (src/client/revealScroll.ts) — the jump's landing reveal,
 // driven against real jsdom DOM: the nearest ancestor that ACTUALLY scrolls
-// (overflowing style alone is not enough) takes the rect-delta scroll, the
-// walk stops at body/null, hostile chains never throw.
+// (overflowing style alone is not enough) takes the rect-delta scroll, the walk stops at body/null, hostile chains never throw.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

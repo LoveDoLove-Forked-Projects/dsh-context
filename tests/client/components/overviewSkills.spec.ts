@@ -443,8 +443,7 @@ describe('OverviewSkills', () => {
     const detail = query(m.container, '.lc-ov-skill-detail')
     assert.equal(detail.closest('.lc-ov-skill-unit'), null, 'no inline seat without the pinned row')
     assert.equal(queryAll(detail, '.lc-skilld-head').length, 1, 'the detached seat carries the head')
-    // All twenty-five generated names match 'skill' — twenty rows plus the
-    // overflow line counting the filtered set.
+    // All twenty-five generated names match 'skill' — twenty rows plus the overflow line counting the filtered set.
     await actType(input, 'skill')
     assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 20)
     assert.ok(text(m.container).includes('5 more skills'), 'the overflow counts the filtered set')

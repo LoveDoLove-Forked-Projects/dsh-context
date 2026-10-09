@@ -532,15 +532,13 @@ describe('FileCard — workspace display and system open', () => {
       onPreview: e => { previewed.push(e); return true },
       onOpen: p => { opened.push(p) },
     }))
-    // The preview affordance leads: the title says so, and the click never
-    // reaches the system opener.
+    // The preview affordance leads: the title says so, and the click never reaches the system opener.
     const a = baseOf(rowOf(m.container, '/repo/src/a.ts'))
     assert.equal(a.getAttribute('title'), 'Preview in the sidebar')
     await click(a)
     assert.deepEqual(previewed.map(e => e.path), ['/repo/src/a.ts'])
     assert.equal(opened.length, 0)
-    // A refusal (no preview type claims it, no surface mounted) still opens on
-    // the system rather than becoming an inert click.
+    // A refusal (no preview type claims it, no surface mounted) still opens on the system rather than becoming an inert click.
     await m.unmount()
     const m2 = await mount(h(FileCard, {
       activity: workspaceActivity(),

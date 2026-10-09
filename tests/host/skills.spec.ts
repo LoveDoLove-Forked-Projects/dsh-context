@@ -3,8 +3,7 @@
 // harness's own skill catalog (observeSession → cwd + preset; a live agent's
 // scoped registry wins; a cold session rides a scope lease; every gap falls
 // back to the global layers), the typed `null` for every unusable face (the
-// route must never throw into the transport), the per-entry narrowing, and
-// the serve bound.
+// route must never throw into the transport), the per-entry narrowing, and the serve bound.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -21,11 +20,8 @@ interface CtxSpec {
   agentPresets?: unknown
 }
 
-/**
- * A minimal host ctx double with cordis inject semantics (mirrors
- * balance.spec.ts's): the callback runs once its dependency list completes,
- * and `ctx.get` serves the request-time reads.
- */
+/** A minimal host ctx double with cordis inject semantics (mirrors
+ * balance.spec.ts's): the callback runs once its dependency list completes, and `ctx.get` serves the request-time reads. */
 function ctxOf(spec: CtxSpec): { ctx: Context; captured: { path?: string; fetch?: RouteFetch } } {
   const captured: { path?: string; fetch?: RouteFetch } = {}
   const services = new Map<string, unknown>()

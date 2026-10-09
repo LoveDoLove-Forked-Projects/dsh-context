@@ -213,8 +213,7 @@ describe('timing — tool call durations', () => {
 describe('timing — the generation split (reasoning / text / tool args)', () => {
   test('the embedded stream tiles the generation window into the three buckets', () => {
     // step start 0, first marker 200 (10ms BEFORE the first token 210 — the
-    // wait/generation boundary opens there), blocks reasoning→text→tool-call,
-    // message at 2000.
+    // wait/generation boundary opens there), blocks reasoning→text→tool-call, message at 2000.
     const stream = [
       chunkRec(200, { type: 'block-start', index: 0, blockType: 'reasoning' }),
       { type: 'reasoning-chunks', time0: 210, index: 0, dt: [], texts: ['think'] },
@@ -266,8 +265,7 @@ describe('timing — the generation split (reasoning / text / tool args)', () =>
   test('an unstamped call carries no split (its model time is unattributed wholesale)', () => {
     // Block markers but no token anywhere in the stream: the call prices no
     // generation time, so its spans must not reappear as generation the
-    // caller never charged — and its blocks count nothing either (the tally
-    // rides the same gate).
+    // caller never charged — and its blocks count nothing either (the tally rides the same gate).
     const { state } = driveTimeline([
       stepStart(1, { time: 0 }),
       assistantMessage(2, {
@@ -410,8 +408,7 @@ describe('timing — served wire view', () => {
       toolCall(5, { callId: 'c1', name: 'bash' }),
       toolResult(6, { callId: 'c1', content: text('ok') }),
       stepEnd(7, { time: 30_000 }),
-      // A step left OPEN with a stamped slot: the final state carries
-      // stepStart.{time,firstToken} for the gate.
+      // A step left OPEN with a stamped slot: the final state carries stepStart.{time,firstToken} for the gate.
       stepStart(8, { time: 40_000 }),
       assistantAttempt(9, { stream: [chunkRec(40_100, { type: 'text-delta', text: 'x' })] })])
     // The 0.1.1+ contract validates persisted state through stateSchema.
@@ -519,8 +516,7 @@ describe('timing — the step\'s active time (user waits priced out)', () => {
   })
 
   test('a requestless step after a real one stamps nothing onto its record', () => {
-    // The seq guard: the open step armed no back-pointer, so the earlier
-    // step's record keeps its own stamp untouched.
+    // The seq guard: the open step armed no back-pointer, so the earlier step's record keeps its own stamp untouched.
     const { state } = driveTimeline([
       ...step(1, 0, 1_000, { tokenMs: 200 }),
       stepStart(4, { time: 10_000 }),

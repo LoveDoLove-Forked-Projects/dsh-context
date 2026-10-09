@@ -96,8 +96,7 @@ describe('EventList', () => {
     assert.ok(text(rows[0]).includes('Context Injection'))
     assert.equal(queryAll(rows[0], '.lc-event-tokens').length, 0)
 
-    // Foreign kind: EVENT_ICONS miss → '•' fallback, and the kind label
-    // resolves through the locale chain to the key itself.
+    // Foreign kind: EVENT_ICONS miss → '•' fallback, and the kind label resolves through the locale chain to the key itself.
     assert.equal(query(rows[1], '.lc-event-icon').textContent, '•')
     assert.equal(query(rows[1], '.lc-kind').textContent, 'kind.mystery')
 
@@ -133,10 +132,8 @@ describe('EventList', () => {
     assert.equal(labels[0].getAttribute('title'), '')
     assert.equal(labels[1].getAttribute('title'), '')
 
-    // Newest first: labels[0] is the prune, labels[1] the inject.
-    // Force an empty-text overflow on the prune label (the
-    // `el.textContent || ''` fallback arm) and a real overflow on the
-    // inject label, then resize.
+    // Newest first: labels[0] is the prune, labels[1] the inject. Force an empty-text overflow on the prune label (the
+    // `el.textContent || ''` fallback arm) and a real overflow on the inject label, then resize.
     Object.defineProperty(labels[0], 'scrollWidth', { value: 100, configurable: true })
     Object.defineProperty(labels[1], 'scrollWidth', { value: 100, configurable: true })
     labels[0].textContent = ''

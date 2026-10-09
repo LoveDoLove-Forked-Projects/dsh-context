@@ -1,6 +1,5 @@
 // StackedBar + Legend (src/client/components/stackedBar.tsx) rendered with
-// real React through a state-holding hover harness, plus direct mounts for
-// the scale/free/reserve/tooltip branch matrix.
+// real React through a state-holding hover harness, plus direct mounts for the scale/free/reserve/tooltip branch matrix.
 
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'

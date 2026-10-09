@@ -1,7 +1,6 @@
 // Placement gating (src/client/placement.ts): the mounts follow the
 // `defaultPlacement` preference — both, the tab only, or the sidebar only —
-// a flip disposes exactly what the new value drops, and the watcher's own
-// disposer unwinds everything and detaches the store.
+// a flip disposes exactly what the new value drops, and the watcher's own disposer unwinds everything and detaches the store.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

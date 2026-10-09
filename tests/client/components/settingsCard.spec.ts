@@ -1,7 +1,6 @@
 // The preference card (src/client/components/settingsCard.tsx): the
 // Plugins-page seat rendered with real React against the real DICT_EN
-// strings; the select rows open the REAL Menu primitive (portaled into
-// document.body) and pick through it.
+// strings; the select rows open the REAL Menu primitive (portaled into document.body) and pick through it.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -75,8 +74,7 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
     assert.equal(selects[0].getAttribute('aria-expanded'), 'false')
     assert.equal(document.body.querySelector('[role="menu"]'), null)
 
-    // The insights-entry row follows the placement one; its pick writes the
-    // visibility field.
+    // The insights-entry row follows the placement one; its pick writes the visibility field.
     assert.ok(text(m.container).includes(DICT_EN['settings.insightsEntry']))
     assert.ok(text(selects[1]).includes(DICT_EN['insightsEntry.show']))
     await click(selects[1])

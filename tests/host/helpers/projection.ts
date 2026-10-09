@@ -1,7 +1,6 @@
 // Fold drivers for the host specs: run event envelopes through the REAL
 // projection units the plugin registers (no harness plumbing — the units are
-// pure init/apply/view), pinning the state's plain-JSON rule on every
-// intermediate state (see assertNoAbsentMembers).
+// pure init/apply/view), pinning the state's plain-JSON rule on every intermediate state (see assertNoAbsentMembers).
 
 import assert from 'node:assert/strict'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -12,14 +11,12 @@ import type { ContextHeaders, ContextTimeline } from '../../../src/shared/types'
 import { createContextTimelineDefinition } from '../../../src/host/timeline'
 import { createContextHeadersDefinition } from '../../../src/host/headers'
 
-/**
- * The fold's declared contract takes the core `SessionEvent` union; the log
+/** The fold's declared contract takes the core `SessionEvent` union; the log
  * also carries declaration-merged plugin events (compaction/*), so the fold
  * widens to TimelineEvent (src/host/fold.ts). These widened faces mirror the
  * supported registry contract (src/host/compat.ts: stateSchema + required
  * `wire`, zero-arg `init` — see ProjectionDefinition) and perform the ONE
- * documented cast inside the helper, keeping every spec call site clean.
- */
+ * documented cast inside the helper, keeping every spec call site clean. */
 export interface TimelineDefLike {
   key: string
   /** The persisted-state gate the projection cache's cold path parses rows with. */
@@ -48,14 +45,12 @@ export function headersDef(): HeadersDefLike {
   return createContextHeadersDefinition() as unknown as HeadersDefLike
 }
 
-/**
- * Lossless-JSON probe and detach, inlined with the dsh `snapshotJsonValue`
+/** Lossless-JSON probe and detach, inlined with the dsh `snapshotJsonValue`
  * semantics (the export lives in `@deepseek-ai/dsh-util-values`, and the
  * test fixtures must track no single dsh face). Returns undefined when the
  * value is not losslessly JSON-serializable: an undefined/function/symbol
  * member, a non-finite number, a non-plain object, or a cycle. Shared with the
- * compat matrix's registry driver (tests/host/compat/registryDriver.ts).
- */
+ * compat matrix's registry driver (tests/host/compat/registryDriver.ts). */
 export function snapshotJson(value: unknown, ancestors: Set<object> = new Set()): unknown {
   switch (typeof value) {
     case 'string': case 'boolean': return value
@@ -91,11 +86,9 @@ export function snapshotJson(value: unknown, ancestors: Set<object> = new Set())
   }
 }
 
-/**
- * The projection-cache precondition: every state the fold produces must be
+/** The projection-cache precondition: every state the fold produces must be
  * losslessly JSON-serializable (a single undefined property fails EVERY cache
- * write for the session — see TimelineState). Returns the detached copy.
- */
+ * write for the session — see TimelineState). Returns the detached copy. */
 export function assertPlainJson<T>(state: T): T {
   const copy = snapshotJson(state)
   assert.ok(copy !== undefined, 'fold state must be losslessly JSON-serializable')

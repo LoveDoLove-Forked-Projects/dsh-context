@@ -7,9 +7,7 @@
 // generation (issues #26/#8 — the tab stuck "Reading the session log…"), a
 // state that fails the projection cache's plain-JSON write gate (issues
 // #5-#7, #27-#30 — session creation/titles broke host-wide), a stale-row
-// restore that must seed through stateSchema, and an init that must tolerate
-// the registry's header argument.
-//
+// restore that must seed through stateSchema, and an init that must tolerate the registry's header argument.
 // The real-code complement — the ACTUAL dsh registry sources per tag — runs
 // in the `compat` vitest project (tests/compat/matrix.spec.ts).
 
@@ -95,8 +93,7 @@ for (const [index, baseline] of BASELINES.entries()) {
 
     test('the split generation (slim head) rides the same registry contract', () => {
       // The slim head is the wire value when the detail channel is live
-      // (host/detail.ts): the registry drives, caches, restores, and gates it
-      // identically — only the served value differs.
+      // (host/detail.ts): the registry drives, caches, restores, and gates it identically — only the served value differs.
       const driver = new RegistryDriver(baseline)
       driver.register(createContextTimelineDefinition({}, () => true))
       driver.register(createContextHeadersDefinition())
@@ -120,8 +117,7 @@ for (const [index, baseline] of BASELINES.entries()) {
       assert.equal(timeline.counts?.steps, 2, 'the counters travel on the head')
       assert.equal(timeline.nodes.length, 0, 'the collections stay off the wire')
       assert.equal(timeline.requests.length, 0)
-      // The cache contract is unchanged: plain-JSON rows, and a restore that
-      // refolds to the live cut.
+      // The cache contract is unchanged: plain-JSON rows, and a restore that refolds to the live cut.
       assert.ok(driver.checkpointJson(session) !== undefined)
       const cold = driver.restore({}, log, 0, session.header)
       assert.deepEqual(cold.values, driver.snapshot(session).values)
@@ -193,8 +189,7 @@ for (const [index, baseline] of BASELINES.entries()) {
       // carries a raw nonconforming gateway figure, while the durable log
       // holds every committed step. The bump makes the stale row unusable, so
       // the cold read refolds from init over the FULL log — the steps the
-      // frozen feed never showed come back, billed with sanitized figures and
-      // passing the real wire schema on the way out.
+      // frozen feed never showed come back, billed with sanitized figures and passing the real wire schema on the way out.
       const log = [
         ...fullLog(),
         assistantMessage(13, { turn: 1, step: 2, usage: { inputTokens: -80, cacheReadTokens: 150.7, outputTokens: 22.4 } }),
@@ -223,8 +218,7 @@ for (const [index, baseline] of BASELINES.entries()) {
       const { driver, session } = bootSession(index, log)
       assert.equal(driver.viewCheckpoint(stale).contextTimeline, undefined)
       // The cold read refolds from init over the full durable log; a schema
-      // violation anywhere would throw right here (restore parses each wire
-      // value through the unit's real viewSchema).
+      // violation anywhere would throw right here (restore parses each wire value through the unit's real viewSchema).
       const restored = driver.restore(stale, log, 0, session.header)
       const timeline = restored.values.contextTimeline as { requests: { seq: number; prompt?: number; cacheRead?: number; output?: number }[] }
       // Every step is tracked again — the hostile ones included…

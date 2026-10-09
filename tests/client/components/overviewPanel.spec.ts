@@ -99,8 +99,7 @@ async function openPanel(
     ...props,
   }
   const m = await mount(h(Panel, allProps))
-  // The price book's first fetch resolves a microtask or two behind the
-  // mount; a second act window keeps its notify inside act.
+  // The price book's first fetch resolves a microtask or two behind the mount; a second act window keeps its notify inside act.
   await flush()
   return { m, Panel }
 }
@@ -144,8 +143,7 @@ describe('OverviewPanel', () => {
     assert.ok(text(m.container).includes('Context Insights'))
     // The page chrome: the section's one scroll region carries the centered
     // content column — the page heading, then the 1:1 first row (the KPI
-    // band beside the last-7-days usage chart), the aggregate stats pair,
-    // and the insight/session body.
+    // band beside the last-7-days usage chart), the aggregate stats pair, and the insight/session body.
     const page = query(m.container, 'section.lc-ov-page')
     assert.equal(page.getAttribute('aria-label'), 'Context Insights')
     const scrollRows = [...query(m.container, '.lc-ov-pagecontent').children].map(el => el.className.split(' ')[0])
@@ -454,8 +452,7 @@ describe('OverviewPanel', () => {
 
   test('the settings chip beside the title runs the preferences jump', async () => {
     // The harness chrome the jump drives (settingsJump.ts): the Plugins panel
-    // entry first, then the bundle card's open control (the one non-switch
-    // button inside the card), both click-tracked.
+    // entry first, then the bundle card's open control (the one non-switch button inside the card), both click-tracked.
     const clicks: string[] = []
     const chrome = document.createElement('div')
     chrome.innerHTML = `
@@ -472,8 +469,7 @@ describe('OverviewPanel', () => {
       const ctx = makeCtx()
       const { m } = await openPanel(ctx)
       const chip = query<HTMLButtonElement>(m.container, '.lc-ov-settings')
-      // The chip rides the heading, directly after the title (the long hint
-      // moved onto the hover title).
+      // The chip rides the heading, directly after the title (the long hint moved onto the hover title).
       assert.equal(chip.textContent, 'Plugin Settings')
       assert.equal(chip.title, 'Open plugin settings')
       const head = query(m.container, '.lc-ov-pagehead')

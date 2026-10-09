@@ -113,8 +113,7 @@ describe('watchInsightPage', () => {
   })
 
   test('a slots face returning no disposer is tolerated across flips and dispose', () => {
-    // A minimal face: inject/register land nothing unwindable (the harness
-    // contract allows either to return no handle).
+    // A minimal face: inject/register land nothing unwindable (the harness contract allows either to return no handle).
     const bare = {
       slots: {
         inject: (_name: string, cb: () => unknown) => { cb(); return undefined },

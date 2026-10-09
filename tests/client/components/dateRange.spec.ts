@@ -1,7 +1,6 @@
 // The Insights page's date-range picker (src/client/components/dateRange.tsx)
 // — the two-click range in either order, the highlighted band and edges, the
-// portaled panel's own seat and every way out of it, and the month nav plus
-// the grid's keyboard cursor.
+// portaled panel's own seat and every way out of it, and the month nav plus the grid's keyboard cursor.
 
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -322,8 +321,7 @@ describe('the keyboard cursor', () => {
 describe('the panel seat', () => {
   test('sits under its trigger, inside the viewport, and flips when it would fall off', async () => {
     // jsdom measures every element as 0; drive the panel's own box, then put
-    // the prototype's own descriptors back (deleting them would leave every
-    // later measurement NaN).
+    // the prototype's own descriptors back (deleting them would leave every later measurement NaN).
     const size = { w: 240, h: 300 }
     const own = (name: string): PropertyDescriptor | undefined => Object.getOwnPropertyDescriptor(HTMLElement.prototype, name)
     const width = own('offsetWidth')
@@ -336,8 +334,7 @@ describe('the panel seat', () => {
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => size.h })
     try {
       const { m } = await open()
-      // The panel measures its anchor wrapper (the trigger's own box): jsdom's
-      // rects are all zeros, so drive the one it reads.
+      // The panel measures its anchor wrapper (the trigger's own box): jsdom's rects are all zeros, so drive the one it reads.
       const rect = { left: 800, right: 900, top: 680, bottom: 700 }
       query(m.container, '.lc-dp').getBoundingClientRect = () =>
         ({ ...rect, x: rect.left, y: rect.top, width: 100, height: 20, toJSON: () => '' }) as DOMRect

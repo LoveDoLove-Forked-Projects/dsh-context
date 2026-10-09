@@ -1,7 +1,6 @@
 // dnaOf (src/client/dna.ts): the DNA strip's per-item decomposition — the
 // system prompt and the header epoch's tool schemas lead, the message flow
-// follows in seq order: the order the model reads the context, which is also
-// the order items joined it.
+// follows in seq order: the order the model reads the context, which is also the order items joined it.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

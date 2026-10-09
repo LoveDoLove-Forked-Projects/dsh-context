@@ -117,8 +117,7 @@ describe('the price store', () => {
     assert.deepEqual(getModelPricesSnap(), { book: null, failed: false })
     const seen: ModelPricesSnap[] = []
     const un = subscribeModelPrices(() => seen.push(getModelPricesSnap()))
-    // A second subscription in the same tick finds the fetch already in
-    // flight and never re-kicks.
+    // A second subscription in the same tick finds the fetch already in flight and never re-kicks.
     const un2 = subscribeModelPrices(() => {})
     await settle()
     assert.equal(calls, 1)

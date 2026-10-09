@@ -1,7 +1,6 @@
 // StatsTokens (src/client/components/statsTokens.tsx) rendered with real
 // React: the donut centered on the chat stats line's whole-session billed
-// total, sliced by composition category — the prompt side shared by the
-// estimated ratios, output exact.
+// total, sliced by composition category — the prompt side shared by the estimated ratios, output exact.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'

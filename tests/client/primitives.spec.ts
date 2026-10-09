@@ -32,8 +32,7 @@ describe('resolveIcon', () => {
   })
 
   test('the module-level exports resolve against the pinned generation', () => {
-    // The devDep carries the supported vocabulary, so these resolved at
-    // module load.
+    // The devDep carries the supported vocabulary, so these resolved at module load.
     for (const icon of [IconBranch, IconPlus, IconCheck, IconCopy, IconClose, IconSettings, IconChevronDown]) {
       assert.equal(typeof icon, 'function', 'every seam resolves to a component')
     }

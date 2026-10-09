@@ -1,7 +1,6 @@
 // UpgradeGate (src/client/components/upgradeGate.tsx) — the baseline-gate
 // modal rendered for real in jsdom: version rows, backdrop/card/Escape/OK/×
-// dismissal, and the per-session dismissal ledger across remounts and
-// in-place session switches.
+// dismissal, and the per-session dismissal ledger across remounts and in-place session switches.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'

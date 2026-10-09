@@ -1,6 +1,5 @@
 // SliceList (src/client/components/sliceList.tsx) rendered with real React:
-// the donut legend rows — the primary line (color dot, label, bold share)
-// over the secondary quantity line.
+// the donut legend rows — the primary line (color dot, label, bold share) over the secondary quantity line.
 
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'

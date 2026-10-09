@@ -339,8 +339,7 @@ describe('timelineOf', () => {
 
   test('a slim head carrying the (empty) collections passes through by reference, markers intact', () => {
     // The host's head builder emits the four collections as empty lists, so
-    // the split generation rides the cheap pass-through path like any
-    // well-formed value — the markers/counts survive untouched.
+    // the split generation rides the cheap pass-through path like any well-formed value — the markers/counts survive untouched.
     const head = {
       ok: true,
       current,

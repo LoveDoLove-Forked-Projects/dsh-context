@@ -5,10 +5,8 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import { createContextSettings, type SettingsScopeLike } from '../../src/client/settings'
 
-/**
- * A faithful in-memory settings form (the harness configForms.get contract:
- * getSnapshot/subscribe/set), not a mock of plugin code.
- */
+/** A faithful in-memory settings form (the harness configForms.get contract:
+ * getSnapshot/subscribe/set), not a mock of plugin code. */
 class TestSettingsScope implements SettingsScopeLike {
   private snapshot: { status: string; value: unknown; writable: boolean }
   private readonly listeners = new Set<() => void>()
@@ -145,8 +143,7 @@ describe('set', () => {
 
   test('a rejected placement write degrades to all when the scope carries no valid value', async () => {
     // Fail open: the unpersisted echo must not keep hiding an entry until
-    // the next reload — with nothing valid in the scope's truth, fall back
-    // to `all`.
+    // the next reload — with nothing valid in the scope's truth, fall back to `all`.
     const s = createContextSettings()
     const scope = new TestSettingsScope({ status: 'ready', value: {}, writable: true })
     s.attach(scope)
@@ -158,8 +155,7 @@ describe('set', () => {
   })
 
   test('a rejected placement write rolls back to the scope\'s valid truth', async () => {
-    // The scope truth itself is a valid placement: the rollback restores it,
-    // no forced degrade.
+    // The scope truth itself is a valid placement: the rollback restores it, no forced degrade.
     const s = createContextSettings()
     const scope = new TestSettingsScope({ status: 'ready', value: { defaultPlacement: 'sidebar' }, writable: true })
     s.attach(scope)
@@ -171,8 +167,7 @@ describe('set', () => {
 
   test('a rejected insights-entry write degrades to show when the scope carries no valid value', async () => {
     // Fail open: the unpersisted echo must not keep the panel's entry hidden
-    // until the next reload — with nothing valid in the scope's truth, fall
-    // back to `show`.
+    // until the next reload — with nothing valid in the scope's truth, fall back to `show`.
     const s = createContextSettings()
     const scope = new TestSettingsScope({ status: 'ready', value: {}, writable: true })
     s.attach(scope)
@@ -277,8 +272,7 @@ describe('attach', () => {
   })
 
   test('an invalid scope placement degrades to all instead of keeping the current one', () => {
-    // Fail open on the read path too: a value the plugin cannot understand
-    // must not strand a previously chosen placement.
+    // Fail open on the read path too: a value the plugin cannot understand must not strand a previously chosen placement.
     const s = createContextSettings()
     s.set('defaultPlacement', 'tab')
     assert.equal(s.defaultPlacement(), 'tab')
@@ -288,8 +282,7 @@ describe('attach', () => {
   })
 
   test('an invalid scope insights entry degrades to show instead of keeping the current one', () => {
-    // Fail open on the read path too: a config problem must not leave the
-    // panel's entry hidden.
+    // Fail open on the read path too: a config problem must not leave the panel's entry hidden.
     const s = createContextSettings()
     s.set('insightsEntry', 'hide')
     assert.equal(s.insightsEntry(), 'hide')

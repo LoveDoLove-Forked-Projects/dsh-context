@@ -2,8 +2,7 @@
 // plugin's `apply` consumes. Every member implements the DOCUMENTED contract
 // (cordis effect/inject semantics, locale fallback chain, slot registry,
 // sessions scope) rather than a test-specific stub — registrations
-// and disposals behave the way the real harness's do, so specs assert through
-// the same seams the production runtime uses.
+// and disposals behave the way the real harness's do, so specs assert through the same seams the production runtime uses.
 
 import type { ClientCtx, LocaleService, SlotRegistration, SlotsService } from '../../../src/client/services'
 import { makeTranslate } from './kit'
@@ -63,12 +62,10 @@ export interface TestClientCtxOptions {
   services?: Record<string, unknown>
 }
 
-/**
- * A client ctx with cordis semantics: `inject` runs its callback once every
+/** A client ctx with cordis semantics: `inject` runs its callback once every
  * requested service exists (services are armed via options.services or
  * setService — arming later replays pending callbacks, like cordis), and
- * `effect` collects disposers that `dispose()` runs LIFO.
- */
+ * `effect` collects disposers that `dispose()` runs LIFO. */
 export class TestClientCtx {
   readonly slots = new TestSlots()
   readonly locale: TestLocale
@@ -101,12 +98,10 @@ export class TestClientCtx {
     }
   }
 
-  /**
-   * Cordis semantics: an inject gets its fiber handle as soon as it is
+  /** Cordis semantics: an inject gets its fiber handle as soon as it is
    * declared (PENDING while a service is still missing) — disposing it either
    * cancels the pending wait or unwinds the loaded callback, and the loaded
-   * disposer also belongs to the context's own dispose (LIFO). Either path
-   * retires it, so the two lifetimes never run it twice.
+   * disposer also belongs to the context's own dispose (LIFO). Either path retires it, so the two lifetimes never run it twice.
    */
   inject(deps: string[] | Record<string, unknown>, cb: (ctx: TestClientCtx) => (() => void) | void): { dispose: () => Promise<void> } {
     const list = Array.isArray(deps) ? deps : Object.keys(deps)

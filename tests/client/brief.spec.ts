@@ -1,6 +1,5 @@
 // Step brief (src/client/brief.ts): node merge/sort, the per-step brief
-// (response hit, turn-start detection, opener scan, mid-turn inputs), and
-// the tooltip reply previews.
+// (response hit, turn-start detection, opener scan, mid-turn inputs), and the tooltip reply previews.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

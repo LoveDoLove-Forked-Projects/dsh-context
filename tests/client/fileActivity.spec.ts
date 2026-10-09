@@ -415,8 +415,7 @@ describe('activityOf — nested Code-Mode (PTC) calls', () => {
     })])
     assert.deepEqual(a.entries.map(e => e.path), ['/b.ts', '/a.ts'])
     assert.equal(a.entries[1].ops[0].err, true)
-    // The parent's stamp locates the op; a failed program does not fail its
-    // earlier successful reads.
+    // The parent's stamp locates the op; a failed program does not fail its earlier successful reads.
     const ok = a.entries[0].ops[0]
     assert.equal(ok.err, false)
     assert.equal(ok.gone, 40)
@@ -507,8 +506,7 @@ describe('activityOf — search meta attribution', () => {
         meta: { shape: 'paths', truncated: false, total: 1, paths: ['/old.ts'] },
       }),
     ])
-    // The searched target rows too: '/src' (the narrowed path) and the two
-    // pathless patterns ride ahead of their hit files.
+    // The searched target rows too: '/src' (the narrowed path) and the two pathless patterns ride ahead of their hit files.
     assert.deepEqual(a.entries.map(e => e.path), ['old', '/old.ts', 'broad', '/src', '/src/a.ts', '/src/b.ts'])
     const byPath = new Map(a.entries.map(e => [e.path, e]))
     const srcA = byPath.get('/src/a.ts')!
@@ -681,8 +679,7 @@ describe('glyphOf', () => {
       assert.ok(g.text !== undefined, `badge text color missing for ${base}`)
     }
     // The text color contrasts with the fill: near-black on light shades (the
-    // JS yellow, shell green, rust peach), white on dark ones (including the
-    // kotlin lilac, just under the threshold).
+    // JS yellow, shell green, rust peach), white on dark ones (including the kotlin lilac, just under the threshold).
     assert.equal(glyphOf('/x/index.js', 'text').text, '#1f2328')
     assert.equal(glyphOf('/x/deploy.sh', 'text').text, '#1f2328')
     assert.equal(glyphOf('/x/lib.rs', 'text').text, '#1f2328')

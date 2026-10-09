@@ -1,7 +1,6 @@
 // Unit tests for the contextHeaders projection unit (src/host/headers.ts) —
 // the request-header EPOCH METADATA behind the timeline's envelope figures.
-// The unit is pure init/apply/view: each case drives real event envelopes
-// through the real definition (no harness plumbing).
+// The unit is pure init/apply/view: each case drives real event envelopes through the real definition (no harness plumbing).
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -66,8 +65,7 @@ describe('createContextHeadersDefinition', () => {
       assert.equal(def.apply(state, headerEvent(seq, raw) as never), state, `header ${String(raw)} is not an epoch`)
     }
     // A data-less envelope is unreachable from the harness (append validates
-    // the payload) but must degrade to "not an epoch" all the same: this unit
-    // has no try/catch around its fold.
+    // the payload) but must degrade to "not an epoch" all the same: this unit has no try/catch around its fold.
     assert.equal(def.apply(state, { type: 'request/header', seq: 5, time: 5000 } as never), state)
   })
 
