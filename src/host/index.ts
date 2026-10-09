@@ -68,5 +68,5 @@ export type { Category, ContextEventRecord, RequestRecord, Snapshot, ContextTime
 export type { ActivityDay, ContextActivity, ContextHeaders, HeaderRecord, HeaderTool, ContextTimelineDetail, TimelineCounts, TimelineLast } from '../shared/types'
 export type { PlatformBalance, PlatformBalanceEntry, SkillInfo } from '../shared/types'
 export type { ActivityState } from './activity'
-export type { TimelineState } from './fold'
+export type { TimelineState } from './foldState'
 export type { HeadersState } from './headers'

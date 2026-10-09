@@ -23,8 +23,10 @@ import type { Config } from './config'
 import { resolveBounds } from './config'
 import type { ProjectionDefinition } from './compat'
 import type { ContextTimeline } from '../shared/types'
-import { applyTimeline, buildTimelineHead, buildTimelineView, createTimelineState } from './fold'
-import type { TimelineState } from './fold'
+import { applyTimeline } from './fold'
+import { createTimelineState } from './foldState'
+import type { TimelineState } from './foldState'
+import { buildTimelineHead, buildTimelineView } from './foldWire'
 
 /** Validate the wire payload before it leaves the host (strict: no drift). */
 const surfaceNodeSchema = z.object({

@@ -16,7 +16,9 @@
 import { z } from 'zod'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from './compat'
-import { addBilledUsage, skillNameOf, tokenCountOf, type BilledUsage, type UsageLike } from './fold'
+import { skillNameOf } from './fold'
+import { addBilledUsage, tokenCountOf } from './foldMetering'
+import type { BilledUsage, UsageLike } from './foldMetering'
 import { costUsageSchema } from './timeline'
 import { dayKeyOf } from '../shared/days'
 import type { ActivityDay, ContextActivity } from '../shared/types'
@@ -79,7 +81,7 @@ function billedBucketsOf(value: unknown): BilledUsage | null {
   const cacheWrite = tokenCountOf(usage.cacheWriteTokens)
   const output = tokenCountOf(usage.outputTokens)
   if (input === null && cacheRead === null && cacheWrite === null && output === null) return null
-  return { input: input ?? 0, cacheRead: cacheRead ?? 0, cacheWrite: cacheWrite ?? 0, output: output ?? 0 }
+  return { uncached: input ?? 0, cacheRead: cacheRead ?? 0, cacheWrite: cacheWrite ?? 0, output: output ?? 0 }
 }
 
 /** Write one day entry back into the ledger under the retention cap. A dynamic `delete` per
@@ -224,7 +226,7 @@ export function applyActivity(state: ActivityState, event: SessionEvent): Activi
   }
   const entry = {
     tokens: (prev === undefined ? 0 : prev.tokens)
-      + (buckets === null ? 0 : buckets.input + buckets.cacheRead + buckets.cacheWrite + buckets.output),
+      + (buckets === null ? 0 : buckets.uncached + buckets.cacheRead + buckets.cacheWrite + buckets.output),
     requests: (prev === undefined ? 0 : prev.requests) + 1,
     ...(cost !== undefined ? { cost } : {}),
     // The day's skill tallies ride the entry by reference; every mutation clones along its path.

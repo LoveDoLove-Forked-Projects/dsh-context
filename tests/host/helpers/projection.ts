@@ -11,7 +11,7 @@ import { createContextTimelineDefinition } from '../../../src/host/timeline'
 import { createContextHeadersDefinition } from '../../../src/host/headers'
 
 /** The fold's contract takes the core `SessionEvent` union, but the log also carries declaration-merged
- * plugin events (compaction/*), so it widens to TimelineEvent (src/host/fold.ts). These faces mirror the
+ * plugin events (compaction/*), so it widens to TimelineEvent (src/host/foldState.ts). These faces mirror the
  * supported registry contract (src/host/compat.ts: stateSchema + required `wire`, zero-arg `init` — see
  * ProjectionDefinition) and perform the ONE documented cast here, keeping every spec call site clean. */
 export interface TimelineDefLike {

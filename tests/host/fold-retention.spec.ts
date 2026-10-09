@@ -1,4 +1,4 @@
-// Retention in the timeline fold (src/host/fold.ts): trimToLastTurns plus trimState's turn-run / step / event / archive bounds, driven
+// Retention in the timeline fold (src/host/foldState.ts): trimToLastTurns plus trimState's turn-run / step / event / archive bounds, driven
 // through the real projection unit with tiny config bounds. The restored-state defenses (a cache restore can carry archived entries without
 // `gone` — the state schema leaves it optional) are exercised by feeding hand-crafted states through def.apply.
 

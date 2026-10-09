@@ -21,7 +21,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { FoldBounds } from './config'
 import { type ColdReadGate, makeColdReadGate } from './coldRead'
 import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
-import { applyTimeline, buildTimelineDetail, createTimelineState } from './fold'
+import { applyTimeline } from './fold'
+import { createTimelineState } from './foldState'
+import { buildTimelineDetail } from './foldWire'
 
 /** The plugin's detail route, under the authenticated `/api` fence. */
 export const DETAIL_ROUTE = '/api/dsh-context/detail'

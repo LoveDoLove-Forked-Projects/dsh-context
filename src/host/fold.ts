@@ -8,8 +8,7 @@
  * plain JSON (cached-checkpoint precondition) and bounded.
  */
 
-import type { Category, ContextEventRecord, ContextTimelineDetail, CostModelUsage, FileOpRecord, RequestRecord, SessionCostUsage, Snapshot, SurfaceNode, SystemPromptNode, TimingSpan, TimingTotals, ToolTimingTotals } from '../shared/types'
-import { isDeepSeekProvider } from '../shared/providers'
+import type { Category, ContextEventRecord, FileOpRecord, RequestRecord, SurfaceNode, SystemPromptNode, TimingSpan } from '../shared/types'
 import { estimateSystemContent } from '../shared/estimate'
 import type { FoldBounds } from './config'
 import {
@@ -24,198 +23,11 @@ import {
 import type { ContentBlock, MessageSource } from './pricing'
 import { deriveEventMessage } from '@deepseek-ai/dsh-session'
 import { decodeSpansOfStream, decodeTallyOfStream, firstTokenTimeOfStream, replaceRangeOf } from './logShapes'
-import type { DecodeKind } from './logShapes'
 import { opBearingTool, opsOfCall, parseCallArgs, rawArgsNeeded } from '../shared/fileOps'
-
-/** The runtime event envelope this fold consumes. The core `SessionEvent` union carries only core event types;
- * plugin-merged vocabulary (the `compaction/*` family, declared by `dsh-compaction`) is absent, and the fold must
- * not depend on those packages — so it widens to this structural envelope. */
-export interface TimelineEvent {
-  type: string
-  seq: number
-  time: number
-  data?: Record<string, unknown>
-  surfaceOp?: unknown
-}
-
-export interface TimelineState {
-  /** Model-visible surface, newest last. */
-  surface: SurfaceNode[]
-  sums: Record<Category, number>
-  systemTokens: number
-  /** The live system-prompt nodes, oldest first. `systemTokens` is the LAST entry with tokens > 0 (the harness's
-   * own "last nonempty surviving system" rule), so an empty dormant node keeps its position without clearing the
-   * prompt. Bounded by SYSTEM_NODES_MAX. Absent on rows folded before this field existed; the client then falls
-   * back to the header epoch's own envelope figure. */
-  systems?: SystemPromptNode[]
-  toolsTokens: number
-  /** The projection cache requires plain JSON: a property whose value is `undefined` makes the whole checkpoint
-   * unserializable, failing EVERY cache write for the session — including the `title` row that powers the session
-   * list after a restart. Optional fields therefore stay absent until a value is known, never `undefined`-valued. */
-  model?: string
-  provider?: string
-  lastModel?: string
-  contextWindow?: number
-  requests: RequestRecord[]
-  /** The number of turn runs in `requests` (a run = consecutive records sharing one `turn`). Maintained
-   * incrementally at the single append site and recomputed when a trim replaces the array, so the retention
-   * trim's cap check stays O(1) per event. Absent on rows folded before the field existed. */
-  turnRuns?: number
-  events: ContextEventRecord[]
-  /** Recently removed surface nodes (stamped COPIES carrying `gone`), in removal order. Bounded two ways in
-   * trimState: capped to `maxArchiveNodes`, and pruned to removals after the oldest retained request. */
-  archived: SurfaceNode[]
-  /** Cumulative billed-token totals per (provider, model), split into pricing periods for DeepSeek. Never trimmed, so
-   * the estimate covers the COMPLETE session log. */
-  cost?: SessionCostUsage
-  /** Whole-session human-input tally (see Snapshot.humanInputs); never trimmed, like `cost`. */
-  humanInputs?: number
-  /** Whole-session answers tally (see Snapshot.answers); never trimmed, like `humanInputs`. */
-  answers?: number
-  /** The user's newest own message as a bounded one-line preview. Last-wins: a text-less input (images only) keeps the previous line. */
-  lastUser?: string
-  archiveFloor?: number
-  /** Bumped by every fold that mutates the request records, context events, live surface, or removed-node
-   * archive; the slim wire head carries it so an open tab knows its fetched detail went stale. */
-  detailRev?: number
-  /** Whole-session timing totals (see TimingTotals), running sums over the COMPLETE session log like `cost`. */
-  timing?: TimingTotals
-  /** The open step's start instant, armed by `step/start` and consumed by the `assistant/message` (TTFT/generation
-   * split) and `step/end` (wall time) that follow. One slot, not a map: steps are sequential in the log, so the
-   * newest `step/start` is the one those events close — a hostile interleaved log degrades to skipped durations. */
-  stepStart?: {
-    time: number
-    firstToken?: number
-  }
-  /** The open step's CLOSED user-wait intervals (real log instants), pushed replace-style as each wait settles: an
-   * approval decision, or an `ask_user_question` call's whole tool window. `step/end` subtracts their clamped
-   * union from the step window to price the request's `activeMs`, then deletes the slot. */
-  stepWaits?: { start: number; end: number }[]
-  /** The open step's PENDING approval waits (request id → its `approval/asked` instant), disarmed by the matching
-   * `approval/decided`. A crash mid-decision leaves the pair dangling, so `step/end` closes the survivors at its
-   * own instant. Deleted at `step/start` (a superseded step's leftovers) and `step/end`. */
-  stepApprovals?: Record<string, number>
-  /** The seq of the request record committed by the open step's `assistant/message` — the back-pointer `step/end`
-   * stamps `activeMs` onto. Nothing pushes between a step's message and its end, so the record is the requests
-   * tail and the stamp is an O(1) tail write guarded by this seq. */
-  stepRequestSeq?: number
-  /** The timing strip's painted spans: every completed step's time slices in log order, stamped with their REAL
-   * instants — the TTFT wait, the decode blocks in stream order, the tool-run windows, and the in-step residue.
-   * Idle time BETWEEN steps carries no span. Bounded by TIMING_SPANS_MAX (newest tail kept). */
-  spans: TimingSpan[]
-  /** The open step's accumulated painted spans; `step/end` clamps them into the step window, de-overlaps
-   * first-wins (parallel runs paint their union), fills the holes with the residue kind, and flushes the tiling
-   * into `spans`. Deleted at the flush (the plain-JSON precondition). */
-  stepSpans?: TimingSpan[]
-  /** Tool callId → the call's name, start instant, and raw arguments, armed by `tool/call` and DELETED when its
-   * `tool/result` folds in — the map stays at pending-call size instead of growing for the session's lifetime. */
-  callNames: Record<string, { name: string; start: number; argsRaw?: string }>
-  /** Seq list of the surface nodes the next replacement will shadow, armed by the metering event
-   * (`compaction/summary` | `compaction/prune`) and consumed by the replacement that must follow it
-   * synchronously. The producer's shadow price covers exactly these seqs, which can differ from the
-   * replacement's declared range (pruned replacement nodes keep their own seqs, beyond the range end). */
-  pendingShadowedSeqs?: number[]
-  /** The seq of the `compaction/prune` event that armed `pendingShadowedSeqs`. The shadowed path rewrites that
-   * event's `tokens` from the gross shadow price to the NET freed amount, so the row matches the drop the trend chart shows. */
-  pendingShadowEventSeq?: number
-  /** The fold-derived file-operation log: one record per executed file op, bounded by `maxFileOps`; the trim stamps `fileOpsFloor`. */
-  fileOps: FileOpRecord[]
-  /** The newest dropped op's seq (the card's coverage floor for the served op log). */
-  fileOpsFloor?: number
-  /** Nested Code-Mode ops buffered by their top run_code call id until the parent's result folds (the dispatch
-   * events land BEFORE it). Bounded by PENDING_CODE_OPS_MAX, so a hostile log that never settles a run_code cannot grow it. */
-  pendingCodeOps?: Record<string, FileOpRecord[]>
-}
-
-export function trimToLastTurns(requests: RequestRecord[], maxTurns: number): RequestRecord[] {
-  let runs = 0
-  let start = requests.length
-  let prevTurn: number | undefined
-  for (let i = requests.length - 1; i >= 0; i--) {
-    const turn = requests[i].turn
-    if (turn !== prevTurn) {
-      if (runs >= maxTurns) break
-      runs++
-      prevTurn = turn
-    }
-    start = i
-  }
-  return requests.slice(start)
-}
-
-function countTurnRuns(requests: RequestRecord[]): number {
-  let runs = 0
-  let prevTurn: number | undefined
-  for (const r of requests) {
-    if (r.turn !== prevTurn) {
-      runs++
-      prevTurn = r.turn
-    }
-  }
-  return runs
-}
-
-function trimState(st: TimelineState, bounds: FoldBounds): void {
-  // Trim by WHOLE turn-runs as soon as the run count crosses the cap —
-  // not only when the raw step count does — so the state stays
-  // deterministically at the newest ~maxKeptTurns turns (a threshold-only
-  // policy would oscillate: trim to 1200, regrow to 1500, trim again). The
-  // run count is the incremental `turnRuns` ledger; a row restored from cache before the field existed recomputes it once here.
-  st.turnRuns = st.turnRuns ?? countTurnRuns(st.requests)
-  if (st.turnRuns > bounds.maxKeptTurns) {
-    st.requests = trimToLastTurns(st.requests, bounds.maxKeptTurns)
-    st.turnRuns = countTurnRuns(st.requests)
-  }
-  // Pathological many-step turns: hard step backstop after the turn trim.
-  if (st.requests.length > bounds.maxRequestSteps) {
-    st.requests = st.requests.slice(-bounds.maxRequestSteps)
-    st.turnRuns = countTurnRuns(st.requests)
-  }
-  if (st.events.length > bounds.maxEvents) st.events = st.events.slice(-bounds.maxEvents)
-  if (st.spans.length > TIMING_SPANS_MAX) st.spans = st.spans.slice(-TIMING_SPANS_MAX)
-  // The newest dropped op's seq becomes the served op log's coverage floor.
-  if (st.fileOps.length > bounds.maxFileOps) {
-    const drop = st.fileOps.length - bounds.maxFileOps
-    st.fileOpsFloor = Math.max(st.fileOpsFloor ?? 0, st.fileOps[drop - 1].seq)
-    st.fileOps = st.fileOps.slice(drop)
-  }
-  if (st.archived.length > 0) {
-    let drop = 0
-    // The entries leave in removal order, so the last dropped one's `gone` is the newest dropped seq.
-    const oldestReq = st.requests.length > 0 ? st.requests[0].seq : undefined
-    if (oldestReq !== undefined) {
-      while (drop < st.archived.length
-        && (st.archived[drop].gone ?? Infinity) <= oldestReq) drop++
-    }
-    if (st.archived.length - drop > bounds.maxArchiveNodes) {
-      drop = st.archived.length - bounds.maxArchiveNodes
-    }
-    if (drop > 0) {
-      const floor = st.archived[drop - 1].gone
-      if (floor !== undefined) st.archiveFloor = Math.max(st.archiveFloor ?? 0, floor)
-      st.archived = st.archived.slice(drop)
-    }
-  }
-}
-
-/** A count cap, newest tail kept; at ~6-8 spans per step it covers a few hundred recent steps, far past the strip's pixel resolution. */
-const TIMING_SPANS_MAX = 2_000
-
-export function createTimelineState(): TimelineState {
-  return {
-    surface: [],
-    sums: { user: 0, inject: 0, skill: 0, assistant: 0, tool: 0 },
-    systemTokens: 0,
-    toolsTokens: 0,
-    requests: [],
-    turnRuns: 0,
-    events: [],
-    archived: [],
-    callNames: {},
-    fileOps: [],
-    spans: [],
-  }
-}
+import { countTurnRuns, trimState } from './foldState'
+import type { TimelineEvent, TimelineState } from './foldState'
+import { accumulateCost, addDecode, bumpToolTotals, DECODE_KINDS, durOf, ensureTiming, tokenCountOf } from './foldMetering'
+import type { UsageLike } from './foldMetering'
 
 function categoryOf(type: string, message: { source?: MessageSource } | undefined): Category {
   if (type === 'assistant/message') return 'assistant'
@@ -305,11 +117,8 @@ function removeSurfaceSeqs(st: TimelineState, claimed: ReadonlySet<number>, gone
   return removed
 }
 
-interface SurfaceEventLike {
-  seq: number
-  time: number
-  surfaceOp?: unknown
-}
+/** The fields the surface projection reads off a durable event. */
+type SurfaceEventLike = Pick<TimelineEvent, 'seq' | 'time' | 'surfaceOp'>
 
 interface MessageLike {
   content?: ContentBlock[]
@@ -456,144 +265,8 @@ function applySurface(
   return node
 }
 
-/** The durable usage object, as far as the fold reads it — every bucket is re-proved by `tokenCountOf`, never trusted. */
-export interface UsageLike {
-  inputTokens?: unknown
-  cacheReadTokens?: unknown
-  cacheWriteTokens?: unknown
-  outputTokens?: unknown
-}
-
-/** One usage object's buckets, deeply normalized to billed counts (see {@link tokenCountOf}). */
-export interface BilledUsage {
-  input: number
-  cacheRead: number
-  cacheWrite: number
-  output: number
-}
-
-/**
- * One provider-reported usage bucket as a billed count, or null when the field carries no readable number. Fractions
- * round and negatives clamp to 0: a gateway reporting `cached_tokens > prompt_tokens` drives the disjoint uncached
- * figure below zero, and one raw figure in the state would fail the wire/state schemas' `.int().nonnegative()` gates
- * on every later delivery, permanently freezing the projection feed for the session. NaN, infinities, and non-numeric
- * values read as absent.
- *
- * Exported so the activity unit re-proves the same buckets with the same sanitizer.
- */
-export function tokenCountOf(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : null
-  }
-  return null
-}
-
-/** DeepSeek's official peak windows: UTC 01:00-04:00 and 06:00-10:00, Monday through Friday; all other hours bill at half price. */
-export function isPeakUtc(time: number): boolean {
-  const at = new Date(time)
-  const day = at.getUTCDay()
-  if (day === 0 || day === 6) return false
-  const h = at.getUTCHours()
-  return (h >= 1 && h < 4) || (h >= 6 && h < 10)
-}
-
-/** Clones along the mutated path only — the untouched branch stays shared with the persisted previous state, which the
- * apply contract never mutates in place. Buckets arrive sanitized, so the totals stay at the schemas' non-negative safe
- * integers. The timeline fold and the activity ledger price by this ONE walk, so their records share one shape. */
-export function addBilledUsage(
-  prev: SessionCostUsage | undefined,
-  provider: string,
-  model: string,
-  time: number,
-  usage: BilledUsage,
-): SessionCostUsage {
-  const period = isDeepSeekProvider(provider) && !isPeakUtc(time) ? 'off' : 'peak'
-  const models = prev?.[provider] ?? {}
-  const periods = models[model] ?? {}
-  const b = periods[period] ?? { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
-  const nextPeriods: CostModelUsage = { ...periods }
-  nextPeriods[period] = {
-    uncached: b.uncached + usage.input,
-    cacheRead: b.cacheRead + usage.cacheRead,
-    cacheWrite: b.cacheWrite + usage.cacheWrite,
-    output: b.output + usage.output,
-  }
-  const nextModels: Record<string, CostModelUsage> = { ...models, [model]: nextPeriods }
-  return { ...(prev ?? {}), [provider]: nextModels }
-}
-
-/** The key is the request envelope's (provider, model) face; a request without a model has nothing to price. */
-function accumulateCost(st: TimelineState, time: number, usage: BilledUsage): void {
-  const model = st.model
-  if (model === undefined) return
-  st.cost = addBilledUsage(st.cost, st.provider ?? '', model, time, usage)
-}
-
-/** The busiest 16 tool names are kept. */
-const TOOL_TIMING_CAP = 16
-
 /** Its settled result IS the user's answer, so it folds into the human-input tally; one result = one submission. */
 const ASK_USER_TOOL = 'ask_user_question'
-
-/** The decode buckets of the generation split, in card order. */
-const DECODE_KINDS: readonly DecodeKind[] = ['reasoning', 'text', 'toolarg']
-
-function durOf(from: number, to: number): number {
-  if (!Number.isFinite(from) || !Number.isFinite(to)) return 0
-  return Math.max(0, to - from)
-}
-
-/** Created on first use and CLONED on every later `ensure()`: the persisted previous state is never written in place. */
-function ensureTiming(st: TimelineState): TimingTotals {
-  if (st.timing === undefined) {
-    st.timing = { wallMs: 0, ttftMs: 0, genMs: 0, calls: 0, toolsMs: 0, toolCalls: 0, tools: {} }
-  }
-  return st.timing
-}
-
-/** The TimingTotals fields each decode bucket's span and count land in. */
-const DECODE_FIELDS: Record<DecodeKind, { ms: 'reasoningMs' | 'textMs' | 'toolArgMs'; n: 'reasoningBlocks' | 'textBlocks' | 'toolArgBlocks' }> = {
-  reasoning: { ms: 'reasoningMs', n: 'reasoningBlocks' },
-  text: { ms: 'textMs', n: 'textBlocks' },
-  toolarg: { ms: 'toolArgMs', n: 'toolArgBlocks' },
-}
-
-/** A zero span or count stays ABSENT, so a pre-split-shaped state gains no dead properties; the card reads absence as 0. */
-function addDecode(timing: TimingTotals, kind: DecodeKind, ms: number, blocks: number): void {
-  const field = DECODE_FIELDS[kind]
-  if (ms > 0) timing[field.ms] = (timing[field.ms] ?? 0) + ms
-  if (blocks > 0) timing[field.n] = (timing[field.n] ?? 0) + blocks
-}
-
-/** A new name beyond the cap evicts the smallest tally, so the state stays bounded even over a hostile log of unique names. */
-function bumpToolTotals(timing: TimingTotals, name: string, ms: number): void {
-  // hasOwn, not an index check: a missing key IS possible at runtime (a name outside the persisted tally).
-  if (!Object.hasOwn(timing.tools, name)) {
-    if (Object.keys(timing.tools).length >= TOOL_TIMING_CAP) {
-      let minKey = ''
-      let minMs = Infinity
-      for (const k in timing.tools) {
-        if (timing.tools[k].ms < minMs) {
-          minMs = timing.tools[k].ms
-          minKey = k
-        }
-      }
-      const kept: Record<string, ToolTimingTotals> = {}
-      for (const k in timing.tools) {
-        if (k !== minKey) kept[k] = timing.tools[k]
-      }
-      timing.tools = kept
-    }
-    timing.tools[name] = { calls: 1, ms }
-    return
-  }
-  const cur = timing.tools[name]
-  timing.tools[name] = { calls: cur.calls + 1, ms: cur.ms + ms }
-}
 
 /** The collections a fold branch may mutate IN PLACE. A branch names exactly its own mutations in `ensure`; the
  * unlisted containers are never written in place — every touch REPLACES the property with a fresh array/record — so
@@ -964,7 +637,7 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
             if (cacheRead !== null) record.cacheRead = cacheRead
             if (output !== null) record.output = output
             accumulateCost(s, event.time, {
-              input: input ?? 0,
+              uncached: input ?? 0,
               cacheRead: cacheRead ?? 0,
               cacheWrite: cacheWrite ?? 0,
               output: output ?? 0,
@@ -1081,154 +754,9 @@ export function applyTimeline(state: TimelineState, event: TimelineEvent, bounds
   return state
 }
 
-/** Served value fields are COPIES — the served value must never alias persisted state. Optional scalars use
- * conditional spread, because one `undefined`-valued property can fail the whole lossless-JSON push. */
-function headFieldsOf(state: TimelineState): Snapshot {
-  const surfaceTotal = state.sums.user + state.sums.inject + state.sums.skill + state.sums.assistant + state.sums.tool
-  // Provider-anchored occupancy is NOT folded here: the Client reads token-meter's own `contextPressure` key for it.
-  const result: Snapshot = {
-    ok: true,
-    ...(state.model !== undefined ? { model: state.model } : {}),
-    ...(state.provider !== undefined ? { provider: state.provider } : {}),
-    ...(state.contextWindow !== undefined ? { contextWindow: state.contextWindow } : {}),
-    current: {
-      system: state.systemTokens,
-      tools: state.toolsTokens,
-      user: state.sums.user,
-      inject: state.sums.inject,
-      skill: state.sums.skill,
-      assistant: state.sums.assistant,
-      tool: state.sums.tool,
-      total: surfaceTotal + state.systemTokens + state.toolsTokens,
-    },
-    images: state.surface.reduce((n, node) => n + (node.imgs ?? 0), 0),
-    // Calls still in flight (no result yet) and results compacted or pruned out of the surface are both excluded.
-    // A skill-tool load reclassifies its node into the `skill` bucket but keeps its tool identity, so it still counts.
-    toolCalls: state.surface.reduce((n, node) => node.cat === 'tool' || (node.cat === 'skill' && node.tool !== undefined) ? n + 1 : n, 0),
-    humanInputs: state.humanInputs ?? 0,
-    answers: state.answers ?? 0,
-    ...(state.lastUser !== undefined ? { lastUser: state.lastUser } : {}),
-    requests: [],
-    events: [],
-    nodes: [],
-    droppedNodes: 0,
-    archive: [],
-  }
-  // The cost totals ride the wire as COPIES, like the collections.
-  if (state.cost !== undefined) {
-    const cost: SessionCostUsage = {}
-    for (const provider in state.cost) {
-      const models: Record<string, CostModelUsage> = {}
-      for (const model in state.cost[provider]) {
-        const periods = state.cost[provider][model]
-        const copy: CostModelUsage = {}
-        if (periods.peak !== undefined) copy.peak = { ...periods.peak }
-        if (periods.off !== undefined) copy.off = { ...periods.off }
-        models[model] = copy
-      }
-      cost[provider] = models
-    }
-    result.cost = cost
-  }
-  // The timing totals ride the wire as COPIES too (per-name rows included).
-  if (state.timing !== undefined) {
-    const tools: Record<string, ToolTimingTotals> = {}
-    for (const k in state.timing.tools) tools[k] = { ...state.timing.tools[k] }
-    result.timing = { ...state.timing, tools }
-  }
-  // The browser resolves the prompt in force at any step from these and fetches its TEXT on demand from the event.
-  if (state.systems !== undefined && state.systems.length > 0) {
-    result.systems = state.systems.map(n => ({ ...n }))
-  }
-  return result
-}
-
-/** Shared verbatim by the inline wire view (channel-less hosts) and the on-demand detail payload (host/detail.ts). */
-function detailCollectionsOf(state: TimelineState, bounds: FoldBounds): Omit<ContextTimelineDetail, 'rev'> {
-  const result: Omit<ContextTimelineDetail, 'rev'> = {
-    requests: state.requests.map(r => ({ ...r })),
-    events: state.events.map(e => ({ ...e })),
-    nodes: [],
-    droppedNodes: 0,
-    archive: state.archived.map(n => ({ ...n })),
-    fileOps: state.fileOps.map(o => ({ ...o })),
-    ...(state.fileOpsFloor !== undefined ? { fileOpsFloor: state.fileOpsFloor } : {}),
-    spans: state.spans.map(s => ({ ...s })),
-  }
-  // Injections land on the surface FIRST, so in a long session the plain tail would drop their identity while
-  // their tokens keep counting (sums cover the full surface), leaving the browser with a token sum and no
-  // listable items; skill content behaves the same way (the digest is injected at session start, loads pile up
-  // early). Pin both categories into the served list.
-  // The overflow slice precedes the tail by position, so the concatenation stays seq-ordered.
-  const overflowCount = Math.max(0, state.surface.length - bounds.maxNodes)
-  const overflow = state.surface.slice(0, overflowCount)
-  const tail = state.surface.slice(overflowCount)
-  const pinned = overflow.filter(n => n.cat === 'inject' || n.cat === 'skill')
-  result.nodes = pinned.length > 0 ? [...pinned, ...tail] : tail
-  result.droppedNodes = overflowCount - pinned.length
-  // Both floors let the client mark a picked step's reconstruction approximate instead of silently under-showing it.
-  if (result.droppedNodes > 0) {
-    let floor = 0
-    for (const n of overflow) if (n.cat !== 'inject' && n.cat !== 'skill') floor = Math.max(floor, n.seq)
-    result.surfaceFloor = floor
-  }
-  if (state.archiveFloor !== undefined) result.archiveFloor = state.archiveFloor
-
-  // Attach each event to the requests around it: `turn`/`step` name the first request logged after the event,
-  // `fromTurn`/`fromStep` the request before it. Both lists stay seq-sorted, so one pointer walk suffices.
-  const requests = result.requests
-  const events = result.events
-  let ri = 0
-  for (const ev of events) {
-    while (ri < requests.length && requests[ri].seq <= ev.seq) ri++
-    // .at() keeps the past-the-end case visible to the type system.
-    const next = requests.at(ri)
-    const prev = ri > 0 ? requests.at(ri - 1) : undefined
-    if (next !== undefined && typeof next.turn === 'number' && typeof next.step === 'number') {
-      ev.turn = next.turn
-      ev.step = next.step
-    }
-    if (prev !== undefined && typeof prev.turn === 'number' && typeof prev.step === 'number') {
-      ev.fromTurn = prev.turn
-      ev.fromStep = prev.step
-    }
-  }
-  return result
-}
-
-/** The split generation's SLIM wire head: the envelope scalars, the precomputed count figures, the newest
- * request's billing summary, and the detail revision marker — small enough to ride every delivery channel whole. */
-export function buildTimelineHead(state: TimelineState): Snapshot {
-  const result = headFieldsOf(state)
-  // Over the RETAINED records, the same set the detail serves.
-  const turns = new Set<number>()
-  for (const r of state.requests) turns.add(r.turn ?? 0)
-  let injects = 0
-  let compactions = 0
-  let prunes = 0
-  // Distinct names among the skill-tagged inject events; the catalog digest rides an untagged event, so it never lands here.
-  const skills = new Set<string>()
-  for (const e of state.events) {
-    if (e.kind === 'inject') injects++
-    else if (e.kind === 'compaction') compactions++
-    else if (e.kind === 'prune') prunes++
-    if (e.sub === 'skill' && typeof e.name === 'string' && e.name !== '') skills.add(e.name)
-  }
-  result.counts = { turns: turns.size, steps: state.requests.length, injects, compactions, prunes, skills: skills.size }
-  const last = state.requests.at(-1)
-  if (last !== undefined) {
-    result.last = { seq: last.seq, total: last.total, ...(typeof last.prompt === 'number' ? { prompt: last.prompt } : {}) }
-  }
-  result.detailRev = state.detailRev ?? 0
-  return result
-}
-
-/** The heavy collections, the slim head at the SAME cut, and the revision marker the head carries. */
-export function buildTimelineDetail(state: TimelineState, bounds: FoldBounds): ContextTimelineDetail {
-  return { rev: state.detailRev ?? 0, head: buildTimelineHead(state), ...detailCollectionsOf(state, bounds) }
-}
-
-/** The INLINE projection wire view for channel-less hosts: the head scalars with the detail collections in place. */
-export function buildTimelineView(state: TimelineState, bounds: FoldBounds): Snapshot {
-  return { ...headFieldsOf(state), ...detailCollectionsOf(state, bounds) }
-}
+// The pre-split surface, kept for the specs; production callers import the owning sibling directly.
+export { createTimelineState, trimToLastTurns } from './foldState'
+export type { TimelineEvent, TimelineState } from './foldState'
+export { addBilledUsage, isPeakUtc, tokenCountOf } from './foldMetering'
+export type { BilledUsage, UsageLike } from './foldMetering'
+export { buildTimelineDetail, buildTimelineHead, buildTimelineView } from './foldWire'

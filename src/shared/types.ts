@@ -3,7 +3,7 @@
 
 import type { ActivityState } from '../host/activity'
 import type { HeadersState } from '../host/headers'
-import type { TimelineState } from '../host/fold'
+import type { TimelineState } from '../host/foldState'
 // The registry package ROOT carries the `@deepseek-ai/cordis` Context augmentation
 // (`sessionProjections` service); the `/types` subpath only declares the merge-extensible maps.
 import type {} from '@deepseek-ai/dsh-session-projection'

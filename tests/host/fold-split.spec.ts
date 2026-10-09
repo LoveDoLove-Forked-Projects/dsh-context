@@ -1,4 +1,4 @@
-// The split wire generation (src/host/fold.ts buildTimelineHead / buildTimelineDetail + the detailRev ledger): the slim head carries the
+// The split wire generation (src/host/foldWire.ts buildTimelineHead / buildTimelineDetail + the fold's detailRev ledger): the slim head carries the
 // counters and headline anchor, the detail payload the heavy collections, and the revision bumps exactly on detail-mutating folds. Also
 // pins the equivalence: inline view = head + detail, so the two generations can never drift apart.
 

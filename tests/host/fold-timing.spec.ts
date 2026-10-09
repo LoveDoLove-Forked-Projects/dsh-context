@@ -1,4 +1,4 @@
-// The timing fold (src/host/fold.ts): durations priced from the durable step lifecycle (step/start → assistant/message with its embedded
+// The timing fold (src/host/fold.ts with its src/host/foldMetering.ts accumulators): durations priced from the durable step lifecycle (step/start → assistant/message with its embedded
 // stream → step/end) and per-call tool durations (tool/call → tool/result via callId). No mocks: the real fold runs.
 
 import assert from 'node:assert/strict'

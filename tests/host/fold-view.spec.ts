@@ -1,4 +1,4 @@
-// buildTimelineView (src/host/fold.ts) driven through the real projection unit (driveTimeline / def.wire.view).
+// buildTimelineView (src/host/foldWire.ts) driven through the real projection unit (driveTimeline / def.wire.view).
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
