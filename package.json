@@ -48,7 +48,7 @@
     "test": "pnpm run typecheck && vitest run --coverage",
     "coverage": "vitest run --coverage",
     "release": "bash scripts/publish.sh",
-    "social-preview": "node docs/social-preview/generate.ts",
+    "social-preview": "node scripts/social-preview/generate.ts",
     "prepare": "husky && tsdown"
   },
   "dsh": {
