@@ -21,6 +21,7 @@ A DeepSeek Harness plugin for context insight, actions, and management.
 - User experience, features, and especially the data accuracy and integrity are the top priority. Never sacrifice them for code refactors, performance, or any other reason. Dive deep and run real tests to verify the correctness of every change.
 - Reuse the classes, utilities, styles, style tokens, events, presets, and lifecycles that DeepSeek Harness already provides.
 - Keep code and tests small, loosely coupled, and modular; avoid duplication.
+- Ensure every source code file or test code file has less than 1000 lines.
 - Add comments only for major decisions or significant value, and update or delete outdated ones when modifying the code.
 - Comments guideline:
   - Cleanup all the unnecessary, unhelpful or deprecated comments
