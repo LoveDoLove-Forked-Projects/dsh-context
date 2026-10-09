@@ -79,6 +79,7 @@ Complete ALL of these before ANY commit:
 ## Releasing
 - Version X.Y.Z, 大版本.次版本.小版本。
 - Review all the commits/changes since last tagged release.
+- Review relevant recent issues and PRs; mention them in release notes and close resolved issues.
 - Releases are cut by tagging: `git tag vX.Y.Z && gh release create vX.Y.Z`.
 - A [GitHub Actions workflow](.github/workflows/release.yml) then builds, tests, and publishes the package to npm automatically — no manual action needed.
 - Write the release notes from the [release template](.github/release_template.md)
