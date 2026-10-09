@@ -75,7 +75,7 @@ export interface OverviewPanelProps {
   useWorkspaces?: unknown
 }
 
-const RANGES: readonly OverviewRange[] = ['24h', '7d', '30d', 'all']
+const RANGES: readonly OverviewRange[] = ['today', '7d', '30d', 'all']
 const SORTS: readonly OverviewSort[] = ['recent', 'tokens', 'context']
 /** The heatmap's depth metrics, in toggle order (steps is the default). */
 const METRICS: readonly HeatMetric[] = ['sessions', 'steps']

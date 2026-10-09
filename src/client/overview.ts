@@ -328,11 +328,20 @@ function mergeSkillTallies(a: ActivityDay['skills'], b: NonNullable<ActivityDay[
 
 // ---- range / filter / sort -------------------------------------------------
 
-export type OverviewRange = '24h' | '7d' | '30d' | 'all'
+export type OverviewRange = 'today' | '7d' | '30d' | 'all'
 
-/** The range window's start instant (epoch ms), or null for "all". */
+/**
+ * The range window's start instant (epoch ms), or null for "all". "Today"
+ * opens on the local calendar day's midnight — date-field arithmetic (the
+ * harness's own `setHours(0, 0, 0, 0)` idiom) keeps a DST-short or long day
+ * exact, where an epoch-ms subtract would drift into the neighbouring day.
+ */
 export function rangeStartOf(range: OverviewRange, now: number): number | null {
-  if (range === '24h') return now - 86_400_000
+  if (range === 'today') {
+    const midnight = new Date(now)
+    midnight.setHours(0, 0, 0, 0)
+    return midnight.getTime()
+  }
   if (range === '7d') return now - 7 * 86_400_000
   if (range === '30d') return now - 30 * 86_400_000
   return null
@@ -443,8 +452,9 @@ export type SkillSort = 'loads' | 'recent'
 /**
  * The scope's ledger-day predicate: the heatmap's pinned day admits exactly
  * that day, else the range's day floor admits its own and later days (the
- * ledger is day-grained: the 24h window's start day counts whole, the same
- * resolution the heatmap reads at); 'all' admits every day.
+ * ledger is day-grained: "today" starts at this very day's key and the 7d/30d
+ * windows admit their start day whole, the same resolution the heatmap reads
+ * at); 'all' admits every day.
  */
 function skillDayPredicate(opts: { range: OverviewRange; day: string | null }, now: number): (key: string) => boolean {
   if (opts.day !== null) return key => key === opts.day

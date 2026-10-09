@@ -20,6 +20,8 @@ const PROVIDERS = {
 const NOW = Date.now()
 const TODAY = dayKeyOf(NOW) ?? ''
 const YESTERDAY = dayKeyOf(NOW - 86_400_000) ?? ''
+/** Local midnight of NOW — the "today" range's floor, so today's session stays inside it whatever hour the spec runs. */
+const MIDNIGHT = new Date(new Date(NOW).setHours(0, 0, 0, 0)).getTime()
 
 /** A wire-shaped timeline head. */
 function timeline(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -47,7 +49,7 @@ function sessionsSnapshot(): { ids: string[]; byId: Record<string, Record<string
       a: {
         displayTitle: 'alpha session',
         cwd: '/repo/alpha',
-        updatedAt: NOW - 3_600_000,
+        updatedAt: MIDNIGHT,
         running: true,
         projectionValues: {
           contextTimeline: timeline(),
@@ -207,8 +209,8 @@ describe('OverviewPanel', () => {
     await click(rangeButtons[3]) // All
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 3, 'the stale session joins')
     assert.equal(queryAll(m.container, '.lc-stat-value')[0].textContent, '3')
-    await click(rangeButtons[0]) // Last 24 hours
-    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1, 'only the hour-fresh session stays')
+    await click(rangeButtons[0]) // Today
+    assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1, "only today's session stays")
     await click(rangeButtons[1]) // Last 7 days
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1, 'only the freshest stays')
     await click(rangeButtons[2]) // back to 30d

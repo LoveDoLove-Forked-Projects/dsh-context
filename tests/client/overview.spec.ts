@@ -195,8 +195,9 @@ describe('billedOf / turnsOf', () => {
 
 describe('rangeStartOf', () => {
   test('each window’s start instant; all is unbounded', () => {
-    const now = 31 * 86_400_000
-    assert.equal(rangeStartOf('24h', now), now - 86_400_000)
+    // Local anchors, so the calendar-day window reads the same in every zone.
+    const now = new Date(2026, 8, 20, 12).getTime()
+    assert.equal(rangeStartOf('today', now), new Date(2026, 8, 20).getTime(), 'today opens on the local midnight')
     assert.equal(rangeStartOf('7d', now), now - 7 * 86_400_000)
     assert.equal(rangeStartOf('30d', now), now - 30 * 86_400_000)
     assert.equal(rangeStartOf('all', now), null)
@@ -204,28 +205,30 @@ describe('rangeStartOf', () => {
 })
 
 describe('filterRows', () => {
+  const midnight = new Date(2026, 8, 11).getTime()
+  const now = midnight + 12 * 3_600_000
   const rows = [
-    rowOf({ id: 'old', title: 'ancient logs', updatedAt: 100 }),
-    rowOf({ id: 'new', title: 'fresh fix', cwd: '/repo/app', updatedAt: 10 * 86_400_000 }),
+    rowOf({ id: 'old', title: 'ancient logs', updatedAt: midnight - 20 * 86_400_000 }),
+    rowOf({ id: 'new', title: 'fresh fix', cwd: '/repo/app', updatedAt: now - 2 * 3_600_000 }),
     rowOf({
       id: 'active',
       title: 'busy bee',
-      updatedAt: 10 * 86_400_000,
+      updatedAt: now - 2 * 3_600_000,
       activity: { days: { '2026-09-16': { tokens: 5, requests: 1 }, '2026-09-10': { tokens: 0, requests: 0 } } },
     }),
   ]
-  const now = 11 * 86_400_000
 
   test('the range window filters by last activity', () => {
-    assert.deepEqual(filterRows(rows, { range: '24h', day: null, query: '' }, now).map(r => r.id), ['new', 'active'])
+    assert.deepEqual(filterRows(rows, { range: 'today', day: null, query: '' }, now).map(r => r.id), ['new', 'active'])
     assert.deepEqual(filterRows(rows, { range: '7d', day: null, query: '' }, now).map(r => r.id), ['new', 'active'])
     assert.deepEqual(filterRows(rows, { range: 'all', day: null, query: '' }, now).map(r => r.id), ['old', 'new', 'active'])
-    // The 24h window's own boundary: inside by minutes, outside by an hour.
-    const hRows = [
-      rowOf({ id: 'fresh', title: 'just now', updatedAt: now - 2 * 3_600_000 }),
-      rowOf({ id: 'yesterday', title: 'a day ago', updatedAt: now - 25 * 3_600_000 }),
+    // Today's own boundary: hours in, one minute before the local midnight out.
+    const dRows = [
+      rowOf({ id: 'in', title: 'this morning', updatedAt: now - 2 * 3_600_000 }),
+      rowOf({ id: 'out', title: 'last night', updatedAt: midnight - 60_000 }),
     ]
-    assert.deepEqual(filterRows(hRows, { range: '24h', day: null, query: '' }, now).map(r => r.id), ['fresh'])
+    assert.deepEqual(filterRows(dRows, { range: 'today', day: null, query: '' }, now).map(r => r.id), ['in'])
+    assert.deepEqual(filterRows(dRows, { range: '7d', day: null, query: '' }, now).map(r => r.id), ['in', 'out'], 'last night is still inside the week')
   })
 
   test('the day pin keeps only sessions contributing to that day', () => {
@@ -744,10 +747,13 @@ describe('skillLoadsOf', () => {
         [day(1)]: { tokens: 1, requests: 1, skills: { tdd: { n: 3, last: NOW - 2000 }, grill: { n: 1, last: NOW - 500 } } },
       }),
     ]
-    assert.deepEqual(skillLoadsOf(rows, { range: '24h', day: null }, NOW), [
+    assert.deepEqual(skillLoadsOf(rows, { range: '7d', day: null }, NOW), [
       { name: 'tdd', loads: 5, sessions: 2, last: NOW - 1000 },
       { name: 'grill', loads: 1, sessions: 1, last: NOW - 500 },
     ], 'the 10-days-ago entries fall below the floor')
+    assert.deepEqual(skillLoadsOf(rows, { range: 'today', day: null }, NOW), [
+      { name: 'tdd', loads: 2, sessions: 1, last: NOW - 1000 },
+    ], "today's floor admits this very day only")
     assert.deepEqual(skillLoadsOf(rows, { range: 'all', day: null }, NOW), [
       { name: 'tdd', loads: 10, sessions: 2, last: NOW - 1000 },
       { name: 'grill', loads: 1, sessions: 1, last: NOW - 500 },
@@ -845,8 +851,8 @@ describe('rowLoadedSkill', () => {
         },
       },
     })
-    assert.equal(rowLoadedSkill(row, 'tdd', { range: '24h', day: null }, NOW), true, 'loaded today — inside the 24h floor')
-    assert.equal(rowLoadedSkill(row, 'grill', { range: '24h', day: null }, NOW), false, 'the 10-days-ago load falls below the floor')
+    assert.equal(rowLoadedSkill(row, 'tdd', { range: 'today', day: null }, NOW), true, "loaded today — inside today's floor")
+    assert.equal(rowLoadedSkill(row, 'grill', { range: 'today', day: null }, NOW), false, 'the 10-days-ago load falls below the floor')
     assert.equal(rowLoadedSkill(row, 'grill', { range: 'all', day: null }, NOW), true)
     assert.equal(rowLoadedSkill(row, 'tdd', { range: 'all', day: day(1) }, NOW), false, 'the pinned day admits only itself')
     assert.equal(rowLoadedSkill(row, 'grill', { range: 'all', day: day(10) }, NOW), true)
