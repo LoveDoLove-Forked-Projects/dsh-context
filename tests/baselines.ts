@@ -116,8 +116,9 @@ export interface Baseline {
   /** The durable-event families THIS line's log carries that the host fold
    * switches on — the probe asserts every one exists in the tag's
    * `KNOWN_SESSION_EVENT_TYPES`. Every supported line is the V4 generation,
-   * so the lists match; the matrix also asserts `FOLD_EVENT_TYPES` ⊆ the
-   * baselines' union, so a fold case added without a baseline list fails loudly instead of going unprobed. */
+   * so the lists match; the matrix also reads the fold's own `case` labels out
+   * of `src/host/fold.ts` and asserts each is declared here, so a fold case
+   * added without a baseline list fails loudly instead of going unprobed. */
   foldEventTypes: readonly string[]
   client: ClientSeam
   /** The step-boundary identity guard's host seam (src/host/stepIdentity.ts):
@@ -177,6 +178,7 @@ function baseline(id: BaselineId, tag: string, session: string): Baseline {
       'user/message', 'developer/message', 'tool/call', 'tool/result', 'assistant/message', 'assistant/attempt',
       'tool/ptc-dispatch',
       'plan/mode', 'compaction/summary', 'compaction/prune', 'system/message',
+      'approval/asked', 'approval/decided', 'session/end-seed',
     ],
     client: {
       imageFaceMethod: 'imageUrl',

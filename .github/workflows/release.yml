@@ -24,7 +24,8 @@ jobs:
         # supported line (0.1.7-rc.2).
         uses: bowenliang123/dsh-plugin-checker@v1
 
-      # Reads the pinned pnpm version from `packageManager` in package.json.
+      # No `packageManager` field in this plugin's package.json, so both
+      # workflows pin the version explicitly.
       - uses: pnpm/action-setup@v6
         with:
           version: latest

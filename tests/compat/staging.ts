@@ -309,16 +309,15 @@ export const ICON_SEAMS = [
   'IconSearchOutlineRegular',
 ] as const
 
-/** The event families the host fold switches on (src/host/fold.ts) — the UNION
- * over every supported generation. The per-baseline probe asserts the
- * baseline's own `foldEventTypes` subset, and a matrix test asserts this
- * constant ⊆ the baselines' union — a family added to the fold without any baseline list fails loudly instead of going unprobed. */
-export const FOLD_EVENT_TYPES = [
-  'request/header', 'request/context', 'step/start', 'step/end',
-  'user/message', 'developer/message', 'tool/call', 'tool/result', 'assistant/message',
-  'assistant/attempt', 'tool/ptc-dispatch',
-  'plan/mode', 'compaction/summary', 'compaction/prune', 'system/message',
-] as const
+/** The event families the host fold actually switches on, read out of `src/host/fold.ts` so the
+ * matrix can never check a hand-copied list against itself. Throws when the labels are not found,
+ * so a refactor that moves the switch fails loudly instead of going vacuously green. */
+export function foldEventTypesFromSource(): readonly string[] {
+  const source = readFileSync(join(REPO, 'src', 'host', 'fold.ts'), 'utf8')
+  const labels = [...source.matchAll(/^\s*case '([a-z-]+\/[a-z-]+)':/gm)].map(m => m[1])
+  if (labels.length === 0) throw new Error('fold.ts: no event case labels found — the matrix cannot verify the baseline lists')
+  return [...new Set(labels)].sort()
+}
 
 /** The tag's durable-event vocabulary (packages/core/session/src/known-event-types.ts). */
 export async function knownEventTypesOf(baseline: Baseline): Promise<ReadonlySet<string>> {

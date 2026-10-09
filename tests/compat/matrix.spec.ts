@@ -1,8 +1,8 @@
 // The always-on host/client lanes pin the plugin against MIRRORED seam semantics; this project runs the plugin
 // against the harness's ACTUAL sources at each baseline tag. A failing probe names the SEAM — the connection point
 // to re-fit or refactor — not just "it broke somewhere".
-// Preconditions (skipped cleanly when absent; the release workflow fetches the baseline tags before `pnpm test`,
-// so it always runs there):
+// Preconditions (skipped cleanly when absent; both workflows fetch the baseline tags before `pnpm test`,
+// so it always runs there, and a skip under CI fails the run):
 //   - a dsh checkout with the baseline tags (env DSH_REPO, default ~/dev/deepseek-harness),
 //   - the built plugin (`pnpm run build` first — the matrix exercises the BUILT artifacts, lib/index.js + lib/client.js).
 
@@ -13,19 +13,25 @@ import * as staging from './staging'
 
 const reasons = staging.skipReasons()
 if (reasons.length > 0) {
+  // Skipping is right on a dev box with no checkout, but on CI it means the whole compatibility
+  // proof is missing behind a green run — the workflows fetch the tags and build first, so a
+  // skip there is a broken gate, not an absent prerequisite.
+  if (process.env.CI) throw new Error(`[compat] matrix cannot run: ${reasons.join('; ')}`)
   console.warn(`[compat] matrix skipped — ${reasons.join('; ')}`)
 }
 
 // The always-runnable part (no checkout needed): every specifier the built bundle requires at runtime must be seeded by EACH baseline's
 // platform module table — a require the shell cannot answer is a guaranteed boot crash on that generation.
 describe('compat matrix — the per-baseline fold vocabularies', () => {
-  test('their union covers every event family the fold switches on', () => {
-    const union = new Set(BASELINES.flatMap(baseline => baseline.foldEventTypes))
-    assert.deepEqual(
-      staging.FOLD_EVENT_TYPES.filter(type => !union.has(type)),
-      [],
-      'a fold case no baseline declares would go unprobed',
-    )
+  test('every event family the fold switches on is declared by every baseline', () => {
+    const folded = staging.foldEventTypesFromSource()
+    for (const baseline of BASELINES) {
+      assert.deepEqual(
+        folded.filter(type => !baseline.foldEventTypes.includes(type)),
+        [],
+        `${baseline.id} would fold an event family no baseline probes`,
+      )
+    }
   })
 })
 
@@ -173,6 +179,13 @@ describe.skipIf(reasons.length > 0)('compat matrix — real dsh sources per base
 
     test('client: the gateway history face of this generation', () => {
       assert.equal(staging.dshHasString(baseline.tag, "'remote.session'", 'packages/api/*/src/**'), true)
+      // The service name alone is half the seam: historyPage's `rowsOf` rejects any payload without the
+      // `records` envelope, so the transport's own spelling is pinned too.
+      assert.equal(
+        staging.dshHasString(baseline.tag, 'records: frame.records', 'packages/api/session-controller/src/client/transport.ts'),
+        true,
+        'the history page envelope key',
+      )
     })
 
     test('detail channel: the Connection RPC faces and the registry stateOf exist', () => {
