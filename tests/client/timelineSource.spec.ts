@@ -215,6 +215,96 @@ describe('DetailStore', () => {
     assert.equal(seen.length, 0)
   })
 
+  test('a parked store arms no read (the last unsubscribe drops the pending window)', async () => {
+    vi.useFakeTimers()
+    const { fetcher, calls } = scriptedFetcher([detail(1)])
+    const store = new DetailStore(fetcher, 10)
+    const off = store.subscribe(() => {})
+    store.request(1)
+    assert.equal(store.getSnapshot().pending, true, 'the debounce window is armed')
+    off()
+    assert.equal(store.getSnapshot().pending, false, 'parking drops the pending window')
+    await vi.advanceTimersByTimeAsync(100)
+    assert.equal(calls.length, 0, 'a parked store never reaches the fetcher')
+    // A further rev while still parked arms nothing either.
+    store.request(2)
+    await vi.advanceTimersByTimeAsync(100)
+    assert.equal(calls.length, 0)
+    vi.useRealTimers()
+  })
+
+  test('a read settling after the last unsubscribe does not re-arm', async () => {
+    vi.useFakeTimers()
+    let reject!: (error: Error) => void
+    let calls = 0
+    const store = new DetailStore(() => {
+      calls++
+      return new Promise<ContextTimelineDetail | null>((_resolve, rej) => { reject = rej })
+    }, 10)
+    const off = store.subscribe(() => {})
+    store.request(1)
+    await vi.advanceTimersByTimeAsync(10)
+    assert.equal(calls, 1, 'the read is in flight')
+    off()
+    reject(new Error('offline'))
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(1000)
+    assert.equal(calls, 1, 'no retry is armed once nobody is subscribed')
+    vi.useRealTimers()
+  })
+
+  test('a store parked without a payload re-reads on the next subscribe', async () => {
+    vi.useFakeTimers()
+    const { fetcher, calls } = scriptedFetcher([new Error('offline'), detail(1)])
+    const store = new DetailStore(fetcher, 10)
+    const off = store.subscribe(() => {})
+    store.request(1)
+    await vi.advanceTimersByTimeAsync(10)
+    assert.equal(calls.length, 1)
+    assert.equal(store.getSnapshot().failed, true)
+    off()
+    await vi.advanceTimersByTimeAsync(1000)
+    assert.equal(calls.length, 1, 'the parked retry is dropped')
+    store.subscribe(() => {})
+    // The SAME head rev must read again: the failed read already marked it
+    // "wanted", which would otherwise swallow the resumed store's request.
+    store.request(1)
+    await vi.advanceTimersByTimeAsync(10)
+    assert.equal(calls.length, 2, 'the resumed store reads instead of sticking on the note')
+    vi.useRealTimers()
+  })
+
+  test('a parked store with a cached payload resumes without a read', async () => {
+    const { fetcher, calls } = scriptedFetcher([detail(1)])
+    const store = new DetailStore(fetcher, 0)
+    const off = store.subscribe(() => {})
+    store.request(1)
+    await until(() => store.getSnapshot().detail?.rev === 1, 'the first read never landed')
+    off()
+    store.subscribe(() => {})
+    store.request(1)
+    await settle()
+    assert.equal(calls.length, 1, 'the cached payload still covers the rev')
+  })
+
+  test('a shared store parks only when its last subscriber leaves', async () => {
+    vi.useFakeTimers()
+    const { fetcher, calls } = scriptedFetcher([detail(1)])
+    const store = new DetailStore(fetcher, 10)
+    // The tab and the /context modal share one store per session.
+    const offTab = store.subscribe(() => {})
+    const offModal = store.subscribe(() => {})
+    store.request(1)
+    offTab()
+    await vi.advanceTimersByTimeAsync(10)
+    assert.equal(calls.length, 1, 'the remaining subscriber still gets its read')
+    offModal()
+    store.request(2)
+    await vi.advanceTimersByTimeAsync(100)
+    assert.equal(calls.length, 1, 'the parked store arms nothing')
+    vi.useRealTimers()
+  })
+
   test('a rev bump during the in-flight read re-reads after settle (trailing edge)', async () => {
     let gate!: () => void
     const first = new Promise<ContextTimelineDetail | null>(resolve => { gate = () => resolve(detail(1)) })

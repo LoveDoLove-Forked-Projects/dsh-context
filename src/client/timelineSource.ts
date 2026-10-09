@@ -128,6 +128,14 @@ export class DetailStore {
   private inFlight = false
   private timer: ReturnType<typeof setTimeout> | null = null
   private failures = 0
+  /**
+   * No view holds this store (the last subscriber left). A parked store keeps
+   * its cached payload so a re-open renders instantly, but arms no read: the
+   * map is page-lifetime, so a store whose view is gone would otherwise keep
+   * trailing a broken detail route (or a moved rev) forever, with nobody
+   * reading the answer.
+   */
+  private parked = false
   private readonly listeners = new Set<() => void>()
   private snap: DetailSnap = EMPTY_SNAP
 
@@ -138,7 +146,23 @@ export class DetailStore {
 
   readonly subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
+    if (this.parked) {
+      this.parked = false
+      // Resume: with nothing cached (a failure or an absence), the head the
+      // view then requests may equal the cursor the failed read already left
+      // behind — it would be swallowed as "wanted". Clear the ledger so the
+      // mount's own request(rev) reads again instead of sticking on the note,
+      // and drop the old backoff so the fresh attempt waits out the base
+      // window rather than a parked failure's doubled one.
+      if (this.detail === null) {
+        this.resetLedger()
+        this.failures = 0
+      }
+    }
+    return () => {
+      this.listeners.delete(fn)
+      if (this.listeners.size === 0) this.park()
+    }
   }
 
   readonly getSnapshot = (): DetailSnap => this.snap
@@ -150,13 +174,7 @@ export class DetailStore {
    * no longer comparable, so the ledger resets and refetches.
    */
   request(rev: number): void {
-    if (rev < this.lastHeadRev) {
-      this.generation++
-      this.acceptedRev = -1
-      this.wantedRev = -1
-      this.detail = null
-      this.failed = false
-    }
+    if (rev < this.lastHeadRev) this.resetLedger()
     this.lastHeadRev = rev
     if (rev <= this.acceptedRev || rev <= this.wantedRev) return
     this.wantedRev = rev
@@ -174,8 +192,31 @@ export class DetailStore {
     if (!this.inFlight) void this.fire()
   }
 
+  /** Drop the served payload and its cursors — a host refold, or a resume with nothing cached. */
+  private resetLedger(): void {
+    this.generation++
+    this.acceptedRev = -1
+    this.wantedRev = -1
+    this.detail = null
+    this.failed = false
+    // Drop the snapshot's own payload reference too: it is the second place a
+    // released detail could stay reachable from.
+    this.snap = EMPTY_SNAP
+  }
+
+  /** The last viewer left: clear the pending read (the cached payload stays). */
+  private park(): void {
+    this.parked = true
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+    this.emit()
+  }
+
   private schedule(): void {
-    if (this.timer !== null) return
+    // Parked: nobody reads the answer, so never arm one.
+    if (this.parked || this.timer !== null) return
     this.timer = setTimeout(() => {
       this.timer = null
       void this.fire()
