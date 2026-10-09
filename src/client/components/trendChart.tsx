@@ -1,7 +1,8 @@
 /**
  * Bespoke per-request history chart — no shared data-viz primitive — styled through the shared `--dsw-alias-*` tokens; helpers
- * aggregateByTurn/attachMarkers are shared with ContextView. On mount each bar rises from its baseline,
- * staggered left to right with the cascade capped for long logs (trendChart.css, `--lc-i` slots below).
+ * aggregateByTurn/attachMarkers are shared with ContextView. On mount the NEWEST bars rise from their baseline,
+ * staggered left to right (trendChart.css, `--lc-i` slots below): only the columns a pane can reach, so a long
+ * log's entrance never animates thousands of bars nobody can see.
  */
 
 import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type UIEvent } from 'react'
@@ -11,6 +12,17 @@ import { deltaBandsOf, dnaBaseLabel } from '../dna'
 import type { DnaDelta, TrendBand } from '../dna'
 import { containHorizontalOverscroll } from '../overscroll'
 import type { ViewKit } from '../viewkit'
+
+/** The entrance-rise utility pair (a reduced-motion-guarded transform sweep), shared by every bar interior. */
+const RISE_CLASS = ' animate-lc-bar-in motion-reduce:animate-none'
+
+/**
+ * The mount-time rise window: only the NEWEST `RISE_CAP` columns play the grow-in. The chart mounts anchored
+ * to the newest bars, so the columns a pane can show are a suffix of the log — 200 columns cover a 3200px-wide
+ * chart, wider than any pane — while animating everything left of the window was invisible work whose cost grew
+ * with the session (a thousand per-bar transform animations layerize the whole chart and stall the card's open).
+ */
+export const RISE_CAP = 200
 
 export interface TrendChartProps {
   requests: RequestRecord[]
@@ -139,8 +151,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
   // same column grid.
   const BAR_W = 14
   const BAR_GAP = 2
-  // Entrance stagger cap: long logs render thousands of bars, so the grow-in cascade stops widening after
-  // this many columns and late bars simply join within the cap (trendChart.css delays by `--lc-i`).
+  // Entrance stagger cap: the rise window's delay stops widening after this many columns (`--lc-i`), so the
+  // cascade settles quickly however far past the window the log runs.
   const STAGGER_CAP = 20
   // Step flags: every 5th step bar plants one at its left edge, labeled with its cumulative step number
   // (5, 10, 15, …) — the chart's only position landmark in step granularity (the turn strip numbers turns).
@@ -226,8 +238,10 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     upPx?: number
     downPx?: number
     deltaScale?: number
-    /** Bar index in the render order: the entrance grow-in stagger slot (capped inside, so a long log's cascade stays snappy). */
+    /** Bar index WITHIN the rise window (0 at its oldest column): the grow-in stagger slot, capped inside. */
     enterIndex: number
+    /** Whether this bar plays the entrance rise at all — false for the columns left of the RISE_CAP window. */
+    rise: boolean
     /** The step flag's label (the bar's cumulative step number), or null to plant none. */
     flag: number | null
     /** DNA mode: this bar's per-item bands (read order), or null in the stacked modes. */
@@ -257,6 +271,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     total: number
     maxTotal: number
     enterIndex: number
+    /** Whether this bar plays the entrance rise (see ChartBarProps.rise). */
+    rise: boolean
     /** The bar's request seq: a band pick reveals the item at THIS step in the Context browser. */
     seq: number
     onHit: (key: string | null) => void
@@ -296,7 +312,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     }
     return (
       <div
-        className="lc-bar-dna animate-lc-bar-in motion-reduce:animate-none"
+        className={'lc-bar-dna' + (props.rise ? RISE_CLASS : '')}
         style={{
           height: `${Math.max(1, Math.round(props.total / props.maxTotal * CHART_H))}px`,
           background: 'linear-gradient(to top, ' + runs.map(r => `${r.color} ${r.from}%, ${r.color} ${r.to}%`).join(', ') + ')',
@@ -328,6 +344,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     /** The zero line's offset from the bar's floor (px). */
     zeroBottom: number
     enterIndex: number
+    /** Whether this bar plays the entrance rise (see ChartBarProps.rise). */
+    rise: boolean
     seq: number
     onHit: (key: string | null) => void
     onPick?: (seq: number, band: { key: string; cat: Category | 'system' | 'tools' }) => void
@@ -373,7 +391,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     }
     return (
       <div
-        className="lc-bar-dna animate-lc-bar-in motion-reduce:animate-none"
+        className={'lc-bar-dna' + (props.rise ? RISE_CLASS : '')}
         style={{
           position: 'absolute',
           bottom: `${Math.round(props.zeroBottom - downSum * props.scale)}px`,
@@ -429,6 +447,8 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
     const diverge = props.upPx !== undefined && props.downPx !== undefined && props.deltaScale !== undefined
     // Rise stagger slot, shared by the total stack and both delta arms (trendChart.css scaleY-opens them).
     const enterStyle = { '--lc-i': Math.min(props.enterIndex, STAGGER_CAP) } as CSSProperties
+    // The entrance rise class: absent left of the rise window, where no pane reaches at mount.
+    const riseCls = props.rise ? RISE_CLASS : ''
     return (
       <div
         className={'lc-bar hover:bg-(--dsw-alias-bg-layer-2)'
@@ -458,6 +478,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
               scale={props.dnaScale}
               zeroBottom={props.zeroBottom}
               enterIndex={props.enterIndex}
+              rise={props.rise}
               seq={req.seq}
               onHit={props.onDnaHit}
               onPick={props.onPickBand}
@@ -468,6 +489,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
               total={req.total}
               maxTotal={props.maxTotal}
               enterIndex={props.enterIndex}
+              rise={props.rise}
               seq={req.seq}
               onHit={props.onDnaHit}
               onPick={props.onPickBand}
@@ -475,14 +497,14 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
           )
         ) : diverge ? (
           <>
-            <div className="lc-bar-up animate-lc-bar-in motion-reduce:animate-none" style={{ bottom: `${props.downPx}px`, ...enterStyle }}>
+            <div className={'lc-bar-up' + riseCls} style={{ bottom: `${props.downPx}px`, ...enterStyle }}>
               {CATS.map((c) => {
                 const d = req[c.key] || 0
                 if (d <= 0) return null
                 return <div key={c.key} data-cat={c.key} className="lc-cat-seg" style={{ height: `${Math.max(1, Math.round(d * (props.deltaScale as number)))}px`, background: c.color }} />
               })}
             </div>
-            <div className="lc-bar-down animate-lc-bar-in motion-reduce:animate-none" style={{ top: `${props.upPx}px`, ...enterStyle }}>
+            <div className={'lc-bar-down' + riseCls} style={{ top: `${props.upPx}px`, ...enterStyle }}>
               {CATS.map((c) => {
                 const d = req[c.key] || 0
                 if (d >= 0) return null
@@ -491,7 +513,7 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
             </div>
           </>
         ) : (
-          <div className="lc-bar-stack animate-lc-bar-in motion-reduce:animate-none" style={enterStyle}>
+          <div className={'lc-bar-stack' + riseCls} style={enterStyle}>
             {CATS.map((c) => {
               const v = req[c.key] || 0
               if (!v) return null
@@ -709,6 +731,11 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
         x += w + BAR_GAP
       }
     }
+
+    // The rise window (RISE_CAP): the columns a pane can reach, since the chart mounts anchored to the
+    // newest bars. A log shorter than the window rises whole; a re-anchor onto an older turn (a strip click
+    // or a chat jump) simply leaves those columns without the rise.
+    const riseFrom = Math.max(0, requests.length - RISE_CAP)
 
     // One font size for the whole strip: the largest at which the TIGHTEST adjacent pair of labels still clears
     // the gap between their block centers (center distance = half each block + the gap between blocks), so every
@@ -1046,7 +1073,10 @@ export function makeTrendChart(kit: ViewKit): (props: TrendChartProps) => ReactE
                   upPx={delta ? upPx : undefined}
                   downPx={delta ? downPx : undefined}
                   deltaScale={delta ? deltaScale : undefined}
-                  enterIndex={i}
+                  // Counted from the window's edge: the rising columns cascade left to right even when the
+                  // log runs far past the window (their raw indices would all sit past the stagger cap).
+                  enterIndex={Math.max(0, i - riseFrom)}
+                  rise={i >= riseFrom}
                   dna={dnaOn ? dnaBands[i] : null}
                   dnaDelta={dnaDeltaOn && dnaDeltas !== null ? dnaDeltas[i] : null}
                   dnaScale={dnaDeltaOn ? deltaScale : undefined}

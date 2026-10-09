@@ -71,9 +71,10 @@
 .lc-bar-dna { width: 100%; border-radius: 2px; }
 /*
  Entrance rise: each bar's stack scaleY-opens from the baseline (total mode: the chart floor; delta arms:
- the zero line — the down-arm's origin is its top edge), staggered left to right with the cascade capped in
- the component so a long log still settles in about a second. The sweep rides the `animate-lc-bar-in`
- utility (theme token, `motion-reduce:animate-none` for the reduced-motion guard).
+ the zero line — the down-arm's origin is its top edge), staggered left to right inside the component's
+ RISE_CAP window (a log longer than the window rises its newest columns only; `--lc-i` is counted from the
+ window's edge). The sweep rides the `animate-lc-bar-in` utility (theme token, `motion-reduce:animate-none`
+ for the reduced-motion guard).
  */
 .lc-bar-stack, .lc-bar-up, .lc-bar-down, .lc-bar-dna { transform-origin: 50% 100%; }
 .lc-bar-down { transform-origin: 50% 0; }

@@ -15,7 +15,7 @@
 import { act, createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { afterAll, beforeAll, describe, test } from 'vitest'
-import { aggregateByTurn, attachMarkers, jumpTargetOf, makeTrendChart, turnStepsOf, type TrendChartProps } from '../../../src/client/components/trendChart'
+import { RISE_CAP, aggregateByTurn, attachMarkers, jumpTargetOf, makeTrendChart, turnStepsOf, type TrendChartProps } from '../../../src/client/components/trendChart'
 import { CATS } from '../../../src/client/categories'
 import type { TrendBand } from '../../../src/client/dna'
 import type { ContextEventRecord, RequestRecord, SurfaceNode } from '../../../src/shared/types'
@@ -154,6 +154,54 @@ describe('TrendChart empty history', () => {
     assert.ok(query(m.container, '.lc-grid-q1'), 'total mode keeps the dashed quarter guides')
     assert.ok(query(m.container, '.lc-grid-zero'), 'total mode draws the solid zero baseline at the chart floor')
     await m.unmount()
+  })
+})
+
+describe('TrendChart entrance rise cap', () => {
+  test('a log longer than the cap rises only over its newest columns', async () => {
+    const reqs: RequestRecord[] = []
+    for (let i = 0; i < RISE_CAP + 10; i++) reqs.push(req(i + 1, { turn: 1, step: i }))
+    const m = await mount(h(TrendChart, propsOf(reqs)))
+    const stacks = queryAll(m.container, '.lc-bar-stack')
+    assert.equal(stacks.length, RISE_CAP + 10)
+    const risers = stacks.filter(s => s.className.includes('animate-lc-bar-in'))
+    assert.equal(risers.length, RISE_CAP)
+    // The window is what rises: every column from its edge on, none before it.
+    assert.deepEqual(stacks.slice(0, 10).map(s => s.className.includes('animate-lc-bar-in')), new Array<boolean>(10).fill(false))
+    assert.deepEqual(stacks.slice(10).map(s => s.className.includes('animate-lc-bar-in')), new Array<boolean>(RISE_CAP).fill(true))
+    // The window's own cascade counts from its edge — raw indices would all sit past the stagger cap and
+    // rise in unison.
+    assert.equal(stacks[10].style.getPropertyValue('--lc-i'), '0')
+    await m.unmount()
+  })
+
+  test('a log that fits the cap keeps its full cascade', async () => {
+    const reqs = [req(1, { turn: 1, step: 0 }), req(2, { turn: 1, step: 1 }), req(3, { turn: 2, step: 0 })]
+    const m = await mount(h(TrendChart, propsOf(reqs)))
+    assert.deepEqual(queryAll(m.container, '.lc-bar-stack').map(s => s.className.includes('animate-lc-bar-in')), [true, true, true])
+    await m.unmount()
+  })
+
+  test('the DNA and DNA+delta interiors obey the same cap', async () => {
+    // A band that grows by one token per bar, so the DNA+delta arms exist for every bar but the first.
+    const reqs: RequestRecord[] = []
+    const bands: TrendBand[][] = []
+    for (let i = 0; i < RISE_CAP + 5; i++) {
+      const tokens = 100 + i
+      reqs.push(req(i + 1, { turn: 1, step: i, total: tokens }))
+      bands.push([{ key: 'sys', cat: 'system', tokens, off: 0, color: '#123456' } as TrendBand])
+    }
+    const total = await mount(h(TrendChart, propsOf(reqs, { dna: bands })))
+    const totalDivs = queryAll(total.container, '.lc-bar-dna')
+    assert.equal(totalDivs.length, RISE_CAP + 5)
+    assert.equal(totalDivs.filter(d => d.className.includes('animate-lc-bar-in')).length, RISE_CAP)
+    await total.unmount()
+    // The first bar carries no baseline, so its delta arm renders nothing at all.
+    const delta = await mount(h(TrendChart, propsOf(reqs, { dna: bands, mode: 'delta' })))
+    const deltaDivs = queryAll(delta.container, '.lc-bar-dna')
+    assert.equal(deltaDivs.length, RISE_CAP + 4)
+    assert.equal(deltaDivs.filter(d => d.className.includes('animate-lc-bar-in')).length, RISE_CAP)
+    await delta.unmount()
   })
 })
 
