@@ -1,38 +1,20 @@
 /**
  * The on-demand DETAIL route of the split `contextTimeline` generation.
  *
- * The projection's wire value is the slim head (fold.ts `buildTimelineHead`);
- * the heavy collections (per-request records, context events, the served
- * surface window, the removed-node archive) are served HERE instead — one
- * targeted read per viewing client, only while its Context tab or /context
- * modal is open, instead of riding every session.list row, control baseline,
- * follow snapshot, and push frame whole (see shared/types.ts
- * `ContextTimelineDetail`).
+ * The projection's wire value is the slim head (fold.ts `buildTimelineHead`); the heavy
+ * collections are served HERE instead — one targeted read per viewing client, only while its
+ * Context tab or /context modal is open, instead of riding every session.list row and push frame
+ * whole.
  *
- * The transport is Connection's exact Fetch-route registry
- * (`ctx.connection.fetch.register`) — the same seam the harness's own file
- * upload and media-reference routes mount through, riding the authenticated
- * `/api` fence. The handler resolves the session through the harness's own
- * ladder: a LIVE session's unit state comes straight off the registry's
- * `stateOf` (no second fold); a session only ever VIEWED cold (prepared into
- * the observation cache — `SessionStore.prepare` never enters it into the
- * live store) is observed through `ctx.sessionQuery` and its immutable log
- * folded from init (cheap: a cold session's log is static, and the client's
- * per-session store reads it once per page view). A session that left the
- * live set mid-request, a unit that never registered, or a session nothing
- * can observe resolves to a typed `null` — the client keeps its last detail
- * and offers a retry, never an unhandled rejection.
+ * The transport is Connection's exact Fetch-route registry (`ctx.connection.fetch.register`), the
+ * same seam the harness's file-upload and media-reference routes mount through, under the
+ * authenticated `/api` fence. A LIVE session's state comes straight off the registry's `stateOf`
+ * (no second fold); a session only ever VIEWED cold is observed through `ctx.sessionQuery` and
+ * its immutable log folded from init. Anything else resolves to a typed `null`.
  *
- * Load order is never assumed: `watchDetailChannel` nests a `ctx.inject` on
- * the two faces the registration reads (connection, sessions), so a service
- * that activates AFTER this plugin still arms the route (cordis replays the
- * inject when the dependency set completes). The returned gate is read by
- * the timeline unit's view at every serve, so the wire generation flips to
- * slim the moment the route goes live and flips back if it unloads — the
- * client reconciles both (it detects the generation per value,
- * timelineSource.ts). A deployment whose connection/sessions services never
- * compose — or whose connection carries no fetch registry — keeps the gate
- * closed forever and serves the inline value unchanged.
+ * Load order is never assumed: the nested `ctx.inject` on connection + sessions arms the route
+ * even for a service activating later; the returned gate is read at every serve, so the wire
+ * generation flips with the route.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -44,7 +26,7 @@ import { applyTimeline, buildTimelineDetail, createTimelineState } from './fold'
 /** The plugin's detail route, under the authenticated `/api` fence. */
 export const DETAIL_ROUTE = '/api/dsh-context/detail'
 
-/** The route's liveness, read by the timeline unit's view at every serve. */
+/** Read by the timeline unit's view at every serve. */
 export interface DetailChannelGate {
   readonly live: boolean
 }
@@ -54,36 +36,27 @@ interface SessionsHostFace {
   get?(id: string): unknown
 }
 
-/**
- * The host `sessionQuery` service, as far as the route consumes it: the
- * prepared-observation read that folds a session only ever VIEWED cold.
- */
+/** The prepared-observation read that folds a session only ever viewed cold. */
 interface SessionQueryFace {
   observeSession?(id: string, options: unknown): Promise<unknown>
 }
 
-/** One JSON reply of the detail route. */
 function reply(value: unknown): Response {
   return Response.json(value, { headers: { 'cache-control': 'no-store' } })
 }
 
-/** The typed failure envelope (the same shape the Connection RPC carried). */
 function failure(code: string, message: string): Response {
   return reply({ ok: false, error: { code, message } })
 }
 
-/**
- * Serve the detail route whenever the connection and sessions services are
- * both composed (see the module header for the load-order contract). The
- * registration rides the injected fiber: either service unloading withdraws
- * the route and closes the gate.
- */
+/** Serve the detail route whenever the connection and sessions services are both composed (see
+ * the module header). Either service unloading withdraws the route and closes the gate. */
 export function watchDetailChannel(ctx: Context, bounds: FoldBounds, coldReads: ColdReadGate = makeColdReadGate()): DetailChannelGate {
   const gate = { live: false }
   ctx.inject(['connection', 'sessions'], (c) => {
     const sessions = c.get('sessions') as SessionsHostFace | undefined
     const register = fetchRouteRegistrar(c.get('connection') as ConnectionHostFace | undefined)
-    // Bind at extraction (an unbound hand-off loses `this` on the real face).
+    // Bind at extraction: an unbound hand-off loses `this` on the real face.
     const getSession = typeof sessions?.get === 'function' ? sessions.get.bind(sessions) : undefined
     if (register === undefined || getSession === undefined) return
     const projections = ctx.sessionProjections
@@ -104,23 +77,14 @@ export function watchDetailChannel(ctx: Context, bounds: FoldBounds, coldReads: 
       try {
         const session = getSession(sessionId)
         if (session !== undefined && session !== null) {
-          // Live (attached) session: read the registry's CURRENT fold state —
-          // no second fold. `stateOf` materializes the cell at the session
-          // cursor (no-op when the drive is current); never mutate the result.
+          // Live session: the registry's current fold state — no second fold, never mutated.
           const state = projections.stateOf(session as never, 'contextTimeline')
-          // The unit is absent only in the baseline-gated composition, which never
-          // installs this route — a miss is defensive.
           if (state === undefined) return reply({ ok: true, value: null })
           return reply({ ok: true, value: buildTimelineDetail(state, bounds) })
         }
-        // Cold session (viewed through a prepared observation, never entered
-        // into the live store): observe it and fold the detail from its
-        // immutable log. The lease disposes promptly; the query's prepared
-        // cache retains the session for reuse. The read runs through the
-        // shared cold-read gate (coldRead.ts): one log decode at a time
-        // host-wide, and a skip under heap pressure resolves to the same
-        // typed null as a session nothing can observe — the client keeps
-        // its last detail either way.
+        // Cold session: observe it and fold the detail from its immutable log. The read runs
+        // through the shared cold-read gate; a skip under heap pressure resolves to the same
+        // typed null as a session nothing can observe.
         const query = ctx.get('sessionQuery') as SessionQueryFace | undefined
         const observe = typeof query?.observeSession === 'function'
           ? query.observeSession.bind(query)
@@ -153,8 +117,7 @@ export function watchDetailChannel(ctx: Context, bounds: FoldBounds, coldReads: 
         fetch: handler,
       }), 'dsh-context: detail route')
     } catch {
-      // A hostile or rejecting registry must not take the plugin down — the
-      // gate stays closed and the wire value stays inline.
+      // A hostile or rejecting registry must not take the plugin down: gate stays closed.
       return
     }
     gate.live = true

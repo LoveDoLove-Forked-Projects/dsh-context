@@ -1,46 +1,22 @@
 /**
- * The projection warm-up: a one-pass background backfill that gives every
- * stored session its `contextActivity` + `contextTimeline` rows — run on
- * demand, the first time its only reader opens.
+ * The projection warm-up: a one-pass background backfill that gives every stored session its
+ * `contextActivity` + `contextTimeline` rows, run on demand by its only reader.
  *
- * The overview's heatmap, KPI band, and session cards read the session
- * list's projection column, which serves durable cache rows only (zero-I/O).
- * A session folded before a projection unit existed — `contextActivity` on
- * upgrade, `contextTimeline` for a session that predates the plugin — or
- * whose rows went version-stale (a `stateVersion` bump, e.g. the timeline's
- * `lastUser` preview) has no usable row until it next goes live, so the
- * heatmap would stay empty, the KPI band would undercount, and the cards
- * would show their no-data note and no preview indefinitely. The cache's
- * cold-read ladder (`sessionProjectionCache.coldSnapshot`) closes exactly
- * that gap: read the stored log once, seed each unit from its cached rows,
- * fold the remainder, and write the refreshed checkpoint back (the cache
- * does the write-back itself).
+ * The session list serves durable cache rows only, so a session folded before a unit existed,
+ * or whose rows went version-stale, has no usable row until it next goes live: the heatmap
+ * stays empty and the cards keep their no-data note. The cache's cold-read ladder
+ * (`sessionProjectionCache.coldSnapshot`) closes that gap — read the stored log once, seed each
+ * unit from its cached rows, fold the remainder, write the refreshed checkpoint back.
  *
- * The pass runs when summoned, not at boot. The dashboard is the rows' only
- * reader, so an at-startup warm-up would make every deployment cold-read its
- * whole corpus on every boot whether the dashboard is ever opened or not —
- * and a legacy log the running harness refuses to migrate (a v0 artifact
- * carrying events outside the released migration surface) would re-attempt
- * and re-report on every boot, for nothing. Instead the client POSTs
- * `/api/dsh-context/backfill` when the dashboard first opens
- * (overviewPanel.tsx); the host answers at once and runs the pass once per
- * process — later opens (and later POSTs) are no-ops, and the pass arms
- * regardless of which of the two halves composes first.
+ * The pass runs when the client POSTs the trigger route on the Context Insights page's first open,
+ * not at boot: an at-startup pass would cold-read the whole corpus on every boot whether the page
+ * is ever opened or not. It runs once per process and skips live sessions, which fold for
+ * themselves.
  *
- * OPTIONAL BY CONTRACT: the connection / sessionQuery / sessionProjectionCache
- * / sessionPersistence / sessions services compose on every standard
- * deployment, but a deployment may strip any of them — both halves ride
- * deferred injects, every face is re-proved structurally before use, and
- * each session's read is isolated (one unreadable log costs just itself,
- * logged). A deployment whose client cannot mount the trigger route (no
- * connection service, no exact-route registry) simply never runs the pass —
- * the same deployments could not open the dashboard to read the rows anyway.
- * Live sessions are skipped: they fold every unit themselves and checkpoint
- * on the mandatory points, so a cold write would only race them. Skips are
- * accounted, not spammed: a log the harness refuses to migrate is permanent
- * and source-side — its per-session detail drops to debug and the pass ends
- * with one summary info line; only unexpected per-session failures keep
- * their own warn.
+ * OPTIONAL BY CONTRACT: deferred injects, every face re-proved before use, each session's read
+ * isolated — a deployment without the connection route or the cold-path services never arms the
+ * pass. A log the harness refuses to migrate is permanent, so its per-session detail drops to
+ * debug and the pass ends with one summary info line.
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -52,23 +28,18 @@ import { type ConnectionHostFace, fetchRouteRegistrar } from './connection'
 /** The plugin's warm-up trigger route, under the authenticated `/api` fence. */
 export const BACKFILL_ROUTE = '/api/dsh-context/backfill'
 
-/** The corpus listing face, as consumed (re-proved at runtime). */
+/** The corpus listing face, as consumed. */
 interface SessionQueryLike {
   listSessions(signal?: AbortSignal): Promise<unknown>
 }
 
-/**
- * The cache's two cold-path verbs, as consumed (re-proved at runtime). The
- * cached-rows probe rides the current face — `(meta, keys?)`, the lifecycle
- * identity riding the header alone (the offset parameter belonged to the
- * dropped 0.1.5 line and never existed on a supported one).
- */
+/** The cache's two cold-path verbs, as consumed (re-proved at runtime). */
 interface ProjectionCacheLike {
   cachedSnapshot(meta: SessionHeader, keys?: readonly string[]): unknown
   coldSnapshot(header: SessionHeader, inheritedEventCount: unknown, events: readonly SessionEvent[]): unknown
 }
 
-/** One persistence read handle, as consumed (mirrors dsh-session-query's readColdSessionLog). */
+/** One persistence read handle, as consumed. */
 interface ReadHandleLike {
   header: SessionHeader
   inheritedEventCount: unknown
@@ -80,29 +51,18 @@ interface PersistenceLike {
   open(id: string, access: 'read', options?: { signal?: AbortSignal }): Promise<ReadHandleLike>
 }
 
-/**
- * Inter-session pacing so a multi-hundred-session backfill never starve the
- * host: each cold read is a full durable-log decode, and a boot-time host
- * under sustained read pressure stalls its own client handshake (the
- * workspace sidebar rides it), so the pass breathes between sessions.
- */
+/** Inter-session pacing: each cold read is a full log decode, and a boot-time host under
+ * sustained read pressure stalls its own client handshake. */
 const YIELD_MS = 100
 
-/**
- * The `name` family dsh raises for a durable log it cannot interpret. The
- * format edge throws `SessionFormatUnsupportedMigrationError`, but the
- * persistence seam translates it — together with every other "intact yet not
- * interpretable" refusal — into `SessionFormatUnsupportedError` before the
- * error escapes (issue #75): classify by the family prefix, since either
- * exact name may be the one that arrives.
- */
+/** The `name` family dsh raises for a durable log it cannot interpret: the persistence seam
+ * translates the format edge's refusal into `SessionFormatUnsupportedError`, so classify by prefix and import no dsh symbol. */
 const UNSUPPORTED_FORMAT = 'SessionFormatUnsupported'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' ? value as Record<string, unknown> : null
 }
 
-/** One listed record's header, re-proved: id and cwd are the two fields the run relies on. */
 function headerOf(record: unknown): SessionHeader | null {
   const header = asRecord(asRecord(record)?.header)
   if (header === null) return null
@@ -110,19 +70,13 @@ function headerOf(record: unknown): SessionHeader | null {
   return header as unknown as SessionHeader
 }
 
-/** The probe keys: the projection keys the cache must already serve. */
 const PROBE_KEYS = ['contextActivity', 'contextTimeline']
 
-/** Whether the cache already serves BOTH projection rows for this header (nothing to backfill). */
 function servesRows(cache: ProjectionCacheLike, header: SessionHeader): boolean {
   try {
-    // Unseeded sessions carry no inherited prefix (cut 0); a seeded (forked)
-    // header's real cut only arrives with the log read below, so the probe
-    // misses and the session takes the cold-read path — correct either way.
-    // Both keys must be served: a version-stale row (the timeline's head
-    // gained `lastUser` at stateVersion 20) reads as absent here, so the
-    // session's stale rows get their one cold refold at startup. A hostile
-    // face's throw reads as "not served" the same way.
+    // Unseeded sessions carry no inherited prefix (cut 0), and a seeded header's real cut only
+    // arrives with the log read below, so the probe misses and the session takes the cold-read
+    // path. A version-stale row also reads as absent; a hostile face's throw does the same.
     const block = asRecord(cache.cachedSnapshot(header, PROBE_KEYS))
     const values = asRecord(block?.values)
     return values !== null
@@ -143,7 +97,7 @@ async function readColdLog(
   let events: readonly SessionEvent[]
   try {
     const raw: unknown = await handle.read(0, undefined, { signal })
-    // The handle's read result is re-proved: a hostile persistence serves an empty log, never a throw.
+    // A hostile persistence result serves an empty log, never a throw.
     const result = asRecord(raw)?.events
     events = Array.isArray(result) ? result : []
   } catch (error: unknown) {
@@ -160,12 +114,9 @@ async function readColdLog(
   }
 }
 
-/**
- * Whether one session is live (folds for itself — a cold write would only
+/** Whether one session is live (folds for itself — a cold write would only
  * race its own checkpoints). A throwing registry read conservatively skips
- * the session too: better to leave a row unfolded than to write over a
- * possibly-live one.
- */
+ * the session too: better to leave a row unfolded than to write over a possibly-live one. */
 function isLive(sessions: Record<string, unknown> | null, id: string): boolean {
   if (sessions === null || typeof sessions.get !== 'function') return false
   try {
@@ -175,13 +126,6 @@ function isLive(sessions: Record<string, unknown> | null, id: string): boolean {
   }
 }
 
-/**
- * Whether the cold read failed because the running harness refuses this log's
- * format — a permanent, source-side refusal (the artifact is left unchanged,
- * so retrying cannot succeed). Matched by the error's documented `name`, so no
- * dsh symbol needs importing and every supported baseline classifies alike: an
- * unknown error shape just falls to the warn path.
- */
 function isUnsupportedFormat(error: unknown): boolean {
   try {
     return String(asRecord(error)?.name).startsWith(UNSUPPORTED_FORMAT)
@@ -190,7 +134,7 @@ function isUnsupportedFormat(error: unknown): boolean {
   }
 }
 
-/** The error's printable form — a hostile error may throw on its own toString. */
+/** Printable form — a hostile error may throw on its own toString. */
 function messageOf(error: unknown): string {
   try {
     return String(error)
@@ -199,16 +143,9 @@ function messageOf(error: unknown): string {
   }
 }
 
-/**
- * Arm the warm-up behind its trigger route. The route flips `requested`
- * when the dashboard first opens; the cold-path faces compose `launch`.
- * Either half may land first; the first request after both launches the one
- * pass, and every later request is a no-op. Returns the deferred injects'
- * disposer (abort on unload). Every cold read runs through the shared
- * host-wide gate (coldRead.ts): one read at a time, and the pass stops
- * early when the gate skips under heap pressure — folded rows persist and
- * every remaining session keeps its on-demand refold paths.
- */
+/** Arm the warm-up behind its trigger route: the route flips `requested` on the page's
+ * first open and the cold-path faces compose `launch`; whichever lands second launches the one
+ * pass. Returns the deferred injects' disposer (abort on unload). */
 export function watchActivityBackfill(ctx: Context, coldReads: ColdReadGate = makeColdReadGate()): () => void {
   let requested = false
   let started = false
@@ -234,8 +171,7 @@ export function watchActivityBackfill(ctx: Context, coldReads: ColdReadGate = ma
         },
       }), 'dsh-context: backfill route')
     } catch {
-      // A hostile or rejecting registry leaves the route absent — the pass
-      // simply never arms.
+      // A hostile or rejecting registry leaves the route absent — the pass simply never arms.
       return
     }
   })
@@ -273,15 +209,12 @@ export function watchActivityBackfill(ctx: Context, coldReads: ColdReadGate = ma
         try {
           const admitted = await coldReads.admit(async () => {
             const log = await readColdLog(persistence as unknown as PersistenceLike, header.id, abort.signal)
-            // The handle's header is authoritative (fixed at open); the listed
-            // one was only the probe's identity witness.
+            // The handle's header is authoritative (fixed at open); the listed one was its probe.
             ;(cache as unknown as ProjectionCacheLike).coldSnapshot(log.header, log.inheritedEventCount, log.events)
             return true
           })
           if (admitted === undefined) {
-            // Skipped under heap pressure: end the pass here — pressure does
-            // not fall within a pacing tick, so hammering the gate per
-            // remaining session only delays the host's own work.
+            // Pressure does not fall within a pacing tick, so re-probing per session only delays the host's own work.
             paused = true
             break
           }
@@ -296,7 +229,6 @@ export function watchActivityBackfill(ctx: Context, coldReads: ColdReadGate = ma
             ctx.logger.warn(`dsh-context: projection backfill skipped "${header.id}" (${messageOf(error)})`)
           }
         }
-        // Pace the pass: hundreds of cold reads in one breath would starve the host.
         await new Promise(resolve => setTimeout(resolve, YIELD_MS))
       }
       if (folded > 0) ctx.logger.info(`dsh-context: projection rows backfilled for ${folded} session(s)`)
