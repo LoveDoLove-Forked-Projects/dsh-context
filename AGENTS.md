@@ -22,6 +22,12 @@ A DeepSeek Harness plugin for context insight, actions, and management.
 - Reuse the classes, utilities, styles, style tokens, events, presets, and lifecycles that DeepSeek Harness already provides.
 - Keep code and tests small, loosely coupled, and modular; avoid duplication.
 - Add comments only for major decisions or significant value, and update or delete outdated ones when modifying the code.
+- Comments guideline:
+  - Cleanup all the unnecessary, unhelpful or deprecated comments
+  - Cleanup all comments that related code already self-explains or self-constructs, even crossing multiple files and modules.
+  - ONLY use comments for critical major decisions or significant value that cannot be self-explained by the code itself or the dsh code
+  - Use precise, clear, and concise language in comments, avoiding vague or ambiguous statements.
+  - Less is more: avoid over-explaining or repeating what the code already expresses.
 - Write comments, documentation, PR descriptions, and commit messages in English.
 - Generate one-time temp files in the `.tmp` directory and clean them up right after use.
 
