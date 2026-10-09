@@ -1,8 +1,3 @@
-// ContextBrowser (src/client/components/browser.tsx) rendered with real
-// React in jsdom: picker, category accordion, header content (schema
-// narrowing matrix), conversation join (block cascade, tail-status matrix),
-// targeted content fetch, hover linkage, and the focus bridges.
-
 import { act, createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
@@ -87,11 +82,9 @@ function props(over: Partial<ContextBrowserProps>): ContextBrowserProps {
   return { data: tl({}), headers: null, ...over }
 }
 
-/**
- * Pair metadata-only `contextHeaders` with a fetchHeader serving per-epoch
+/** Pair metadata-only `contextHeaders` with a fetchHeader serving per-epoch
  * CONTENT — the lazy-load contract the browser consumes: the projection
- * carries boundaries and token prices, the content arrives on demand.
- */
+ * carries boundaries and token prices, the content arrives on demand. */
 function withEpochContent(
   headers: ContextHeaders,
   contents: Record<number, HeaderEpochContent>,
@@ -504,8 +497,7 @@ describe('ContextBrowser header epochs', () => {
     // The single system row is already expanded.
     assert.equal(queryAll(m.container, '.lc-br-content').length, 1)
     assert.ok(queryAll(m.container, '.lc-ts-desc-md').length >= 1, 'markdown view by default')
-    // Scope to the detail body: the header's own granularity toggles wear the
-    // same shared lc-gran classes.
+    // Scope to the detail body: the header's own granularity toggles wear the same shared lc-gran classes.
     const rawBtn = queryAll(body, '.lc-gran-btn')[0]
     assert.equal(text(rawBtn), 'Raw')
     await click(rawBtn)
@@ -687,7 +679,7 @@ describe('ContextBrowser header epochs', () => {
   test('a legacy content-bearing epoch (pre-#37 wire) still counts the system prompt', async () => {
     // The value shape a host running the pre-#37 view serves: the system TEXT
     // rides the epoch and no systemTokens price exists (the real cached row
-    // that read 0 项 while the breakdown still showed ≈1.6k). Routed through
+    // that read 0 items while the breakdown still showed ≈1.6k). Routed through
     // headersOf — the boundary the real callers sanitize the projection with.
     const legacy = {
       headers: [{
@@ -739,8 +731,7 @@ describe('ContextBrowser header epochs', () => {
   })
 
   test('a resolved prompt whose event carries no text explains its absence', async () => {
-    // The node exists (so the category opens) but the fetched event maps to
-    // no prompt text — a foreign or truncated envelope.
+    // The node exists (so the category opens) but the fetched event maps to no prompt text — a foreign or truncated envelope.
     const data = tl({
       current: { system: 30, tools: 0, user: 0, inject: 0, skill: 0, assistant: 0, tool: 0, total: 30 },
       systems: [{ seq: 7, time: 700, tokens: 30 }],
@@ -924,8 +915,7 @@ describe('ContextBrowser tool schemas', () => {
     await click(sortBtns[2])
     assert.ok(sortBtns[2].className.includes('lc-gran-on'))
     assert.deepEqual(names(), ['beta', 'delta', 'epsilon', 'gamma', 'mega', 'omega', 'rho', 'theta', 'zeta'])
-    // Count sort with no tool-result nodes on the surface: all tallies tie at
-    // zero and break by name.
+    // Count sort with no tool-result nodes on the surface: all tallies tie at zero and break by name.
     await click(sortBtns[1])
     assert.ok(sortBtns[1].className.includes('lc-gran-on'))
     assert.deepEqual(names(), ['beta', 'delta', 'epsilon', 'gamma', 'mega', 'omega', 'rho', 'theta', 'zeta'])
@@ -973,8 +963,7 @@ describe('ContextBrowser tool schemas', () => {
     assert.deepEqual(names(), ['beta', 'delta', 'gamma', 'alpha'])
     assert.deepEqual(hits(), ['×2', '×1', '×1', '×0'])
     // Picking a past step re-tallies over THAT step's assembled surface:
-    // only seq < 4 assembles, so beta drops to its one early call; the
-    // zero-hit tools order by name.
+    // only seq < 4 assembles, so beta drops to its one early call; the zero-hit tools order by name.
     await pickStep(m, '4')
     await click(catRow(m, 'tools'))
     await flush()
@@ -1124,8 +1113,7 @@ describe('ContextBrowser tool schemas', () => {
     assert.ok(text(query(body, 'pre')).includes('"nope"'))
     await close('rho')
 
-    // omega: the fetched raw entry carries no description and a bare schema —
-    // only the JSON toggle renders behind the row.
+    // omega: the fetched raw entry carries no description and a bare schema — only the JSON toggle renders behind the row.
     body = await open('omega')
     assert.equal(queryAll(body, '.lc-ts-param-row').length, 0)
     assert.ok(!text(body).includes('does everything'))
@@ -1165,8 +1153,7 @@ describe('ContextBrowser tool schemas', () => {
     assert.ok(text(chips[1]).includes('mcp:github'))
     assert.ok((chips[0] as HTMLElement).title.includes('The registering plugin of this tool'), 'the chip carries the i18n tooltip')
     assert.ok(!text(rows[2]).includes('@'), 'unattributed tools stay untagged')
-    // The unknown-source sentinel renders the localized tag with the
-    // boot-timing explanation, never the raw sentinel string.
+    // The unknown-source sentinel renders the localized tag with the boot-timing explanation, never the raw sentinel string.
     assert.equal(chips[2].textContent, 'Unknown plugin')
     assert.ok((chips[2] as HTMLElement).title.includes('registered before the context plugin loaded'), 'unknown chips explain the boot gap')
     // Layout: the tool name leads the row, the plugin chip trails it directly
@@ -1407,8 +1394,7 @@ describe('ContextBrowser message categories', () => {
     const chips = () => queryAll<HTMLButtonElement>(m.container, '.lc-br-toolctl .lc-gran-btn')
     // Counts over ALL of the shown step's rows: thinking rides the join's
     // reasoning block (seq 68), tools the joined calls (62/63/64/68) plus the
-    // unjoined node's `calls` stamp (61), answers the joined text blocks plus
-    // the nodes' own text (61/66/67/68).
+    // unjoined node's `calls` stamp (61), answers the joined text blocks plus the nodes' own text (61/66/67/68).
     assert.deepEqual(chips().map(c => text(c)), ['Thinking1', 'Tools5', 'Answer4'])
     const previews = () => elemRows(m).map(r => text(query(r, '.lc-br-preview')))
     assert.equal(elemRows(m).length, 8)
@@ -1622,8 +1608,7 @@ describe('ContextBrowser message categories', () => {
     const data = tl({
       current: { system: 0, tools: 0, user: 0, inject: 45, skill: 0, assistant: 0, tool: 0, total: 45 },
       nodes: [
-        // Stamped rows: the identity the events card names replaces the raw
-        // content preview (which stays one expand away).
+        // Stamped rows: the identity the events card names replaces the raw content preview (which stays one expand away).
         surfaceNode({ seq: 50, cat: 'inject', tokens: 9, form: 'snapshot', name: '@deepseek-ai/dsh-system-prompt', text: 'policy sections' }),
         surfaceNode({ seq: 51, cat: 'inject', tokens: 9, form: 'instructions', name: 'AGENTS.md', text: '<system-reminder> instructions' }),
         // Unstamped (rows folded before the stamp existed): content stands.
@@ -1690,8 +1675,7 @@ describe('ContextBrowser message categories', () => {
 })
 
 describe('ContextBrowser tool results', () => {
-  // The tail-status matrix: dsh settles failing commands as completed calls,
-  // so trailing markers are the failure signal.
+  // The tail-status matrix: dsh settles failing commands as completed calls, so trailing markers are the failure signal.
   const cases: { seq: number; tail: string; err: boolean; label: string }[] = [
     { seq: 80, tail: 'boom\n[exit code: 3]', err: true, label: 'Failed · exit 3' },
     { seq: 81, tail: '[killed by signal: SIGKILL]', err: true, label: 'Failed' },
@@ -2089,8 +2073,7 @@ describe('ContextBrowser open-category reporting', () => {
     const onOpenCat = (c: string | null): void => { opens.push(c) }
     let handled = 0
     const m = await mount(h(Browser, props({ data, onOpenCat })))
-    // The stats card's Answers figure: assistant open, the answer chip picked —
-    // the tool-call-only row filters out.
+    // The stats card's Answers figure: assistant open, the answer chip picked — the tool-call-only row filters out.
     await m.update(h(Browser, props({
       data,
       onOpenCat,

@@ -169,8 +169,7 @@ describe('TrendChart entrance rise cap', () => {
     // The window is what rises: every column from its edge on, none before it.
     assert.deepEqual(stacks.slice(0, 10).map(s => s.className.includes('animate-lc-bar-in')), new Array<boolean>(10).fill(false))
     assert.deepEqual(stacks.slice(10).map(s => s.className.includes('animate-lc-bar-in')), new Array<boolean>(RISE_CAP).fill(true))
-    // The window's own cascade counts from its edge — raw indices would all sit past the stagger cap and
-    // rise in unison.
+    // The window's own cascade counts from its edge — raw indices would all sit past the stagger cap and rise in unison.
     assert.equal(stacks[10].style.getPropertyValue('--lc-i'), '0')
     await m.unmount()
   })
@@ -412,7 +411,7 @@ describe('TrendChart turn granularity', () => {
     assert.deepEqual(turns.map(t => t.style.width), ['14px', '14px'])
     assert.deepEqual(turns.map(t => t.textContent), ['1', '2'])
 
-    // Multi-step aggregate → tip.turn; a single-step aggregate still speaks TURN ("共 1 步"), never the step index.
+    // Multi-step aggregate → tip.turn; a single-step aggregate still speaks TURN (the step-count wording), never the step index.
     await m.update(h(TrendChart, propsOf(agg, { granularity: 'turn', hoveredSeq: t1s1.seq })))
     assert.ok(query(m.container, '.lc-chart-tip').textContent!.includes(kit.t('tip.turn', { t: 1, n: 2 })))
     await m.update(h(TrendChart, propsOf(agg, { granularity: 'turn', hoveredSeq: t2s0.seq })))
@@ -964,8 +963,7 @@ describe('TrendChart scroll anchoring', () => {
     assert.equal(scroll.scrollLeft, 230, 'selection-only update near the end does not stick')
 
     // Turn labels re-center within their visible slice: with the reader at scrollLeft 240, T2 is half-clipped
-    // at the left → shifted right; T3 is fully visible and centered → no transform; T1 is fully out of view
-    // → untouched.
+    // at the left → shifted right; T3 is fully visible and centered → no transform; T1 is fully out of view → untouched.
     await scrollTo(scroll, 240)
     const labels = queryAll(m.container, '.lc-turn-label')
     assert.equal(labels.length, 4)
@@ -1147,13 +1145,11 @@ describe('TrendChart hover tip overlay', () => {
     return out
   }
 
-  /**
-   * The regression behind the overlay split: the tooltip used to live INSIDE .lc-chart-scroll, and an absolutely
+  /** The regression behind the overlay split: the tooltip used to live INSIDE .lc-chart-scroll, and an absolutely
    * positioned child of a scroller contributes to its scrollable overflow — a several-hundred-px reply preview on a
    * right-edge bar inflated scrollWidth on every hover, flapping the horizontal scrollbar open/closed and jumping the
    * whole card. The tip now lives beside the scroller (positioned by the wrapper), and syncTip glues it to the bar's
-   * visible slice on every scroll/commit.
-   */
+   * visible slice on every scroll/commit. */
   test('renders outside the scroller, glues to the visible slice while scrolling, and clamps at both edges', async () => {
     const reqs = manySteps()
     const { handlers } = makeSpies()
