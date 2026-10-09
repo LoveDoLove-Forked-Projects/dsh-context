@@ -392,6 +392,75 @@ describe('OverviewSkills', () => {
     await bare.unmount()
   })
 
+  test('the name filter narrows the rows and the summary, case-insensitively; clearing restores', async () => {
+    const m = await mount(h(Skills, {
+      stats: [stat('ponytail', 2, NOW), stat('grilling', 1, NOW), stat('grill-me', 1, NOW)],
+      now: NOW,
+    }))
+    const input = query<HTMLInputElement>(m.container, 'input.lc-ov-skills-search')
+    assert.equal(input.getAttribute('aria-label'), 'Search skills…')
+    assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 3)
+    assert.ok(text(query(m.container, '.lc-ov-skills-sub-n')).includes('3 skills · 4 loads'))
+    await actType(input, 'GRILL')
+    assert.deepEqual(
+      queryAll(m.container, '.lc-ov-skill-name').map(n => text(n)),
+      ['grilling', 'grill-me'],
+      'the substring match ignores case',
+    )
+    assert.ok(text(query(m.container, '.lc-ov-skills-sub-n')).includes('2 skills · 2 loads'), 'the counts follow the filter')
+    await actType(input, '  grill-me  ')
+    assert.deepEqual(queryAll(m.container, '.lc-ov-skill-name').map(n => text(n)), ['grill-me'], 'the query trims')
+    await actType(input, '')
+    assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 3, 'clearing restores the scope')
+    await m.unmount()
+  })
+
+  test('an empty match keeps the filter input mounted and swaps the note; a lone row offers nothing to filter', async () => {
+    const m = await mount(h(Skills, { stats: [stat('tdd', 1, NOW), stat('grill-me', 1, NOW)], now: NOW }))
+    const input = query<HTMLInputElement>(m.container, 'input.lc-ov-skills-search')
+    await actType(input, 'zzz')
+    assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 0)
+    assert.ok(text(query(m.container, '.lc-ov-skills-sub-n')).includes('0 skills · 0 loads'), 'the counts follow the filter down to zero')
+    assert.ok(text(m.container).includes('No skills match the current filter'))
+    await actType(input, 'tdd')
+    assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 1, 'the input stays mounted and can clear the filter')
+    await m.unmount()
+    const one = await mount(h(Skills, { stats: [stat('tdd', 1, NOW)], now: NOW }))
+    assert.equal(queryAll(one.container, 'input.lc-ov-skills-search').length, 0, 'a lone row has nothing to filter')
+    await one.unmount()
+    const empty = await mount(h(Skills, { stats: [], now: NOW }))
+    assert.equal(queryAll(empty.container, 'input.lc-ov-skills-search').length, 0)
+    await empty.unmount()
+  })
+
+  test('a pin the filter hides falls back to the detached block; the filtered overflow line counts the matches', async () => {
+    const stats = Array.from({ length: 25 }, (_, i) => stat(`skill-${i}`, i + 1, NOW - i * 1000))
+    stats.push(stat('grill-me', 1, NOW))
+    const m = await mount(h(Skills, { stats, selected: 'skill-24', now: NOW }))
+    const input = query<HTMLInputElement>(m.container, 'input.lc-ov-skills-search')
+    await actType(input, 'grill')
+    assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 1)
+    const detail = query(m.container, '.lc-ov-skill-detail')
+    assert.equal(detail.closest('.lc-ov-skill-unit'), null, 'no inline seat without the pinned row')
+    assert.equal(queryAll(detail, '.lc-skilld-head').length, 1, 'the detached seat carries the head')
+    // All twenty-five generated names match 'skill' — twenty rows plus the
+    // overflow line counting the filtered set.
+    await actType(input, 'skill')
+    assert.equal(queryAll(m.container, 'button.lc-ov-skill').length, 20)
+    assert.ok(text(m.container).includes('5 more skills'), 'the overflow counts the filtered set')
+    await m.unmount()
+  })
+
+  test('the bars keep the scope’s heaviest tally as their denominator under a filter', async () => {
+    const m = await mount(h(Skills, { stats: [stat('heavy', 8, NOW), stat('light', 4, NOW)], now: NOW }))
+    const input = query<HTMLInputElement>(m.container, 'input.lc-ov-skills-search')
+    await actType(input, 'light')
+    const rows = queryAll<HTMLElement>(m.container, 'button.lc-ov-skill')
+    assert.equal(rows.length, 1)
+    assert.ok(query(rows[0], '.lc-ov-skill-bar').getAttribute('style')?.includes('calc(50% - 6px)'), 'the share stays against the scope’s heaviest row')
+    await m.unmount()
+  })
+
   test('zh locale renders the shipped strings', async () => {
     const m = await mount(h(SkillsZh, {
       stats: [stat('tdd', 2, NOW - 2 * 3_600_000)],
@@ -416,3 +485,12 @@ describe('OverviewSkills', () => {
     await empty.unmount()
   })
 })
+
+/** Type into an input through the React change path (native setter + input event, act-wrapped). */
+async function actType(input: HTMLInputElement, value: string): Promise<void> {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+    setter?.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+}

@@ -6,9 +6,11 @@
  * in the picked order (the title's segmented toggle: loads / last used): a
  * name-hashed color dot, the load tally, a
  * proportional hairline bar (share of the heaviest row's tally), and the last
- * load's relative time. A row click PINs the session list to the sessions
- * that loaded the skill (the column's drill-down, beside the heatmap's day
- * pin — click again to release).
+ * load's relative time. The sub row under the title carries the scope's
+ * totals and a name filter (a case-insensitive substring match narrowing
+ * both the rows and the counts). A row click PINs the session list to the
+ * sessions that loaded the skill (the column's drill-down, beside the
+ * heatmap's day pin — click again to release).
  *
  * The card also answers what a skill IS, in two registers:
  * - a HOVER card (portaled like the page's hoverTip, but structured — the
@@ -151,11 +153,22 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
   const { t, fmt } = kit
   return function OverviewSkills(props: OverviewSkillsProps): ReactElement {
     const { stats } = props
-    const total = stats.reduce((sum, s) => sum + s.loads, 0)
-    // The bar's denominator is the heaviest row's tally, wherever the sort
-    // put it — keying on the first row overflows the card the moment another
-    // ordering (sessions / recent) leads with a lighter row.
+    // The bar's denominator is the heaviest row's tally across the whole
+    // scope, wherever the sort put it — keying on the first row overflows
+    // the card the moment another ordering (sessions / recent) leads with a
+    // lighter row, and keeping the scope's denominator stops the bars from
+    // jumping while a name filter narrows the rows.
     const max = stats.reduce((top, s) => Math.max(top, s.loads), 0)
+
+    // ---- the name filter ---------------------------------------------------
+    // A local, case-insensitive substring filter over the skill names; the
+    // summary counts and the rendered rows follow it, so the card always
+    // says what it shows. The input stays mounted on an empty match so the
+    // filter can always be cleared from the UI.
+    const [query, setQuery] = useState('')
+    const needle = query.trim().toLowerCase()
+    const visible = needle === '' ? stats : stats.filter(s => s.name.toLowerCase().includes(needle))
+    const visibleTotal = visible.reduce((sum, s) => sum + s.loads, 0)
 
     // ---- the hover card ---------------------------------------------------
     const [hoverRow, setHoverRow] = useState<HoverRow | null>(null)
@@ -213,9 +226,10 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
     // block. The description leads (it answers what the skill IS); the facts
     // follow as a two-column label grid — origin, usage, last load, and the
     // full path as a click-to-copy value — so nothing floats unlabeled. A pin
-    // whose row left the visible scope (or the render bound) falls back to a
-    // detached block at the card's bottom, head row included; a catalog-less
-    // pin with in-scope tallies still shows its usage rows.
+    // whose row is not rendered — out of the filtered scope or past the
+    // render bound — falls back to a detached block at the card's bottom,
+    // head row included; a catalog-less pin with in-scope tallies still shows
+    // its usage rows.
     const selected = props.selected
     const pinnedStat = selected === null || selected === undefined
       ? undefined
@@ -233,9 +247,14 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
       }
     // The copy value's path, narrowed once (a const's narrowing holds in the closure).
     const detailPath = detail?.path
+    // Whether the pinned skill's own row renders (in the filtered scope and
+    // inside the render bound) — the inline seat exists only then; a pin the
+    // filter hides falls back to the detached block at the card's bottom.
+    const pinnedRowVisible = selected !== null && selected !== undefined
+      && visible.slice(0, MAX_ROWS).some(s => s.name === selected)
     const detailBlock = detail === null ? null : (
       <div className="lc-ov-skill-detail">
-        {pinnedStat === undefined && <DetailHead name={detail.name} origin="" />}
+        {!pinnedRowVisible && <DetailHead name={detail.name} origin="" />}
         {detail.description !== '' && <p className="lc-skilld-desc">{detail.description}</p>}
         <div className="lc-skilld-grid">
           {detail.origin !== '' && (
@@ -269,10 +288,6 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
         </div>
       </div>
     )
-    // Whether the pinned skill's own row renders (in scope and inside the
-    // render bound) — the inline seat exists only then.
-    const pinnedRowVisible = selected !== null && selected !== undefined
-      && stats.slice(0, MAX_ROWS).some(s => s.name === selected)
 
     const hoverTip = hoverStat === undefined ? null : (() => {
       const info = props.catalog?.get(hoverStat.name)
@@ -324,17 +339,33 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
             </div>
           )}
         </div>
-        {/* The scope's totals live under the title, clear of the toggle. */}
+        {/* The scope's totals live under the title, clear of the toggle; the
+            name filter rides the same row, folded right and wrapping below
+            under width pressure. A lone row leaves nothing to filter. */}
         {stats.length > 0 && (
-          <div className="lc-card-sub lc-ov-skills-sub">
-            {t('ov.skills.summary', { skills: fmt(stats.length), loads: fmt(total) })}
+          <div className="lc-ov-skills-sub">
+            <span className="lc-card-sub lc-ov-skills-sub-n">
+              {t('ov.skills.summary', { skills: fmt(visible.length), loads: fmt(visibleTotal) })}
+            </span>
+            {stats.length > 1 && (
+              <input
+                className="lc-ov-search lc-ov-skills-search"
+                type="search"
+                value={query}
+                placeholder={t('ov.skills.search')}
+                aria-label={t('ov.skills.search')}
+                onChange={(ev) => { setQuery(ev.target.value) }}
+              />
+            )}
           </div>
         )}
         {stats.length === 0 ? (
           <div className="lc-empty">{t('ov.skills.empty')}</div>
+        ) : visible.length === 0 ? (
+          <div className="lc-empty">{t('ov.skills.noMatch')}</div>
         ) : (
           <div className="lc-ov-skills" role="group" aria-label={t('stats.skills')}>
-            {stats.slice(0, MAX_ROWS).map((s) => {
+            {visible.slice(0, MAX_ROWS).map((s) => {
               const color = skillColorOf(s.name)
               const pinned = props.selected === s.name
               // The bar's percentage resolves against the row's padding box
@@ -374,8 +405,8 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
                 ? <div key={s.name} className="lc-ov-skill-unit">{rowButton}{detailBlock}</div>
                 : <Fragment key={s.name}>{rowButton}</Fragment>
             })}
-            {stats.length > MAX_ROWS && (
-              <div className="lc-ov-skill-more">{t('ov.skills.more', { n: stats.length - MAX_ROWS })}</div>
+            {visible.length > MAX_ROWS && (
+              <div className="lc-ov-skill-more">{t('ov.skills.more', { n: visible.length - MAX_ROWS })}</div>
             )}
           </div>
         )}
