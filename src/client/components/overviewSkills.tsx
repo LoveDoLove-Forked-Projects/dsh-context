@@ -37,11 +37,8 @@ import { copySkillPath } from '../skills'
 import { IconCheck, IconCopy } from '../primitives'
 import type { ViewKit } from '../viewkit'
 
-/**
- * The render bound on listed skills — a hostile corpus can coin a name per
- * injection; the overflow line keeps the tally honest without a
- * thousand-row card.
- */
+/** The render bound on listed skills — a hostile corpus can coin a name per
+ * injection; the overflow line keeps the tally honest without a thousand-row card. */
 const MAX_ROWS = 20
 
 /** The description's display bound — a registry description can run paragraphs. */
@@ -79,11 +76,9 @@ export function skillColorOf(name: string): string {
   return SKILL_COLORS[hash % SKILL_COLORS.length]
 }
 
-/**
- * The origin bucket's display label: the registry's known discovery sources
+/** The origin bucket's display label: the registry's known discovery sources
  * localize; an unknown or provider-named source displays raw (it is the
- * registry's data, not UI chrome), and a source-less entry has no label.
- */
+ * registry's data, not UI chrome), and a source-less entry has no label. */
 function originLabelOf(t: ViewKit['t'], info: SkillInfo): string {
   const source = info.source
   if (source === 'project-dsh' || source === 'project-agents') return t('ov.skills.src.project')
@@ -156,15 +151,13 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
     // The bar's denominator is the heaviest row's tally across the whole
     // scope, wherever the sort put it — keying on the first row overflows
     // the card the moment another ordering (sessions / recent) leads with a
-    // lighter row, and keeping the scope's denominator stops the bars from
-    // jumping while a name filter narrows the rows.
+    // lighter row, and keeping the scope's denominator stops the bars from jumping while a name filter narrows the rows.
     const max = stats.reduce((top, s) => Math.max(top, s.loads), 0)
 
     // ---- the name filter ---------------------------------------------------
     // A local, case-insensitive substring filter over the skill names; the
     // summary counts and the rendered rows follow it, so the card always
-    // says what it shows. The input stays mounted on an empty match so the
-    // filter can always be cleared from the UI.
+    // says what it shows. The input stays mounted on an empty match so the filter can always be cleared from the UI.
     const [query, setQuery] = useState('')
     const needle = query.trim().toLowerCase()
     const visible = needle === '' ? stats : stats.filter(s => s.name.toLowerCase().includes(needle))
@@ -176,8 +169,7 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
     const bubbleRef = useRef<HTMLDivElement | null>(null)
     const hoverStat = hoverRow === null ? undefined : stats.find(s => s.name === hoverRow.name)
 
-    // Any scroll or resize moves every anchor — retract rather than float
-    // detached (the page's hoverTip zone's own rule).
+    // Any scroll or resize moves every anchor — retract rather than float detached (the page's hoverTip zone's own rule).
     useEffect(() => {
       if (hoverRow === null) return undefined
       const retract = (): void => { setHoverRow(null) }
@@ -189,15 +181,11 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
       }
     }, [hoverRow])
 
-    // Measure once per shown card (the spot keys on the hover record, so a
-    // same-row re-render never re-hides): center on the row, clamp inside the
-    // viewport, flip below when above overflows.
+    // Measured once per shown card (keyed on the hover record, so a same-row re-render never re-hides).
     useLayoutEffect(() => {
       if (hoverRow === null) return
       const el = bubbleRef.current
-      /* v8 ignore next -- the portal commits its ref before layout effects run,
-       * so a null ref here is unreachable; kept as a guard so a future portal
-       * change cannot crash the page. */
+      /* v8 ignore next -- unreachable: the portal commits its ref before layout effects run. */
       if (el === null) return
       const w = el.offsetWidth
       const h = el.offsetHeight
@@ -228,8 +216,7 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
     // full path as a click-to-copy value — so nothing floats unlabeled. A pin
     // whose row is not rendered — out of the filtered scope or past the
     // render bound — falls back to a detached block at the card's bottom,
-    // head row included; a catalog-less pin with in-scope tallies still shows
-    // its usage rows.
+    // head row included; a catalog-less pin with in-scope tallies still shows its usage rows.
     const selected = props.selected
     const pinnedStat = selected === null || selected === undefined
       ? undefined
@@ -399,8 +386,7 @@ export function makeOverviewSkills(kit: ViewKit): (props: OverviewSkillsProps) =
                 </button>
               )
               // The pinned row and its detail read as one unit — a shared
-              // fill and a single ring around the pair (`.lc-ov-skill-unit`),
-              // never two stacked boxes with a seam.
+              // fill and a single ring around the pair (`.lc-ov-skill-unit`), never two stacked boxes with a seam.
               return pinned
                 ? <div key={s.name} className="lc-ov-skill-unit">{rowButton}{detailBlock}</div>
                 : <Fragment key={s.name}>{rowButton}</Fragment>

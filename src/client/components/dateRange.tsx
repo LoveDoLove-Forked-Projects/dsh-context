@@ -1,34 +1,10 @@
 /**
- * The Insights page's date-range picker: one calendar panel that takes BOTH
- * ends of a custom range, parked beside the range group's own presets.
+ * The Insights page's date-range picker: one pill carries both ends of the LIVE window, so the picker and the preset
+ * group never disagree. Two clicks make the range in any order — the pair is SORTED, so every reader downstream (the
+ * scope window, the ledger-day predicate, the chip) only ever sees `from <= to`.
  *
- * The trigger IS the scope: one pill carrying the start and the end side by
- * side, fed the LIVE window — a picked range when one owns the scope, the
- * preset's own window read as days otherwise ("last 30 days" shows the thirty
- * days it covers). So the picker and the presets never disagree, and a scope
- * the reader has to click into to see is a scope they cannot trust. Only a
- * picked range takes the chip's brand voice and grows the way back.
- *
- * Two clicks make the range, in any order. The second click is paired against
- * the first and SORTED, so a backwards drag (end before start) simply swaps
- * the two ends rather than committing a reversed window — every reader
- * downstream (the scope window, the ledger-day predicate, the chip that names
- * the range) only ever sees `from <= to`. While the second end is pending the
- * band previews under the cursor; the pick commits on that second click and
- * hands the scope straight back to the page, so the dashboard answers
- * immediately.
- *
- * The panel itself stays a plain calendar — no second copy of the two ends:
- * the chip above it is already showing them, live, while the pick runs.
- *
- * The panel is portaled to <body> and fixed-positioned off its trigger's rect,
- * the same containment escape the page's hover tips and skill tips take: the
- * page is the `lc-ov` query container and its scroller clips an in-tree
- * popover, so an unportaled panel would be cropped and offset. It measures
- * itself after commit (hidden until then, no flash at an unmeasured spot),
- * clamps inside the viewport, and flips above the trigger when it would fall
- * off the bottom. Any scroll, resize, outside press, or Escape closes it —
- * retract rather than float detached from a moved anchor.
+ * The panel portals to <body> and fixes off its trigger's rect: the page is the `lc-ov` query container, whose scroller
+ * would clip an in-tree popover. Any scroll, resize, outside press, or Escape closes it rather than float a detached anchor.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
@@ -40,19 +16,12 @@ import { useEscapeClose } from './escapeClose'
 import { IconChevronDown } from '../primitives'
 
 export interface DateRangeProps {
-  /**
-   * The scope's day span — the picked range while one owns the scope, else the
-   * preset's own window read as days (its open end is today). Null when the
-   * scope is unbounded ("all"), where there is no span to print.
-   */
+  /** The scope's day span: the picked range, else the preset's own window read as days (its open end is today);
+   * null when the scope is unbounded. */
   value: DayRange | null
-  /** Whether `value` is a picked range rather than a preset's window — the chip's voice and the way back. */
   picked: boolean
-  /** Range relay: null hands the scope back to the preset. */
   onChange: (range: DayRange | null) => void
-  /** The local today key (injected so specs pin the calendar) — the last selectable day. */
   today: string
-  /** The active locale tag, for the panel's month header. */
   locale: string
 }
 
@@ -60,10 +29,8 @@ export interface DateRangeProps {
 const GAP = 6
 const MARGIN = 8
 
-/** The grid's cell id, the target its `aria-activedescendant` cursor names. */
 const CELL_ID = 'lc-dp-day'
 
-/** The grid's arrow-key day steps: left/right one day, up/down one week. */
 function dayStepOf(key: string): number | null {
   if (key === 'ArrowLeft') return -1
   if (key === 'ArrowRight') return 1
@@ -72,7 +39,6 @@ function dayStepOf(key: string): number | null {
   return null
 }
 
-/** The month header's localized name, or the bare key when it does not convert. */
 export function monthLabelOf(month: string, locale: string): string {
   if (!MONTH_KEY_RE.test(month)) return month
   const date = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1)
@@ -83,10 +49,8 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
   const { t } = kit
   return function DateRange(props: DateRangeProps): ReactElement {
     const [open, setOpen] = useState(false)
-    // The month the panel shows, and the grid's keyboard cursor inside it.
     const [month, setMonth] = useState('')
     const [cursor, setCursor] = useState('')
-    // The first picked end, while the second is still pending.
     const [anchor, setAnchor] = useState<string | null>(null)
     const [hover, setHover] = useState<string | null>(null)
     const [spot, setSpot] = useState<{ left: number; top: number } | null>(null)
@@ -96,9 +60,7 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
     const close = (): void => { setOpen(false) }
     useEscapeClose(open, close)
 
-    // Any press outside the trigger and the panel closes it. The scroll and
-    // resize rules match the page's hover tips: the trigger moves with the
-    // pane, so the panel retracts instead of floating off its anchor.
+    // Outside press closes; scroll and resize retract the panel instead of leaving it off its moved anchor.
     useEffect(() => {
       if (!open) return undefined
       const onDown = (ev: MouseEvent): void => {
@@ -117,11 +79,9 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
       }
     }, [open])
 
-    // Seat the panel after it commits, then keep it seated: the comparison
-    // makes a re-measure that lands on the same spot a no-op, so the
-    // every-render measurement cannot loop. Object.is, not ===: an
-    // unmeasurable anchor reads NaN, and NaN === NaN is false — which would
-    // make every re-measure a fresh object and spin the tree.
+    // Re-seat the panel after every commit; the comparison makes a re-measure landing on the same spot a no-op, so the
+    // every-render measurement cannot loop. Object.is, not ===: an unmeasurable anchor reads NaN, and NaN === NaN is
+    // false — every re-measure would then mint a fresh object and spin the tree.
     useLayoutEffect(() => {
       const anchorEl = rootRef.current
       const panelEl = panelRef.current
@@ -135,14 +95,10 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
       setSpot(current => current !== null && Object.is(current.left, left) && Object.is(current.top, top) ? current : { left, top })
     })
 
-    // The committed range, or the pending pair under the cursor (the anchor
-    // alone until the hover gives the second end a preview).
     const draft = anchor === null ? props.value : orderedDayRange(anchor, hover ?? anchor)
     const grid = open ? monthGridOf(month) : null
 
     const show = (): void => {
-      // Always this month: the calendar is a picking tool, and today is where
-      // a pick starts. The live scope's band is highlighted wherever it falls.
       const home = props.today.slice(0, 7)
       setMonth(home)
       setCursor(`${home}-01`)
@@ -171,9 +127,6 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
       setCursor(`${next}-01`)
     }
 
-    // One tab stop for the whole grid: the arrows walk the cursor a day or a
-    // week (staying inside the shown month and out of the future), Enter or
-    // Space picks it.
     const onKeyDown = (ev: React.KeyboardEvent): void => {
       if (ev.key === 'Enter' || ev.key === ' ') {
         ev.preventDefault()
@@ -188,9 +141,7 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
     }
 
     const shown = spot !== null && open ? spot : null
-    // The two ends the head reads: the live scope's span while it has one, the
-    // placeholders otherwise. A first click with no hover yet has chosen only
-    // the start, so the end keeps its placeholder rather than echoing it.
+    // A first click with no hover yet has chosen only the start, so the end keeps its placeholder rather than echoing it.
     const from = draft?.from
     const to = anchor !== null && hover === null ? undefined : draft?.to
     return (
@@ -247,19 +198,15 @@ export function makeDateRange(kit: ViewKit): (props: DateRangeProps) => ReactEle
                     const future = key > props.today
                     const edge = draft !== null && (key === draft.from || key === draft.to)
                     const inRange = draft !== null && key >= draft.from && key <= draft.to
-                    // Only the cursor carries the id `aria-activedescendant` names.
                     const className = 'lc-dp-cell'
                       + (inRange ? ' lc-dp-in' : '')
                       + (edge ? ' lc-dp-edge' : '')
                       + (key === cursor ? ' lc-dp-cursor' : '')
                       + (key === props.today ? ' lc-dp-today' : '')
                       + (future ? ' lc-dp-future' : '')
-                    // The day of the month, unpadded: the header already names
-                    // the month, so "3" is the whole cell.
                     const day = String(Number(key.slice(8, 10)))
                     if (future) {
-                      // The cursor never lands here (the keyboard stops at
-                      // today), so this cell carries no activedescendant id.
+                      // The keyboard cursor never lands here, so this cell carries no activedescendant id.
                       return (
                         <span className={className} role="gridcell" aria-disabled="true" aria-label={key} key={d}>
                           {day}

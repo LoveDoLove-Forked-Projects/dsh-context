@@ -1,13 +1,5 @@
-/**
- * The stats cards' slice rows: the donut's legend with numbers, two tiers
- * per slice — the primary line pairs the color dot and the name with the
- * bold share closing a fixed right column, and the secondary line drops the
- * absolute quantity (plus a qualifier like the call count) under the name in
- * muted small print. Hovering a row lights it and its donut segment together
- * (the shared hover key), and vice versa. No tracks or bars — the donut IS
- * the proportion chart; the rows are its legend. Preformatted strings in,
- * dumb markup out.
- */
+/** The stats cards' slice rows — the donut's legend: hovering a row lights it and its donut segment together, and vice
+ * versa. Preformatted strings in, dumb markup out. */
 
 import { type ReactElement } from 'react'
 
@@ -17,7 +9,7 @@ export interface SliceRow {
   label: string
   /** Preformatted leading share ('84%', '<1%', '—'). */
   pct: string
-  /** Preformatted secondary line ('204.9k', '4m 0s · 10 calls'); empty renders no line. */
+  /** Preformatted secondary line; empty renders no line. */
   count: string
   /** A zero-figure slice dims whole — the ring already carries the share. */
   dim?: boolean
@@ -25,9 +17,8 @@ export interface SliceRow {
 
 export function makeSliceList(): (props: {
   rows: SliceRow[]
-  /** The hovered slice key — the legend row ↔ segment hover link. */
   hoverKey?: string | null
-  /** Hover relay; absent renders the rows inert. */
+  /** Absent renders the rows inert. */
   onHoverKey?: (key: string | null) => void
 }) => ReactElement {
   return function SliceList(props: {

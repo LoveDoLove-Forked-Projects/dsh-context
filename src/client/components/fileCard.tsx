@@ -1,19 +1,3 @@
-/**
- * The File Activity card — the user-benefit view of a step range: not what
- * the context is MADE of (messages) but what the agent DID with its tools
- * to the user's files. One row per touched file with per-purpose counts
- * (read/written/searched), an estimated line delta, and multimodal forms
- * (image reads, directory targets) flagged; the header chips double as
- * purpose/form filters and the search box narrows by path.
- *
- * Interaction mirrors the Context browser's element rows: a row click
- * expands the file's own operation log; each operation is itself the click
- * target that jumps to (and reveals) the exact tool result in the browser.
- * The file name opens the file's right-Sidebar preview where that column
- * exists (the shipped files-sidebar idiom), and the system opener where it
- * does not.
- */
-
 import { memo, useState, type ChangeEvent, type ComponentType, type MouseEvent, type ReactElement } from 'react'
 import { absPathOf, displayPathOf, glyphOf } from '../fileActivity'
 import type { FileActivity, FileEntry, FileOp, FileOpKind } from '../fileActivity'
@@ -26,25 +10,12 @@ export type FileFilter = 'all' | FileOpKind | 'image'
 
 export interface FileCardProps {
   activity: FileActivity
-  /** The range label — the picked step, or the whole-session latest view. */
   scope: string
-  /** The host workspace root: workspace paths display './'-relative when known. */
   workspace?: string
-  /**
-   * Open a file's right-Sidebar preview; returns whether the column took it, so
-   * a refusal falls through to the system opener. Absent = this harness has no
-   * preview column (the system-open path stays the only affordance).
-   */
+  /** Returns whether the preview column took the file, so a refusal falls through to the system opener; absent = no preview column. */
   onPreview?: (entry: FileEntry) => boolean
-  /** Open a file on the user's system; absent = the file name renders inert. */
   onOpen?: (absPath: string) => void
-  /** Reveal one operation's result node in the Context browser; absent = op lines render inert. */
   onLocate?: (op: FileOp) => void
-  /**
-   * The timeline source's detail state (split generation): the activity fold
-   * reads the detail collections, so a pending/failed first read replaces the
-   * empty claim with the pending note / retry button.
-   */
   state?: DetailState
   onRetry?: () => void
 }
@@ -71,33 +42,29 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
     )
   }
 
-  // Memoized at the factory level: the parent's activity/scope/onLocate props are all reference-stable across
-  // hover/select renders (see contextView), so this card skips reconciliation whenever its own inputs did not move.
+  // Memoized at the factory level: the parent's activity/scope/onLocate props are reference-stable across hover/select
+  // renders (see contextView), so the card skips reconciliation whenever its own inputs did not move.
   return memo(function FileCard(props: FileCardProps): ReactElement {
     const { activity } = props
     const [filter, setFilter] = useState<FileFilter>('all')
-    // Mount-time default from the plugin settings card; in-card toggling stays mount-local and never writes back.
+    // Mount-time default; in-card toggling stays mount-local and never writes back.
     const [sort, setSort] = useState<DefaultFileSort>(() => settings.defaultFileSort())
     const [query, setQuery] = useState('')
     const [openPath, setOpenPath] = useState<string | null>(null)
 
     const q = query.trim().toLowerCase()
-    // Display form of an entry's path: './'-relative inside the workspace, verbatim outside —
-    // except pattern-as-target search rows, whose "path" is a search pattern, not a file.
+    // Display form of an entry's path: './'-relative inside the workspace, verbatim outside — except search rows,
+    // whose "path" is a pattern.
     const displayOf = (e: FileEntry): string => (e.pattern === true ? e.path : displayPathOf(e.path, props.workspace))
-    // The count sort's magnitude: the selected kind's own ops when a kind
-    // chip is active (a file heavy on writes must not outrank one heavy on
-    // reads under the read chip), else the file's overall op count.
+    // Count sort magnitude: the selected kind's own ops under a kind chip, else the file's overall op count.
     const countOf = (e: FileEntry): number =>
       filter === 'read' ? e.reads : filter === 'write' ? e.writes : filter === 'search' ? e.searches : e.ops.length
-    /* The fold serves entries latest-first; the sort toggle re-orders the filtered copy (never the source array). */
     const shown = activity.entries
       .filter(e => matches(e, filter) && (q === '' || displayOf(e).toLowerCase().includes(q)))
       .sort((a, b) => sort === 'count'
         ? (countOf(b) - countOf(a)) || (b.ops[0].seq - a.ops[0].seq)
         : sort === 'latest'
           ? b.ops[0].seq - a.ops[0].seq
-          // Paths are unique map keys: a two-way comparison orders them fully.
           : (a.path < b.path ? -1 : 1))
 
     const chips: { key: FileFilter; files: number; ops: number }[] = [
@@ -115,7 +82,6 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
     const opLine = (op: FileOp): ReactElement => (
       <>
         <span className="lc-fa-op-tool" title={op.tool}>{op.tool}</span>
-        {/* A read's line footprint: the exact `>>n` window off the result meta, or the ≈ limit estimate. */}
         {op.read !== undefined
           ? (
             <span
@@ -130,13 +96,12 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
           : null}
         {op.detail !== undefined ? <span className="lc-fa-op-detail">{op.detail}</span> : null}
         {op.hits !== undefined ? <span className="lc-fa-op-detail">{t('files.hits', { n: fmt(op.hits) })}</span> : null}
-        {/* A nested PTC op with nothing else to say still tells why: its program's description. */}
+        {/* A nested PTC op with no other detail still names its program. */}
         {op.detail === undefined && op.hits === undefined && op.program !== undefined
           ? <span className="lc-fa-op-detail">{op.program}</span>
           : null}
         {op.added + op.removed > 0 ? <DeltaPair added={op.added} removed={op.removed} /> : null}
         {op.err ? <span className="lc-br-err-dot" title={t('node.failed')} /> : null}
-        {/* The time rides the right edge, mirroring the file row above. */}
         <span className="lc-fa-op-time">{op.time !== undefined ? fmtTime(op.time) : '—'}</span>
       </>
     )
@@ -156,13 +121,12 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
         ) : (
           <div>
             <div className="lc-fa-ctl">
-              {/* The five purpose chips (labels + counts) overflow a ~300px card in English — flow the group to two lines. */}
+              {/* The five chips overflow a ~300px card in English — fold the group to two lines. */}
               <div className="lc-gran @max-[380px]/lc-card:flex-wrap">
                 {chips.map(c => (
                   <button
                     key={c.key}
                     type="button"
-                    // Kind chips carry their badge color (the row pills below) in every state.
                     className={'lc-gran-btn' + (filter === c.key ? ' lc-gran-on' : '')
                       + (c.key === 'read' || c.key === 'write' || c.key === 'search' ? ' lc-fa-chip-' + c.key : '')}
                     title={t('files.chipTip', { files: c.files, ops: c.ops })}
@@ -183,7 +147,7 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
             <div className="lc-fa-meta">
               <span>{t('files.files', { n: activity.entries.length })}</span>
               {activity.totals.added + activity.totals.removed > 0 ? (
-                /* The one styled tip of the card: it lives OUTSIDE the scrolling list, so the bubble never clips. */
+                /* The one styled tip of the card lives OUTSIDE the scrolling list, so the bubble never clips. */
                 <span className="lc-fa-meta-delta group/tip">
                   <DeltaPair added={activity.totals.added} removed={activity.totals.removed} />
                   <span className="lc-tip lc-fa-meta-tip group-hover/tip:opacity-100" role="tooltip">{t('files.deltaTip')}</span>
@@ -208,18 +172,13 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
               <div className="lc-fa-list">
                 {shown.map((e) => {
                   const open = openPath === e.path
-                  // The path column renders the display form; the row title keeps the raw path.
                   const display = displayOf(e)
                   const trimmed = display.endsWith('/') ? display.slice(0, -1) : display
                   const slash = trimmed.lastIndexOf('/')
                   const dir = slash >= 0 ? trimmed.slice(0, slash + 1) : ''
                   const base = slash >= 0 ? trimmed.slice(slash + 1) : trimmed
                   const glyph = glyphOf(e.path, e.form)
-                  // The system-open affordance: real paths resolve to absolute; pattern rows are not files.
                   const abs = e.pattern === true ? undefined : absPathOf(e.path, props.workspace)
-                  // The preview affordance leads where the column exists: a real
-                  // file (never a search pattern or directory target) opens its
-                  // Sidebar tab, and a refusal falls through to the system opener.
                   const previewable = props.onPreview !== undefined && e.pattern !== true && e.form !== 'dir'
                   const openable = previewable || (abs !== undefined && props.onOpen !== undefined)
                   return (
@@ -240,9 +199,9 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
                             )
                             : glyph.glyph}
                         </span>
-                        {/* Narrow cards: wrap instead of crushing — the path's near-full-width basis keeps
-                            line 1 to chevron + icon + path, badges/delta/time fold onto line 2. The 46px
-                            reservation is chevron (12) + gaps (2×7) + form icon (20). */}
+                        {/* Narrow cards wrap instead of crushing: the path's near-full-width basis keeps line 1 to
+                            chevron + icon + path, badges/delta/time fold onto line 2. The 46px reservation is
+                            chevron (12) + gaps (2×7) + form icon (20). */}
                         <span className="lc-fa-path flex-1 @max-[380px]/lc-card:basis-[calc(100%-46px)]">
                           {dir !== '' ? <em>{dir}</em> : null}
                           {openable
@@ -280,8 +239,8 @@ export function makeFileCard(kit: ViewKit, settings: ContextSettings): Component
                         <div className="lc-fa-ops">
                           {e.ops.map((op, i) => {
                             const onLocate = props.onLocate
-                            // A meta-attributed search rows one op per matched file off ONE
-                            // result — the ops share that result's seq, so the key joins the index.
+                            // A meta-attributed search rows one op per matched file off ONE result — the ops share
+                            // that result's seq, so the key joins the index.
                             const key = `${op.seq}:${i}`
                             return onLocate !== undefined
                               ? (

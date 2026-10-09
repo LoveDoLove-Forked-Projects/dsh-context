@@ -1,7 +1,5 @@
-/**
-  * Glyphs: inject/model-switch reuse the harness's shared icon set (`@deepseek-ai/dsh-client-ui-primitives`, a platform seed word);
-  * compaction/prune keep the ✂ marker — no shared glyph exists for it.
- */
+/** Glyphs: inject/model-switch reuse the harness's shared icon set (`@deepseek-ai/dsh-client-ui-primitives`, a platform seed word);
+ * compaction/prune keep the ✂ marker — no shared glyph exists for it. */
 
 import { useEffect, useLayoutEffect, useRef, type ReactElement } from 'react'
 import type { ContextEventRecord } from '../../shared/types'
@@ -15,11 +13,9 @@ const EVENT_ICONS: Record<string, string> = { compaction: '✂', prune: '✂', m
 
 export interface EventListProps {
   events: ContextEventRecord[]
-  /**
-   * The timeline source's detail state (split generation): with no events to
+  /** The timeline source's detail state (split generation): with no events to
    * list, `loading`/`failed` replace the empty claim with the pending note /
-   * retry button — an un-fetched list is not an empty one.
-   */
+   * retry button — an un-fetched list is not an empty one. */
   state?: DetailState
   onRetry?: () => void
 }
@@ -42,10 +38,8 @@ export function makeEventText(t: Translate): {
     return label
   }
 
-  /**
-    * Where this event sits in the timeline: boundary events (compaction/prune) label the GAP they sit in — same-turn 'Turn 2 · Step 3→4',
-    * cross-turn 'Turn 50 · Step 8 → Turn 51 · Step 1'; other kinds keep their single point; no turn/step (in flight) → null.
-   */
+  /** Where this event sits in the timeline: boundary events (compaction/prune) label the GAP they sit in — same-turn 'Turn 2 · Step 3→4',
+   * cross-turn 'Turn 50 · Step 8 → Turn 51 · Step 1'; other kinds keep their single point; no turn/step (in flight) → null. */
   function eventAt(ev: ContextEventRecord): string | null {
     if (ev.kind === 'compaction' || ev.kind === 'prune') {
       if (typeof ev.turn === 'number' && typeof ev.step === 'number') {
@@ -66,11 +60,9 @@ export function makeEventText(t: Translate): {
   return { eventLabel, eventAt }
 }
 
-/**
- * Set the native `title` on every label whose text overflows its box (the styled tips cover cards, but a plain
+/** Set the native `title` on every label whose text overflows its box (the styled tips cover cards, but a plain
  * ellipsis row still needs the native fallback); reads (scrollWidth/clientWidth) and writes (title) stay separate
- * from layout-affecting work, and callers gate WHEN this runs so it never becomes a per-render forced layout.
- */
+ * from layout-affecting work, and callers gate WHEN this runs so it never becomes a per-render forced layout. */
 function syncTitles(root: HTMLElement): void {
   for (const el of root.querySelectorAll<HTMLElement>('.lc-event-label')) {
     el.title = el.scrollWidth > el.clientWidth ? el.textContent || '' : ''

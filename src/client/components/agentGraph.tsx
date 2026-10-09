@@ -61,9 +61,8 @@ export function makeAgentGraph(
   const { t, fmt, catLabel } = kit
 
   function AgentGraph(props: AgentGraphProps): ReactElement | null {
-    // Resolved lazily at mount (not at apply): the outward sessions service
-    // belongs to the client runtime's composition, and a deployment without
-    // it simply keeps the card hidden.
+    // Resolved lazily at mount (not at apply): the outward sessions service belongs to the client runtime's
+    // composition, and a deployment without it keeps the card hidden.
     const face = useMemo(() => sessionsFaceOf(ctx), [])
     const snapshot = useSessionsSnapshot(face)
     const sessionId = props.sessionId
@@ -103,8 +102,7 @@ export function makeAgentGraph(
     }, [face, sessionId])
 
     // Composition heads fetched for cold relatives (see the effect below):
-    // landed values re-fold the forest with the row's missing `contextTimeline`
-    // injected.
+    // landed values re-fold the forest with the row's missing `contextTimeline` injected.
     const [landed, setLanded] = useState<ReadonlyMap<string, ContextTimeline>>(new Map())
 
     const built = useMemo(() => {
@@ -118,14 +116,12 @@ export function makeAgentGraph(
     // composed. The current node is excluded: the tab's own projections
     // already feed it live. A remount (tab switch) resets this state but not
     // the cache, so a cached read REPLAYS into the fresh instance —
-    // otherwise a fetched relative would fall back to green on every
-    // remount, forever.
+    // otherwise a fetched relative would fall back to green on every remount, forever.
     useEffect(() => {
       if (built === null) return
       const attach = (pending: Promise<ContextTimeline | null>, id: string): void => {
         void pending.then((head) => {
-          // Same value → same state: the identity bail-out keeps a settled
-          // replay on every snapshot tick from looping.
+          // Same value → same state: the identity bail-out keeps a settled replay on every snapshot tick from looping.
           if (head !== null) setLanded(prev => prev.get(id) === head ? prev : new Map(prev).set(id, head))
         }).catch(() => {})
       }
@@ -138,8 +134,7 @@ export function makeAgentGraph(
     if (built === null) return null
     const { forest, layout } = built
     const byId = new Map(forest.nodes.map(n => [n.id, n]))
-    /* v8 ignore next 1 -- agentForestOf anchors the forest at the current
-       session, so a current node always exists. */
+    /** v8 ignore next 1 -- agentForestOf anchors the forest at the current session, so a current node always exists. */
     const current = forest.nodes.find(n => n.isCurrent) ?? forest.nodes[0]
     const inspected = (hoverId !== null ? byId.get(hoverId) : undefined) ?? current
     const runningCount = forest.nodes.filter(n => n.running).length
@@ -201,8 +196,7 @@ export function makeAgentGraph(
             })}
             {forest.nodes.map((node) => {
               const point = layout.points.find(p => p.id === node.id)
-              /* v8 ignore next 2 -- layoutForest positions every forest node,
-                 so the lookup never misses. */
+              /** v8 ignore next 2 -- layoutForest positions every forest node, so the lookup never misses. */
               if (point === undefined) return null
               return (
                 <AgentNodeView

@@ -1,38 +1,17 @@
 /**
- * The timeline source behind the Context tab and the /context modal —
- * reconciles the two `contextTimeline` wire generations into the single
- * value the cards have always rendered.
+ * The timeline source behind the Context tab and the /context modal. It
+ * reconciles the two `contextTimeline` wire generations, marked by `detailRev`:
  *
- * Generations (the marker is `detailRev` on the delivered value):
- * - INLINE (older hosts, channel-less deployments, the baseline-gate
- *   fallback): the wire value carries the collections in place. It passes
- *   through untouched — no fetch ever happens.
- * - SPLIT (current host with the detail route live): the wire value is the
- *   slim head (~1KB — every session.list row, control baseline, and push
- *   frame carries it whole). The collections arrive from the plugin's
- *   `/api/dsh-context/detail` fetch route (host/detail.ts): one targeted read
- *   when the tab/modal first opens, then a debounced refetch whenever the
- *   pushed `detailRev` outruns the served detail. Closed tabs fetch nothing.
+ * - INLINE (older hosts, channel-less deployments, the gate fallback): the
+ *   collections ride the value in place.
+ * - SPLIT (current host, detail route live): a slim head small enough for every
+ *   session.list row and push frame, with the collections read from
+ *   `/api/dsh-context/detail` and refetched once the pushed revision outruns
+ *   the served detail.
  *
- * The no-stale-content guarantees: the store is per session and shared by
- * the tab and the modal; a refetch is single-flight with a trailing edge
- * (a rev bumped mid-flight re-reads after settle); responses race-safe by
- * generation and revision (a host refold invalidates reads started before
- * its revisions restarted, and latest wins within a generation); a
- * transport failure keeps the last good
- * detail and backs off; an absent answer (the session left the live set)
- * stops the trailing until the head moves again. With no detail at all,
- * failure surfaces as a retryable note on the detail cards instead of an
- * empty chart.
- *
- * The cold start: a session can sit with NO pushed `contextTimeline` value
- * at all — the enable recomposition raced its open baseline (and the
- * projection store clears a key its baseline omits), or its checkpoint row
- * is missing or version-stale on a cold-observed session. Waiting for a
- * push that never comes would stall the view on "loading" forever, so the
- * source opens the detail channel on its own (rev 0): the route folds the
- * durable log on demand and serves the slim head beside the collections,
- * and the next pushed head takes the channel back per its own revision.
+ * One store per session, single-flight refetches, race-safe by generation and
+ * revision; a failed read keeps the last good detail and backs off. A session
+ * with no pushed value opens the channel itself (rev 0).
  */
 
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
@@ -40,25 +19,18 @@ import type { ContextTimeline, ContextTimelineDetail } from '../shared/types'
 import type { SessionStandardProps } from './services'
 import { asRecord, collectionsOf, projectionOf, timelineOf } from './services'
 
-// The detail route of host/detail.ts — re-declared here: the client bundle
-// inlines every import, and the host module must never reach it. Same-origin
-// POST under the harness's authenticated `/api` fence.
+// The detail route of host/detail.ts, re-declared here: the client bundle
+// inlines every import and the host module must never reach it.
 const DETAIL_ROUTE = '/api/dsh-context/detail'
 
-/**
- * Narrow the detail endpoint's payload to a render-safe value (the same
- * boundary rigor as `timelineOf`): collections re-proved per item, scalars
- * zeroed, a missing/NaN revision rejects the whole payload (the caller then
- * shows the retryable failure note instead of half-merged data).
- */
+/** Narrow the detail endpoint's payload; a missing or NaN revision rejects the
+ * whole payload so the caller shows its retryable note, never half-merged data. */
 export function detailOf(value: unknown): ContextTimelineDetail | null {
   const data = asRecord(value)
   if (data === null) return null
   if (typeof data.rev !== 'number' || !Number.isFinite(data.rev) || data.rev < 0) return null
   // The slim head rides the payload for the Agent network's cold-node ring
-  // fetch; a missing or malformed head only degrades that composition (the
-  // detail cards never read it), so it drops out instead of rejecting the
-  // payload the cards consume.
+  // fetch; a malformed head drops out rather than rejecting the whole payload.
   const head = timelineOf(data.head)
   return {
     rev: data.rev,
@@ -67,13 +39,7 @@ export function detailOf(value: unknown): ContextTimelineDetail | null {
   }
 }
 
-/**
- * The detail reader over the plugin's own `/api` fetch route (host/detail.ts).
- * Same-origin POST through the harness's authenticated fence; the returned
- * thunk resolves the session's current detail, `null` when the session is not
- * live anymore, and rejects on transport failure or a malformed payload (the
- * store turns the two into the retryable state).
- */
+/** The detail reader over the plugin's own `/api` route (host/detail.ts); failures and malformed payloads reject. */
 export function makeDetailFetcher(
   sessionId: string,
 ): (() => Promise<ContextTimelineDetail | null>) | undefined {
@@ -94,47 +60,35 @@ export function makeDetailFetcher(
   }
 }
 
-/** The store's observable snapshot, rebuilt on every transition (identity-gated for useSyncExternalStore). */
+/** The store's snapshot, rebuilt on every transition and identity-gated for `useSyncExternalStore`. */
 export interface DetailSnap {
-  /** The newest accepted detail (kept while a refetch is in flight — the cards never flicker back to loading). */
+  /** The newest accepted detail, kept while a refetch is in flight so the cards never flicker back to loading. */
   detail: ContextTimelineDetail | null
-  /** The last read settled without data (transport failure or absence) and there is no detail to show. */
   failed: boolean
-  /** A read is scheduled or in flight. */
   pending: boolean
 }
 
 const EMPTY_SNAP: DetailSnap = { detail: null, failed: false, pending: false }
 
-/** The fetch debounce base; each consecutive failure doubles the wait, capped at 3 doublings. */
 const DETAIL_DEBOUNCE_MS = 300
 
-/**
- * One session's detail ledger. Exported for tests (a zero debounce makes the
- * machine synchronous-ish); the app reaches it through `detailStoreOf`.
- */
+/** One session's detail ledger; exported for tests, reached by the app through `detailStoreOf`. */
 export class DetailStore {
   private detail: ContextTimelineDetail | null = null
   /** The revision of `detail` (latest-wins cursor); -1 before the first landing. */
   private acceptedRev = -1
-  /** The newest revision the head has asked for. */
   private wantedRev = -1
-  /** The head rev the IN-FLIGHT (or scheduled) read targets — the refold exception's acceptance key. */
+  /** The head rev the in-flight (or scheduled) read targets — the refold exception's acceptance key. */
   private targetRev = -1
-  /** The head rev seen last — a DECREASE means the host refolded (revisions restart). */
+  /** The head rev seen last; a DECREASE means the host refolded and revisions restarted. */
   private lastHeadRev = -1
   private generation = 0
   private failed = false
   private inFlight = false
   private timer: ReturnType<typeof setTimeout> | null = null
   private failures = 0
-  /**
-   * No view holds this store (the last subscriber left). A parked store keeps
-   * its cached payload so a re-open renders instantly, but arms no read: the
-   * map is page-lifetime, so a store whose view is gone would otherwise keep
-   * trailing a broken detail route (or a moved rev) forever, with nobody
-   * reading the answer.
-   */
+  /** No view holds this store. It keeps its cached payload so a re-open renders
+   * instantly but arms no read: the map is page-lifetime, so a view-less store would otherwise trail a dead route forever. */
   private parked = false
   private readonly listeners = new Set<() => void>()
   private snap: DetailSnap = EMPTY_SNAP
@@ -148,12 +102,8 @@ export class DetailStore {
     this.listeners.add(fn)
     if (this.parked) {
       this.parked = false
-      // Resume: with nothing cached (a failure or an absence), the head the
-      // view then requests may equal the cursor the failed read already left
-      // behind — it would be swallowed as "wanted". Clear the ledger so the
-      // mount's own request(rev) reads again instead of sticking on the note,
-      // and drop the old backoff so the fresh attempt waits out the base
-      // window rather than a parked failure's doubled one.
+      // Resume with nothing cached: clear the ledger and the old backoff, so the
+      // mount's own request reads again instead of sticking on the note.
       if (this.detail === null) {
         this.resetLedger()
         this.failures = 0
@@ -167,12 +117,8 @@ export class DetailStore {
 
   readonly getSnapshot = (): DetailSnap => this.snap
 
-  /**
-   * The head's current revision arrived: schedule the trailing-edge read
-   * when it outruns the served detail. A rev DECREASE means the host
-   * refolded the session (a discarded checkpoint, a restart): revisions are
-   * no longer comparable, so the ledger resets and refetches.
-   */
+  /** The head's revision arrived: schedule the trailing-edge read when it
+   * outruns the served detail. A DECREASE means the host refolded, so revisions restart and the ledger resets. */
   request(rev: number): void {
     if (rev < this.lastHeadRev) this.resetLedger()
     this.lastHeadRev = rev
@@ -181,7 +127,6 @@ export class DetailStore {
     this.schedule()
   }
 
-  /** Re-arm after a failure (the cards' retry note): immediate, backoff reset. */
   readonly retry = (): void => {
     this.failures = 0
     if (this.detail !== null) return
@@ -192,37 +137,28 @@ export class DetailStore {
     if (!this.inFlight) void this.fire()
   }
 
-  /** Drop the served payload and its cursors — a host refold, or a resume with nothing cached. */
   private resetLedger(): void {
     this.generation++
     this.acceptedRev = -1
     this.wantedRev = -1
     this.detail = null
     this.failed = false
-    // Drop the snapshot's own payload reference too: it is the second place a
-    // released detail could stay reachable from.
+    // Drop the snapshot's own payload reference too: it is the second place a released detail could stay reachable from.
     this.snap = EMPTY_SNAP
   }
 
-  /** Whether a view holds this store (only an idle store may be demoted). */
   get active(): boolean {
     return this.listeners.size > 0
   }
 
-  /** Whether a fetched payload is still cached (what a demotion releases). */
   get hasPayload(): boolean {
     return this.detail !== null
   }
 
-  /**
-   * Demote the store: drop its cached payload and any pending work. Called on
-   * an idle (parked) store once the page cache exceeds its bound — the store
-   * itself stays the one instance its session's consumers get, so a later
-   * open simply reads again through the same ledger.
+  /** Demote the store: drop its cached payload and pending work, called on an idle store once the page cache exceeds its bound.
    */
   release(): void {
-    // A parked store's window is already cleared; clear again so the demotion
-    // contract holds on its own (this method is public to the store map).
+    // Clear again on its own, so the demotion contract holds here too.
     if (this.timer !== null) {
       clearTimeout(this.timer)
       this.timer = null
@@ -231,7 +167,6 @@ export class DetailStore {
     this.failures = 0
   }
 
-  /** The last viewer left: clear the pending read (the cached payload stays). */
   private park(): void {
     this.parked = true
     if (this.timer !== null) {
@@ -242,7 +177,7 @@ export class DetailStore {
   }
 
   private schedule(): void {
-    // Parked: nobody reads the answer, so never arm one.
+    // Nobody reads a parked store's answer, so never arm one.
     if (this.parked || this.timer !== null) return
     this.timer = setTimeout(() => {
       this.timer = null
@@ -252,13 +187,11 @@ export class DetailStore {
   }
 
   private async fire(): Promise<void> {
-    // A trailing timer fired while an earlier read is still in flight — that
-    // read's settle re-arms when the wanted rev still outruns the served one.
+    // A trailing timer fired while an earlier read is still in flight; that
+    // read's settle re-arms if the wanted rev still outruns the served one.
     if (this.inFlight) return
     if (this.fetcher === undefined) {
       // No session id to read for: the typed failure arms the cards' note.
-      // (The slim head is only served when the host route went live, so this
-      // is the exotic path.)
       this.failed = true
       this.emit()
       return
@@ -271,7 +204,6 @@ export class DetailStore {
       const d = await this.fetcher()
       if (generation !== this.generation) return
       if (d !== null) {
-        // Compare revisions only within the generation that started this read.
         if (d.rev >= this.acceptedRev || d.rev === this.targetRev) {
           this.detail = d
           this.acceptedRev = d.rev
@@ -280,8 +212,7 @@ export class DetailStore {
         this.failed = false
       } else {
         // Absent (the session left the live set): keep the last detail, stop
-        // the trailing until the head moves again (a disposed session's rev
-        // never does), and arm the note only when nothing is showable.
+        // the trailing until the head moves again, and arm the note only when nothing is showable.
         this.wantedRev = this.acceptedRev
         this.failed = this.detail === null
         this.failures++
@@ -293,7 +224,6 @@ export class DetailStore {
       }
     } finally {
       this.inFlight = false
-      // The head moved or refolded while the read settled: trail once more.
       if (this.wantedRev > this.acceptedRev) this.schedule()
       this.emit()
     }
@@ -308,21 +238,14 @@ export class DetailStore {
   }
 }
 
-/**
- * How many sessions keep their fetched detail payload cached for an instant
- * re-open. A large session's payload measured ~194KB of JSON (~300KB of live
- * heap) at the default retention bounds, and this map is page-lifetime — so
- * without a bound the page's heap grows with every session ever opened. The
- * newest few stay cached (the tab, the sidebar panel, and the /context modal
- * all read through one store per session); older idle ones are demoted and
- * read again when they are opened.
+/** How many sessions keep their fetched detail payload cached. A large payload
+ * measured ~194KB of JSON (~300KB of live heap) and this map is page-lifetime, so older idle stores are demoted and read again.
  */
 const DETAIL_STORES_MAX = 8
 
 /** Page-lifetime per-session stores (the tab and the modal share one). */
 const stores = new Map<string, DetailStore>()
 
-/** How many mapped stores still hold a fetched payload. */
 function payloadHolders(): number {
   let held = 0
   for (const store of stores.values()) if (store.hasPayload) held++
@@ -332,14 +255,12 @@ function payloadHolders(): number {
 export function detailStoreOf(sessionId: string): DetailStore {
   const known = stores.get(sessionId)
   const store = known ?? new DetailStore(makeDetailFetcher(sessionId))
-  // Recency: re-inserting moves the entry to the map's newest end, so the
-  // demotion below always targets the least recently opened session — never
-  // the store being opened here.
+  // Re-inserting moves the entry to the map's newest end, so the demotion
+  // below always targets the least recently opened session.
   if (known !== undefined) stores.delete(sessionId)
   stores.set(sessionId, store)
-  // Bound the retained payloads. A store without a payload is about to fetch
-  // one (its view just mounted, or a demoted one was opened again), so it
-  // counts as one more; an active store is on screen and is never demoted.
+  // A store without a payload is about to fetch one, so it counts as one more;
+  // an active store is on screen and is never demoted.
   let excess = payloadHolders() - DETAIL_STORES_MAX + (store.hasPayload ? 0 : 1)
   for (const candidate of stores.values()) {
     if (excess <= 0) break
@@ -350,7 +271,6 @@ export function detailStoreOf(sessionId: string): DetailStore {
   return store
 }
 
-/** Test isolation: drop every cached store. */
 export function resetTimelineDetailStores(): void {
   stores.clear()
 }
@@ -358,11 +278,7 @@ export function resetTimelineDetailStores(): void {
 export type DetailState = 'legacy' | 'loading' | 'ready' | 'failed'
 
 export interface TimelineSource {
-  /**
-   * The value the cards render — the inline generation's value untouched, or
-   * the slim head merged with the fetched detail collections (empty while
-   * the first read is in flight; `detailState` names that).
-   */
+  /** The value the cards render: the inline generation's value, or the slim head merged with the fetched detail collections. */
   data: ContextTimeline | null
   detailState: DetailState
   retryDetail: () => void
@@ -371,24 +287,17 @@ export interface TimelineSource {
 const noopSubscribe = (): (() => void) => () => {}
 const noopRetry = (): void => {}
 
-/**
- * The view's one read of the timeline (see the module header for the
- * generation rules). Hook-order safe: every hook runs unconditionally, the
- * branches below only shape the returned record.
- */
+/** The view's one read of the timeline. Hook-order safe: every hook runs
+ * unconditionally, and the branches below only shape the returned record. */
 export function useTimelineSource(props: SessionStandardProps): TimelineSource {
   const head = projectionOf(props, 'contextTimeline', timelineOf)
   const sessionId = typeof props.sessionId === 'string' ? props.sessionId : ''
-  // The split marker: the slim head carries the detail revision; anything
-  // else (the inline value, the gate fallback, a corrupt payload) is the
-  // inline generation — `headRev` null means no detail channel work at all.
+  // The split marker: the slim head carries the detail revision; `headRev` null
+  // (an inline value, the gate fallback, a corrupt payload) means no channel.
   const headRev = head !== null && typeof head.detailRev === 'number' ? head.detailRev : null
   const slim = headRev !== null
-  // The cold start arms whenever no value has been pushed: the channel is
-  // opened by the source itself (rev 0) instead of waiting on a push that
-  // may never come (the enable recomposition raced the baseline, a cleared
-  // or stale checkpoint row). The store is per session, so the cold read's
-  // result carries straight into the pushed generation's later refetches.
+  // The cold start arms whenever no value has been pushed: the source opens the
+  // channel itself (rev 0) rather than waiting on a push that may never come.
   const cold = head === null
   const store = useMemo(
     () => (slim || cold ? detailStoreOf(sessionId) : null),
@@ -399,33 +308,25 @@ export function useTimelineSource(props: SessionStandardProps): TimelineSource {
     store !== null ? store.getSnapshot : () => EMPTY_SNAP,
   )
   useEffect(() => {
-    // The pushed head's revision drives the trailing refetch; the cold start
-    // requests rev 0 — acceptance is rev-safe, and a head that arrives later
-    // trails per its own revision.
+    // The pushed head's revision drives the trailing refetch; the cold start requests rev 0.
     if (store !== null) store.request(headRev ?? 0)
   }, [store, headRev])
 
   return useMemo<TimelineSource>(() => {
     const detail = snap.detail
-    // A head-with-detail can only exist through a live channel store — the
-    // fallback covers TS's narrowing loss, never a real state.
     const retry = store !== null ? store.retry : noopRetry
-    // The inline generation passes through untouched — no store exists, the
-    // collections never ride the channel.
     if (head !== null && !slim) return { data: head, detailState: 'legacy', retryDetail: noopRetry }
-    // The render head: the pushed value, or — while nothing has been pushed —
-    // the detail read's own slim head.
+    // The render head: the pushed value, or the detail read's own slim head.
     const base = head !== null ? head : detail !== null ? detail.head ?? null : null
     if (base === null) {
-      // Nothing renderable: the cold read still pending, or settled without
-      // a usable value (transport failure, absence, a headless payload) —
-      // the retryable failure, never a spinner that never resolves.
+      // Nothing renderable yet — a cold read still pending, or one settled
+      // without a usable value: the retryable failure, never a dead spinner.
       const failed = store !== null && (snap.failed || detail !== null)
       return { data: null, detailState: failed ? 'failed' : 'loading', retryDetail: retry }
     }
     if (detail === null) {
-      // The head's own counters render while the first read is in flight (or
-      // once it settled without data — the failure note rides beside).
+      // The head's own counters render while the first read is in flight, or
+      // once it settled without data (the failure note rides beside).
       return { data: base, detailState: snap.failed ? 'failed' : 'loading', retryDetail: retry }
     }
     const data: ContextTimeline = {

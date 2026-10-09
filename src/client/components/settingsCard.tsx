@@ -1,11 +1,5 @@
-/**
- * The dsh-context preference card: the eight preference rows on the
- * Plugins-page seat (`plugins.bundle.config`, the Config-form generation),
- * rendered flat inside the section chrome the Plugins page draws for the
- * bundle. The card is keyed on the Host-served `dsh-context` namespace and
- * renders nothing while it is unavailable (a deployment without the Host
- * half, or a remote browser, shows no trace).
- */
+/** The dsh-context preference card, keyed on the Host-served `dsh-context` namespace: while that namespace is
+ * unavailable (a deployment without the Host half, or a remote browser) the card renders nothing. */
 
 import { useState, type ReactElement } from 'react'
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -58,10 +52,8 @@ function PrefRow(props: PrefRowProps): ReactElement {
   )
 }
 
-/** Translate over the plugin's dictionary, as the view kit binds it. */
 type Translate = ViewKit['t']
 
-/** The eight preference rows. */
 function PreferenceRows(props: { t: Translate; state: SettingsState; set?: SettingsCardProps['set'] }): ReactElement {
   const { t, state, set } = props
   const disabled = state.status !== 'ready' || !state.writable
@@ -154,11 +146,7 @@ function PreferenceRows(props: { t: Translate; state: SettingsState; set?: Setti
   )
 }
 
-/**
- * The Plugins-page card (the Config-form generation's `plugins.bundle.config`
- * seat, `view: 'page'`): the page owns the bundle's page and section chrome,
- * so the rows render flat. Unserved/absent degrades to nothing.
- */
+/** The Plugins page owns the bundle's page and section chrome, so the rows render flat; unserved or absent degrades to nothing. */
 export function makePluginConfigCard(kit: ViewKit): (props: SettingsCardProps) => ReactElement | null {
   const { t } = kit
   return function PluginConfigCard(props: SettingsCardProps): ReactElement | null {

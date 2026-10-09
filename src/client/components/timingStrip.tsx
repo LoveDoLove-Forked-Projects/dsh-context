@@ -100,8 +100,7 @@ export function makeTimingStrip(kit: ViewKit): (props: {
     })
     const hoverKey = props.hoverKey
     const hovering = hoverKey !== null && hoverKey !== undefined && bands.some(b => b.kind === hoverKey)
-    // The tip centers on its band's rendered span, pinned 10% off both edges
-    // so a hairline band's bubble stays inside the card.
+    // The tip centers on its band's rendered span, pinned 10% off both edges so a hairline band's bubble stays inside the card.
     let tip: { text: string; leftPct: number } | null = null
     for (const b of bands) {
       if (b.key === tipKey) {

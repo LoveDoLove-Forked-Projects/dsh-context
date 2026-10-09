@@ -1,7 +1,5 @@
-/**
- * Bilingual dictionaries (zh/en) for every UI string; missing keys resolve
- * through the harness locale service (active → en → common → the key itself).
- */
+/** Bilingual dictionaries (zh/en) for every UI string; missing keys fall through the harness
+ *  locale chain (active → en → common → the key). */
 
 export type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -327,8 +325,7 @@ export const DICT_ZH: Record<string, string> = {
   'block.content': '内容',
   'block.result': '结果',
   'block.summary': '摘要',
-  // Line-count chip on a tool-result's payload card (the singular/plural
-  // split is a no-op in zh, where the measure word never inflects).
+  // The zh measure word never inflects, so the singular/plural forms are identical.
   'block.line': '{n} 行',
   'block.lines': '{n} 行',
   'call.ok': '正常',
@@ -354,8 +351,6 @@ export const DICT_ZH: Record<string, string> = {
   'ov.range.7d': '近 7 天',
   'ov.range.30d': '近 30 天',
   'ov.range.all': '全部',
-  // The custom date range (components/dateRange.tsx) — the head's fifth
-  // choice, beside the presets above.
   'ov.date.label': '日期范围',
   'ov.date.open': '选择自定义日期范围',
   'ov.date.from': '开始日期',
@@ -812,8 +807,6 @@ export const DICT_EN: Record<string, string> = {
   'ov.range.7d': 'Last 7 days',
   'ov.range.30d': 'Last 30 days',
   'ov.range.all': 'All',
-  // The custom date range (components/dateRange.tsx) — the head's fifth
-  // choice, beside the presets above.
   'ov.date.label': 'Date range',
   'ov.date.open': 'Pick a custom date range',
   'ov.date.from': 'Start date',

@@ -1,5 +1,4 @@
-/**
- * The Token card: the session's whole billed token usage — the SAME total
+/** The Token card: the session's whole billed token usage — the SAME total
  * the harness chat stats line shows under the composer (uncached input +
  * cache read + cache write + output off the official `tokenUsage`
  * projection) — split by WHAT the tokens are, not by how the provider
@@ -12,8 +11,7 @@
  * exact. Zero parts stay hidden once any usage is reported; the empty state
  * (no provider report yet) keeps all seven rows behind a dash center. The
  * title row's right corner carries the session's cache-hit share — the harness
- * chat line's own reads-over-billed formula — hidden until something was billed.
- */
+ * chat line's own reads-over-billed formula — hidden until something was billed. */
 
 import { useState, type ReactElement } from 'react'
 import type { ContextBreakdown, Snapshot, TokenUsage } from '../../shared/types'
@@ -61,8 +59,7 @@ export function makeStatsTokens(kit: ViewKit, Donut: (props: DonutProps) => Reac
       color: p.color,
       label: p.key === 'output' ? t('tokens.output') : catLabel(p.key),
       pct: fmtShare(p.value, total),
-      // The six prompt-side shares are ratio estimates (≈, the composition
-      // card's convention); output alone is provider-exact.
+      // The six prompt-side shares are ratio estimates (≈, the composition card's convention); output alone is provider-exact.
       count: p.key === 'output' ? `${fmt(p.value)} · ${t('tokens.outputNote')}` : '≈' + fmt(p.value),
     }))
     return (

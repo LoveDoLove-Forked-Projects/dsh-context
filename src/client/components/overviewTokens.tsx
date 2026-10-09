@@ -1,12 +1,9 @@
-/**
- * The Context Insights panel's aggregate Token Stats card — the first row's
+/** The Context Insights panel's aggregate Token Stats card — the first row's
  * token half, categorized exactly like the Context tab's Token card
  * (statsTokens.tsx): the range's billed volume split by WHAT the tokens are —
  * the composition categories' `≈` estimates proportioning each session's
  * provider-reported prompt total, plus the exact output — folded by
- * tokenPartsOf. The center figure stays the exact merged billed total the
- * KPI band's Tokens Used cell shows.
- */
+ * tokenPartsOf. The center figure stays the exact merged billed total the KPI band's Tokens Used cell shows. */
 
 import { useState, type ReactElement } from 'react'
 import type { TokenPartTotal } from '../overview'

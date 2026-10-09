@@ -1,42 +1,24 @@
-/**
- * The plugin's user-settings binding (browser half). The Host-served
- * `dsh-context` namespace carries per-user display preferences; the Context
- * tab reads them at mount, and the Plugins page's configuration card writes
- * them through the bound form. Both degrade to the schema defaults when the
- * settings surface is absent (a host without the Config-form transport) or
- * read-only (remote browser in memory mode).
- *
- * The scope faces are minimally re-typed here (the services.ts discipline):
- * the runtime service comes from the user's harness, and type-only imports
- * of the contract package would still be erased — spelling the consumed
- * members keeps the dependency graph honest.
- */
+/** The plugin's user-settings binding (browser half): the Host-served `dsh-context` namespace carries per-user
+ * display preferences, degrading to the schema defaults wherever that surface is absent or read-only. */
 
 import type { DefaultDeltaBase, DefaultFileSort, DefaultGranularity, DefaultDurationCurve, DefaultPlacement, DefaultToolSort, DefaultTrendMode, InsightsEntry, SettingsField } from '../shared/types'
 
-// The preference vocabulary is declared once in shared/types.ts; re-exported
-// here so client-side consumers keep their canonical import path.
 export type { DefaultDeltaBase, DefaultFileSort, DefaultGranularity, DefaultDurationCurve, DefaultPlacement, DefaultToolSort, DefaultTrendMode, InsightsEntry, SettingsField } from '../shared/types'
 
-/** The bound settings form (the ctx.configForms.get result), as consumed. */
+/** The bound settings form (`ctx.configForms.get`), as consumed. */
 export interface SettingsScopeLike {
   getSnapshot(): { status: string; value: unknown; writable: boolean }
   subscribe(listener: () => void): () => void
   set(field: string, value: unknown): Promise<void>
 }
 
-/**
- * The ctx.configForms service face (the Config-form generation's settings
- * transport), as consumed: forms bind per namespace, and `whileServed` keeps
- * a registration alive while the Host serves any of them. The bound form
- * satisfies {@link SettingsScopeLike} (same snapshot/subscribe/set shape).
- */
+/** The `ctx.configForms` service face, as consumed; the bound form satisfies {@link SettingsScopeLike}
+ *  (same snapshot/subscribe/set shape). */
 export interface ConfigFormsFace {
   get(namespace: string): SettingsScopeLike
   whileServed(namespaces: readonly string[], register: () => () => void): () => void
 }
 
-/** The preference snapshot the card renders and the view reads at mount. */
 export interface SettingsState {
   /** Scope sync: loading until the first Host section, unavailable when unserved. */
   status: 'loading' | 'ready' | 'unavailable'
@@ -105,16 +87,11 @@ export function createContextSettings(): ContextSettings {
     state = next
     for (const listener of listeners) listener()
   }
-  // Republish from the bound scope's current snapshot; the attach sync and
-  // the failed-write rollback share this one read. Returns the scope's valid
-  // placement and insights entry, if it carries them.
   const sync = (bound: SettingsScopeLike): { placement?: DefaultPlacement; insightsEntry?: InsightsEntry } => {
     const snap = bound.getSnapshot()
     const prefs = prefsOf(snap.value)
-    // Fail open: a config problem must never leave an entry hidden. A valid
-    // value wins; one the plugin cannot understand degrades to the field's
-    // default; a section without the field (older Host half) keeps the
-    // current state.
+    // Fail open: a config problem must never leave an entry hidden. A value the plugin cannot understand
+    // degrades to the field's default; a section without the field (older Host half) keeps the current state.
     const raw = snap.value !== null && typeof snap.value === 'object'
       ? snap.value as Record<string, unknown>
       : undefined
@@ -155,18 +132,13 @@ export function createContextSettings(): ContextSettings {
     },
     set(field, value) {
       publish({ ...state, ...prefsOf({ [field]: value }) })
-      // The scope write settles asynchronously and its promise REJECTS on a
-      // transport failure (dsh keeps only its internal queue tail fulfilled)
-      // — never let it float unhandled. Roll the optimistic echo back to the
-      // scope's truth; a refused (non-2xx) write needs nothing here, the
-      // scope's own recovery re-reads the Host and republishes via subscribe.
+      // The scope write's promise REJECTS on a transport failure (dsh keeps only its queue tail fulfilled),
+      // so never let it float: roll the optimistic echo back to the scope's truth; a refused write recovers via subscribe.
       const bound = scope
       if (bound === undefined) return
       void bound.set(field, value).catch(() => {
         const truth = sync(bound)
-        // A visibility gate that failed to persist must not keep an entry
-        // hidden on an unpersisted echo: with no valid value in the scope's
-        // truth, degrade each gate to its default.
+        // A gate that failed to persist must not keep an entry hidden on an unpersisted echo.
         if (field === 'defaultPlacement' && truth.placement === undefined) {
           publish({ ...state, placement: 'all' })
         }

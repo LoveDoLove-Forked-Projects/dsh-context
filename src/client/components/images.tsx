@@ -1,8 +1,5 @@
-/**
- * dsh's multimodal pipeline stores only a normalized reference per image (never inline bytes); the block carries everything the card needs
- * except the display URL, which comes from the harness `uiConversation` service's `imageUrl` (the same loader the chat history rides on),
- * handed down as `load`; absent loader or failed load degrades to the metadata row alone — the card never throws.
- */
+/** dsh stores only a normalized reference per image (no inline bytes); the display URL comes from the harness
+ * `uiConversation.imageUrl` loader handed down as `load`. */
 
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { ImageLightbox } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -16,11 +13,8 @@ export interface ImageKit {
   load?: ImageLoader
 }
 
-/**
- * Narrow an unknown content block to a durable image ref: accepts both raw message blocks (`{ type: 'image', attachment }`) and the
- * snapshot's assistant blocks (`{ kind: 'image', attachment }`); everything else null. Lenient on the optional facts — imageUrl reads
- * only attachmentId.
- */
+/** Accepts both raw message blocks (`type: 'image'`) and the snapshot's assistant blocks (`kind: 'image'`);
+ * every optional fact is re-proved. */
 export function imageRefOf(block: unknown): ImageRefLike | null {
   if (block === null || typeof block !== 'object') return null
   const b = block as { type?: unknown; kind?: unknown; attachment?: unknown }
@@ -47,11 +41,6 @@ export function imageRefOf(block: unknown): ImageRefLike | null {
   }
 }
 
-/**
- * One attachment card, the WHOLE card the click target: 64px cover tile + metadata column — Raw (the pre-normalization raster dsh records
- * when normalization reduced the image), Sent (the normalized raster the model receives, with byte size), estimated provider-billed tokens.
- * Click opens the platform ImageLightbox; load failures retry on click; unknown facts leave no row.
- */
 export function makeImageCard(kit: ViewKit): ImageKit['Card'] {
   const { t, fmt } = kit
   return function ImageCard(props: { attachment: ImageRefLike; load?: ImageLoader }): ReactElement {
@@ -87,8 +76,6 @@ export function makeImageCard(kit: ViewKit): ImageKit['Card'] {
         value: attachment.bytes !== undefined ? `${sent} · ${fmtBytes(attachment.bytes)}` : sent,
       })
     }
-    // Estimated provider-billed tokens (shared/imageTokens — the official docs calculator on the stored dimensions; 117–384 per the vision
-    // guide's cap), shown whenever normalized dimensions are known.
     const tokens = attachment.width !== undefined && attachment.height !== undefined
       ? estimateImageTokens(attachment.width, attachment.height)
       : null

@@ -1,51 +1,17 @@
 /**
- * The Context Insights page — the plugin's first-level panel, opened from
- * the sidebar's panel list (insightPage.ts), a sibling of the shipped
- * Plugins and Automation tasks pages. Registered on the layout's keyed
- * `main` slot, so the shell's center column mounts it when the panel is
- * selected and unmounts it on leave — the page's mount IS its open, and its
- * data rides the root-scope `useSessions`/`useWorkspaces` standard kit
- * (every list row's host-cached projection values), so the page draws every
- * session's insight without opening one log.
+ * The Context Insights page: the plugin's first-level panel, registered on the layout's keyed `main` slot, so its
+ * mount IS its open. Data comes from the root-scope sessions/workspaces standard kit — every list row's host-cached
+ * projection values — so the page draws each session's insight without opening a log.
  *
- * The chrome keeps the shipped first-level pages' discipline — one scroll
- * region that opens with the page heading, the title beside the preferences
- * chip, the scope cluster (the calendar date-range picker beside the range
- * group, with the DeepSeek balance capsule to their left) —
- * but the content column spans the pane's full width rather than the shipped
- * pages' centered 960px frame: the dashboard's grids and legends adapt to the
- * pane, so the width reads as more dashboard, not wider lines. The page
- * element is the `lc-ov` query container, so every fold keys off the pane's
- * own width. Hover tips portal to <body> (hoverTip.tsx) because the container
- * would otherwise capture their fixed positioning.
+ * Unlike the shipped first-level pages' centered 960px frame, the content column spans the pane so the grids and
+ * legends adapt to it, and the page element is the `lc-ov` query container the folds key off. Hover tips portal to
+ * <body>, because that container would otherwise capture their fixed positioning.
  *
- * The cluster holds ONE scope: a picked calendar range (an ordered day pair,
- * resolved into a closed window by dayRangeWindow) replaces the rolling
- * preset, and clicking any preset hands it back — the preset chips and the
- * picker never both claim it. Everything the presets scope (KPI band,
- * aggregate cards, skill card, session list) reads that one resolved window,
- * so a picked range narrows the whole page at once.
- *
- * The body's first row is a 1:1 column pair: the KPI metrics band (the
- * range's six figures — sessions, billed tokens, cost, cache hit, tool
- * calls, active time — three per row) beside the last-7-days usage chart
- * (each day's billed tokens and estimated cost as a bar pair, folded off the
- * merged daily ledger). Below it, the aggregate stats row folds the same
- * range's sessions into the two donut cards the per-session Context tab
- * opens with — Token Stats (the composition-split billed volume) and Timing
- * Stats (the summed totals). The body is then a 3:7 column pair: the
- * insight column (the activity heatmap over the scope's skill-load card)
- * beside the session column (search,
- * group chips, and the card grid); the heatmap keeps its own fixed 8-week
- * window and PINs both column mates to a picked day (the page's drill-down
- * gesture). The skill card's row click is the column's second drill-down:
- * the session column narrows to the pinned skill's loaders within the same
- * scope, and the card's description/origin/path enrichment rides the
- * plugin's skill-catalog route (client/skills.ts), read per open off the
- * current session's workspace.
- * A session card click jumps to that session through the harness's own
- * selection verb (openSessionVia), whose navigation returns the center column
- * to the conversation.
+ * The cluster holds ONE scope: a picked calendar range replaces the rolling preset and clicking a preset hands it
+ * back, so they never both claim it, and everything the presets scope reads that one resolved window. Below the KPI
+ * band and the usage chart, the heatmap pins both its column mates to a picked day, and a skill-card row click
+ * narrows the session column to that skill's loaders within the same scope. A session card jumps through the
+ * harness's own `openSessionVia`, whose navigation returns the center column to the conversation.
  */
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
@@ -79,9 +45,7 @@ import { makeOverviewSkills } from './overviewSkills'
 import { IconSettings } from '../primitives'
 
 export interface OverviewPanelProps {
-  /** The root standard kit's sessions seat (absent on a harness without it). */
   useSessions?: unknown
-  /** The root standard kit's workspaces seat (the cards' breadcrumb grouping). */
   useWorkspaces?: unknown
 }
 
@@ -96,9 +60,6 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   const OverviewCard = makeOverviewCard(kit)
   const BalanceCapsule = makeBalanceCapsule(ctx, kit)
   const DateRange = makeDateRange(kit)
-  // The first row's aggregate pair: the range's sessions folded into the two
-  // donut cards the per-session Context tab opens with (Timing Stats reused
-  // verbatim over the summed totals).
   const Donut = makeDonut()
   const OverviewTokens = makeOverviewTokens(kit, Donut)
   const StatsTiming = makeStatsTiming(kit, Donut)
@@ -106,24 +67,22 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
   const OverviewSkills = makeOverviewSkills(kit)
   const ErrorBoundary = makeErrorBoundary(t)
 
-  /** The active locale tag, read per render — the slot outlet re-renders on a locale switch. */
+  // Read per render: the slot outlet re-renders on a locale switch.
   function activeLocale(): string {
     const locale = ctx.locale
     return typeof locale.getLocale === 'function' ? locale.getLocale().active : 'en'
   }
 
-  /** The display currency follows the active locale (zh → CNY). */
+  /** The display currency follows the active locale. */
   function activeCurrency(): CostCurrency {
     return activeLocale() === 'zh' ? 'cny' : 'usd'
   }
 
   function OverviewBody(props: OverviewPanelProps): ReactElement | null {
     const { book } = useModelPrices()
-    // The hook-level standard-kit reads (unconditional; guarded inside).
     const snapshot = sessionsSnapshotOf(props)
     const wsSnapshot = workspacesSnapshotOf(props)
     const [preset, setPreset] = useState<OverviewRange>('30d')
-    // The calendar picker's own range; while set it replaces the preset scope.
     const [custom, setCustom] = useState<DayRange | null>(null)
     const [day, setDay] = useState<string | null>(null)
     const [query, setQuery] = useState('')
@@ -142,8 +101,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     // The skill card's metadata read: the registry resolves per SESSION (the
     // workspace selects the project layer, the preset selects the discovery
     // scope), so the current session anchors it; a session-less list still
-    // serves the global layers. A switch re-reads; a failed read leaves the
-    // card unenriched rather than stale.
+    // serves the global layers. A switch re-reads; a failed read leaves the card unenriched rather than stale.
     const currentRow = (rows ?? []).find(row => row.current)
     const currentCwd = currentRow?.cwd
     const currentId = currentRow?.id
@@ -169,8 +127,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     const now = Date.now()
     const allRows = rows ?? []
     // The scope window every figure below reads: the calendar's own picked
-    // range while one is set (a malformed key keeps the preset, never an
-    // unprovable window), else the preset's rolling floor.
+    // range while one is set (a malformed key keeps the preset, never an unprovable window), else the preset's rolling floor.
     const scope = (custom !== null ? dayRangeWindow(custom) : null) ?? rangeWindowOf(preset, now)
     // The head's date span, read off that same window so the picker and the
     // presets can never disagree: a picked range's own two days, a preset's
@@ -209,26 +166,17 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
     return (
       <section className="lc-ov-page" aria-label={t('ov.title')} {...zoneProps}>
         {bubble}
-        {/* The page's one scroll region: the shipped first-level pages' own
-            discipline — heading, stats, and body scroll as one. */}
+        {/* The page's one scroll region. */}
         <div className="lc-ov-pagescroll">
           <div className="lc-ov-pagecontent">
             <div className="lc-ov-pagehead">
               <h1 className="lc-ov-pagetitle">{t('ov.title')}</h1>
-              {/* The preferences entry: one quiet chip beside the title, the same
-                  best-effort preferences jump the Context tab's plugin-info row
-                  rides. The jump selects the Plugins panel, which unmounts this
-                  page on its own; the long hint rides the hover title. */}
               <button type="button" className="lc-ov-settings" title={t('plugin.settingsOpen')} onClick={() => { openPluginSettings() }}>
                 <IconSettings size={14} />{t('plugin.settings')}
               </button>
-              {/* The DeepSeek platform balance (client/balance.ts): renders nothing
-                  until a live figure lands, so the heading row never reflows for it. */}
+              {/* Renders nothing until a live figure lands, so the heading row never reflows for it. */}
               <BalanceCapsule />
-              {/* One wrapper so the head's right cluster pushes once: the
-                  calendar picker, then the preset group. A bare `.lc-gran`
-                  sibling would eat a second slice of the free space and the
-                  two would drift apart. */}
+              {/* One wrapper so the head's right cluster pushes once; a bare `.lc-gran` sibling would split the free space. */}
               <div className="lc-ov-headctl">
                 <DateRange
                   value={span}
@@ -254,10 +202,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
               <div className="lc-empty">{t('ov.unavailable')}</div>
             ) : (
               <>
-                {/* The first row: a 1:1 column pair — the KPI metrics band
-                    (the range's six figures, three per row) beside the
-                    last-7-days usage chart (per-day tokens + cost bars off
-                    the merged ledger; the range selector does not scope it). */}
+                {/* The range selector does not scope the usage chart; it reads the merged daily ledger. */}
                 <div className="lc-ov-first">
                   <div className="lc-ov-kpis">
                     <div className="lc-stat lc-ov-kpi">
@@ -293,9 +238,6 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                   </div>
                   <OverviewUsage days={days} currency={currency} today={todayKey()} />
                 </div>
-                {/* The aggregate stats row: the range's Token Stats and Timing
-                    Stats, folded over the KPI band's own scope (the composition
-                    split and summed totals off kpisOf). */}
                 <div className="lc-ov-stats">
                   <OverviewTokens tokens={kpi.tokenParts} />
                   <StatsTiming timing={kpi.timing} />
@@ -305,9 +247,6 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                     <div className="lc-card lc-ov-heat-card">
                       <div className="lc-card-title">
                         <span className="lc-card-title-text">{t('ov.heat.title')}</span>
-                        {/* One wrapper so the right side pushes with a single auto
-                            margin (two bare auto-margin siblings would split the
-                            free space and drift apart). */}
                         <span className="lc-heat-ctl">
                           <span className="lc-card-sub">{t('ov.heat.sub')}</span>
                           <div className="lc-gran" role="group" aria-label={t('ov.heat.metric')}>
@@ -324,12 +263,7 @@ export function makeOverviewPanel(ctx: ClientCtx, kit: ViewKit): (props: Overvie
                       </div>
                       <Heatmap days={days} metric={metric} selected={day} onSelect={setDay} today={todayKey()} />
                     </div>
-                    {/* The activity column's second card: the scope's skill
-                        loads off the rows' family ledgers (skillLoadsOf). The
-                        scope is the range group plus the heatmap's pinned day
-                        — the column's own drill-down — never the list's search
-                        or group chips (those are list-local). A row pin narrows
-                        the session list to the skill's loaders. */}
+                    {/* Scope: the range group plus the heatmap's pinned day; the list's search and group chips are list-local. */}
                     <OverviewSkills
                       stats={skillLoadsOf(ranged, { scope, day, sort: skillSort })}
                       day={day}

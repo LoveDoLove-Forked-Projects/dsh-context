@@ -1,23 +1,8 @@
-/*
- * The Insights page's date-range picker (components/dateRange.tsx): the
- * trigger chip in the page head, and the portaled calendar panel it opens.
- *
- * The panel rides the shared `.lc-tip` face and overrides its positioning
- * seat — the page is the `lc-ov` query container, so an in-tree popover would
- * be captured by the container's containing block AND clipped by the page's
- * one scroller; hence the portal to <body> and the fixed seat here (the page's
- * hover tips' own escape, hoverTip.tsx). Everything below the seat is
- * ordinary component chrome.
- */
-
-/* ---- the trigger: the range itself, as a quiet chip cut like the head's
-   preferences/balance pills ---- */
 .lc-dp { position: relative; flex: none; }
 .lc-dp-trigger { display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); border-radius: 999px; padding: 3px 12px; font: inherit; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); white-space: nowrap; cursor: pointer; transition: border-color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out), color var(--ds-transition-duration, 0.2s) var(--ds-ease-in-out, ease-in-out); }
 .lc-dp-trigger:hover { border-color: var(--dsw-alias-label-secondary); color: var(--dsw-alias-label-primary); }
-/* A live range takes the chip's own voice: the brand-bordered pill the page
-   uses for the balance capsule, so the head reads "this scope is custom"
-   without adding another control. */
+/** A live range takes the chip's own voice: the brand-bordered pill the page
+ * uses for the balance capsule, so the head reads "this scope is custom" without adding another control. */
 .lc-dp-trigger-on { border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent); color: var(--dsw-alias-brand-primary); }
 /* The two ends, always on show: the start reads left of the end, so the scope
    is legible straight off the head without opening the panel. Neither half
@@ -27,6 +12,7 @@
 .lc-dp-sep { flex: none; color: var(--dsw-alias-label-tertiary); }
 
 /* ---- the panel: `.lc-tip`'s face, this sheet's fixed seat ---- */
+/* Portaled to <body> with a fixed seat: the page is the `lc-ov` query container, so an in-tree popover would be captured by its containing block and clipped by the page's one scroller. */
 .lc-dp-panel { position: fixed; z-index: 300; left: 0; top: 0; width: max-content; max-width: calc(100vw - 16px); padding: 8px; pointer-events: auto; opacity: 1; }
 
 /* The month's own nav — the panel's only chrome above the grid. */
@@ -37,11 +23,10 @@
 .lc-dp-navbtn:disabled { opacity: 0.35; cursor: not-allowed; }
 .lc-dp-navbtn:disabled:hover { background: transparent; color: var(--dsw-alias-label-secondary); }
 
-/* ---- the month grid ----
-   Fixed 28px cells: a calendar that sized to its content would change width
-   month to month (a five-week February against a six-week one), and the panel
-   would jump under the cursor. The grid also sets the panel's own width, so
-   the month header and the foot hint lay out against a stable measure. */
+/** ---- the month grid ---- Fixed 28px cells: a calendar that sized to its content would change width
+ * month to month (a five-week February against a six-week one), and the panel
+ * would jump under the cursor. The grid also sets the panel's own width, so
+ * the month header and the foot hint lay out against a stable measure. */
 .lc-dp-wds, .lc-dp-week { display: flex; }
 .lc-dp-wd { flex: 0 0 28px; text-align: center; font-size: 10px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .lc-dp-grid { display: flex; flex-direction: column; outline: none; }
