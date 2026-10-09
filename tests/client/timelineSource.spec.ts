@@ -305,6 +305,24 @@ describe('DetailStore', () => {
     vi.useRealTimers()
   })
 
+  test('release drops the cached payload and any armed window', async () => {
+    vi.useFakeTimers()
+    const { fetcher, calls } = scriptedFetcher([detail(1), detail(2)])
+    const store = new DetailStore(fetcher, 10)
+    store.subscribe(() => {})
+    store.request(1)
+    await vi.advanceTimersByTimeAsync(10)
+    assert.equal(store.hasPayload, true)
+    store.request(2)
+    assert.equal(store.getSnapshot().pending, true, 'a second window is armed')
+    store.release()
+    assert.equal(store.hasPayload, false)
+    assert.equal(store.getSnapshot().pending, false)
+    await vi.advanceTimersByTimeAsync(100)
+    assert.equal(calls.length, 1, 'the released store arms nothing')
+    vi.useRealTimers()
+  })
+
   test('a rev bump during the in-flight read re-reads after settle (trailing edge)', async () => {
     let gate!: () => void
     const first = new Promise<ContextTimelineDetail | null>(resolve => { gate = () => resolve(detail(1)) })
@@ -549,6 +567,79 @@ describe('detailStoreOf', () => {
     assert.notEqual(a, detailStoreOf('s2'))
     resetTimelineDetailStores()
     assert.notEqual(detailStoreOf('s1'), a, 'a reset store is a fresh instance')
+  })
+
+  /** A detail route stub counting reads per session id. */
+  function countingFetch(): Map<string, number> {
+    const calls = new Map<string, number>()
+    vi.stubGlobal('fetch', async (_url: unknown, init?: { body?: string }) => {
+      if (init?.body === undefined) return { ok: false, status: 404, json: async () => null }
+      const id = (JSON.parse(init.body) as { sessionId: string }).sessionId
+      calls.set(id, (calls.get(id) ?? 0) + 1)
+      return { ok: true, status: 200, json: async () => ({ ok: true, value: detail(1) }) }
+    })
+    return calls
+  }
+
+  /** The app's mount path for one session: subscribe, request, land, leave. */
+  async function visitStore(id: string): Promise<DetailStore> {
+    const store = detailStoreOf(id)
+    const off = store.subscribe(() => {})
+    store.request(1)
+    await until(() => store.hasPayload, `store ${id} never landed its read`)
+    off()
+    return store
+  }
+
+  test('the page cache bounds retained payloads; a demoted session reads again', async () => {
+    const calls = countingFetch()
+    const ids = Array.from({ length: 12 }, (_, i) => 'cap-' + i)
+    for (const id of ids) await visitStore(id)
+    assert.equal(detailStoreOf(ids[11]).hasPayload, true, 'the newest visit stays cached')
+    assert.equal(detailStoreOf(ids[0]).hasPayload, false, 'the oldest visit was demoted')
+    // The cached session re-opens without a read; the demoted one reads again.
+    await visitStore(ids[11])
+    assert.equal(calls.get(ids[11]), 1, 'a cached re-open reads nothing')
+    await visitStore(ids[0])
+    assert.equal(calls.get(ids[0]), 2, 'a demoted re-open reads once more')
+  })
+
+  test('a mounted store is never demoted', async () => {
+    countingFetch()
+    const ids = Array.from({ length: 12 }, (_, i) => 'live-' + i)
+    const held = detailStoreOf(ids[0])
+    const off = held.subscribe(() => {})
+    held.request(1)
+    await until(() => held.hasPayload, 'the mounted store never landed')
+    for (const id of ids.slice(1)) await visitStore(id)
+    assert.equal(held.active, true)
+    assert.equal(held.hasPayload, true, 'a mounted store keeps its payload')
+    off()
+  })
+
+  test('a burst of opens is trimmed back to the bound on the next open', async () => {
+    countingFetch()
+    const ids = Array.from({ length: 12 }, (_, i) => 'burst-' + i)
+    // Every store subscribes and requests BEFORE any read lands.
+    const offs: (() => void)[] = []
+    const created = ids.map((id) => {
+      const store = detailStoreOf(id)
+      offs.push(store.subscribe(() => {}))
+      store.request(1)
+      return store
+    })
+    for (const [i, store] of created.entries()) {
+      await until(() => store.hasPayload, 'burst store ' + String(i) + ' never landed')
+    }
+    for (const off of offs) off()
+    // The next open trims the excess, oldest first.
+    await visitStore('burst-extra')
+    assert.equal(created[0].hasPayload, false, 'the oldest burst payload is released')
+    assert.equal(created[11].hasPayload, true, 'the newest burst payload survives')
+    // A later open walks past the already-demoted entries to the next victim.
+    await visitStore('burst-extra-2')
+    assert.equal(created[5].hasPayload, false)
+    assert.equal(created[11].hasPayload, true)
   })
 })
 

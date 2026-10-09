@@ -204,6 +204,33 @@ export class DetailStore {
     this.snap = EMPTY_SNAP
   }
 
+  /** Whether a view holds this store (only an idle store may be demoted). */
+  get active(): boolean {
+    return this.listeners.size > 0
+  }
+
+  /** Whether a fetched payload is still cached (what a demotion releases). */
+  get hasPayload(): boolean {
+    return this.detail !== null
+  }
+
+  /**
+   * Demote the store: drop its cached payload and any pending work. Called on
+   * an idle (parked) store once the page cache exceeds its bound — the store
+   * itself stays the one instance its session's consumers get, so a later
+   * open simply reads again through the same ledger.
+   */
+  release(): void {
+    // A parked store's window is already cleared; clear again so the demotion
+    // contract holds on its own (this method is public to the store map).
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+    this.resetLedger()
+    this.failures = 0
+  }
+
   /** The last viewer left: clear the pending read (the cached payload stays). */
   private park(): void {
     this.parked = true
@@ -281,14 +308,44 @@ export class DetailStore {
   }
 }
 
+/**
+ * How many sessions keep their fetched detail payload cached for an instant
+ * re-open. A large session's payload measured ~194KB of JSON (~300KB of live
+ * heap) at the default retention bounds, and this map is page-lifetime — so
+ * without a bound the page's heap grows with every session ever opened. The
+ * newest few stay cached (the tab, the sidebar panel, and the /context modal
+ * all read through one store per session); older idle ones are demoted and
+ * read again when they are opened.
+ */
+const DETAIL_STORES_MAX = 8
+
 /** Page-lifetime per-session stores (the tab and the modal share one). */
 const stores = new Map<string, DetailStore>()
 
+/** How many mapped stores still hold a fetched payload. */
+function payloadHolders(): number {
+  let held = 0
+  for (const store of stores.values()) if (store.hasPayload) held++
+  return held
+}
+
 export function detailStoreOf(sessionId: string): DetailStore {
-  let store = stores.get(sessionId)
-  if (store === undefined) {
-    store = new DetailStore(makeDetailFetcher(sessionId))
-    stores.set(sessionId, store)
+  const known = stores.get(sessionId)
+  const store = known ?? new DetailStore(makeDetailFetcher(sessionId))
+  // Recency: re-inserting moves the entry to the map's newest end, so the
+  // demotion below always targets the least recently opened session — never
+  // the store being opened here.
+  if (known !== undefined) stores.delete(sessionId)
+  stores.set(sessionId, store)
+  // Bound the retained payloads. A store without a payload is about to fetch
+  // one (its view just mounted, or a demoted one was opened again), so it
+  // counts as one more; an active store is on screen and is never demoted.
+  let excess = payloadHolders() - DETAIL_STORES_MAX + (store.hasPayload ? 0 : 1)
+  for (const candidate of stores.values()) {
+    if (excess <= 0) break
+    if (candidate.active || !candidate.hasPayload) continue
+    candidate.release()
+    excess--
   }
   return store
 }
