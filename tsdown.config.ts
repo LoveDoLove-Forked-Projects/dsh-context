@@ -55,11 +55,9 @@ function artifactBanner(): string {
   return ['/**', ...lines, ' */', ''].join('\n')
 }
 
-// The platform-module subset this plugin requires: the shell seeds these specifiers into the frozen browser module table, so the bundle must leave them to the injected `require`.
+// The platform-module subset this plugin requires: the shell seeds these specifiers into the frozen browser module table, so the bundle must leave them to the injected `require`. Anything else the client half imports is a build error (the purity gate below), so this list stays exactly what the bundle requires.
 const PLATFORM_MODULES = [
-  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
-  '@deepseek-ai/dsh-client-store',
-  '@deepseek-ai/dsh-client-ui-slots',
+  'react', 'react/jsx-runtime', 'react-dom',
   '@deepseek-ai/dsh-client-ui-primitives',
 ]
 
