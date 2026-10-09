@@ -1,7 +1,6 @@
-// The defensive icon resolver (src/client/primitives.ts): each ui-primitives
-// icon resolves by its export name; a name missing from the module (a future
-// rename) or a namespace that throws on the read degrades to a render-nothing
-// component instead of the React #130 element-type crash.
+// The defensive icon resolver (src/client/primitives.ts): each ui-primitives icon resolves by its export name;
+// a name missing from the module (a future rename) or a namespace that throws on the read degrades to a
+// render-nothing component instead of the React #130 element-type crash.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

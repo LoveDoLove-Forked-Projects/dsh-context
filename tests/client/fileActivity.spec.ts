@@ -1,7 +1,4 @@
-// File activity derivation (src/client/fileActivity.ts) — the pure fold
-// behind the File Activity card: tool→kind classification, path extraction,
-// line-delta estimates, per-file aggregation, nested Code-Mode (PTC) call
-// folding, search-meta attribution, and the locate-target lookup.
+// File activity derivation (src/client/fileActivity.ts) — the pure fold behind the File Activity card.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -200,7 +197,6 @@ describe('activityOf', () => {
     ])
     assert.equal(a.entries.length, 1)
     assert.deepEqual(a.entries[0].ops.map(o => o.seq), [7])
-    // Only the path-resolved call reaches the totals.
     assert.equal(a.totals.read.ops, 1)
     assert.equal(a.totals.write.ops, 0)
     assert.equal(a.totals.read.files, 1)
@@ -387,7 +383,6 @@ describe('activityOf — nested Code-Mode (PTC) calls', () => {
     assert.equal(read?.parent, 30)
     assert.equal(read?.program, 'Read failing test and its fixture')
     assert.equal(read?.time, T0 + 20)
-    // The minimal block carries no time and no error.
     const minimal = file.ops.find(o => o.seq === 27)
     assert.equal(minimal?.time, undefined)
     assert.equal(minimal?.err, false)

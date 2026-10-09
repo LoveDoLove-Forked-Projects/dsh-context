@@ -1,7 +1,5 @@
-// The timeline source (src/client/timelineSource.ts): the detail payload
-// narrow, the Connection-RPC fetcher, the per-session detail store machine
-// (debounce / single-flight / latest-wins / refold / retry / backoff), and
-// the useTimelineSource hook merging both wire generations into the value the cards render.
+// The timeline source (src/client/timelineSource.ts): the detail store machine and the
+// useTimelineSource hook merging both wire generations into the value the cards render.
 
 import { act, createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'
@@ -85,7 +83,6 @@ describe('detailOf', () => {
     assert.equal(narrowed.droppedNodes, 0, 'a wrong-typed scalar zeroes')
     assert.equal(narrowed.surfaceFloor, 7)
     assert.equal(narrowed.archiveFloor, undefined, 'a wrong-typed floor stays absent')
-    // A numeric archiveFloor rides through.
     assert.equal(detailOf(detail(1, { archiveFloor: 9 }))?.archiveFloor, 9)
     // The op log and its floor ride through, per-item guarded.
     const withOps = detailOf(detail(1, {
@@ -165,7 +162,6 @@ describe('makeDetailFetcher', () => {
 })
 
 describe('DetailStore', () => {
-  /** A fetcher with a call log and a programmable queue of outcomes. */
   function scriptedFetcher(outcomes: (ContextTimelineDetail | null | Error)[]): { fetcher: () => Promise<ContextTimelineDetail | null>; calls: number[] } {
     const calls: number[] = []
     return {
@@ -197,7 +193,6 @@ describe('DetailStore', () => {
     assert.equal(store.getSnapshot().failed, false)
     assert.equal(calls.length, 1)
     assert.ok(seen.length > 0, 'listeners fired')
-    // The same revision asks for nothing new.
     store.request(1)
     await settle()
     assert.equal(calls.length, 1, 'a covered revision does not refetch')
@@ -525,7 +520,6 @@ describe('DetailStore', () => {
     await vi.advanceTimersByTimeAsync(10)
     assert.equal(calls.length, 1, 'the first read fires after the base window')
     assert.equal(store.getSnapshot().failed, true)
-    // The failed read's trailing edge waits out the DOUBLED window.
     await vi.advanceTimersByTimeAsync(19)
     assert.equal(calls.length, 1, 'the trailing read waits out the doubled window')
     await vi.advanceTimersByTimeAsync(1)
@@ -568,7 +562,6 @@ describe('detailStoreOf', () => {
     assert.notEqual(detailStoreOf('s1'), a, 'a reset store is a fresh instance')
   })
 
-  /** A detail route stub counting reads per session id. */
   function countingFetch(): Map<string, number> {
     const calls = new Map<string, number>()
     vi.stubGlobal('fetch', async (_url: unknown, init?: { body?: string }) => {

@@ -1,8 +1,3 @@
-// FileCard (src/client/components/fileCard.tsx) rendered with real React:
-// purpose/form filter chips, path search, per-file rows with count badges
-// and line deltas, expandable operation logs, the op-level locate hook,
-// workspace-relative path display, and the system-open affordance.
-
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -25,7 +20,6 @@ function entry(path: string, over: Partial<FileEntry>): FileEntry {
   return { path, form: 'text', reads: 0, writes: 0, searches: 0, added: 0, removed: 0, errs: 0, ops: [], ...over }
 }
 
-/** Five files exercising every row anatomy: split paths, all badges, deltas both ways, failures, a directory, an image. */
 function richActivity(over: Partial<FileActivity> = {}): FileActivity {
   return {
     entries: [
@@ -103,7 +97,6 @@ describe('FileCard — header, rows, and filters', () => {
     assert.ok(text(chipByLabel(m.container, 'All')).includes('16'))
     assert.ok(text(chipByLabel(m.container, 'Read')).includes('12'))
     assert.ok(text(chipByLabel(m.container, 'Images')).includes('1'))
-    // Meta strip: file count + aggregate delta (+7 −3).
     const meta = query(m.container, '.lc-fa-meta')
     assert.ok(text(meta).includes('5 files'))
     assert.ok(text(meta).includes('+7'))
@@ -114,7 +107,6 @@ describe('FileCard — header, rows, and filters', () => {
     assert.equal(rows.length, 5)
     // Default order is most-active first: many.log (9 ops) → a.ts (4) → the one-op files by recency.
     assert.deepEqual(rows.map(r => r.title), ['/var/many.log', '/src/a.ts', '/shots/ui.png', 'solo.md', '/src/'])
-    // Path split: muted dir + bold base; every badge and the row delta.
     const first = rows[0]
     assert.ok(first.querySelector('.lc-fa-path em')?.textContent === '/var/')
     assert.ok(first.querySelector('.lc-fa-path b')?.textContent === 'many.log')
@@ -128,11 +120,10 @@ describe('FileCard — header, rows, and filters', () => {
     assert.ok(text(aRow).includes('+2') && text(aRow).includes('−3'))
     assert.ok(aRow.querySelector('.lc-br-err-dot') !== null)
     assert.ok(aRow.title === '/src/a.ts')
-    // The directory row trims its trailing slash for display.
     const dirRow = rows.find(r => r.title === '/src/')
     assert.ok(dirRow !== undefined)
     assert.ok(dirRow.querySelector('.lc-fa-path b')?.textContent === 'src')
-    // The extension-less row relativizes with no workspace known: a './' dir span, and no badges beyond its own kind.
+    // The extension-less row relativizes with no workspace known: a './' dir span.
     const solo = rows.find(r => r.title === 'solo.md')
     assert.ok(solo !== undefined)
     assert.ok(solo.querySelector('.lc-fa-path em')?.textContent === './')
@@ -234,7 +225,6 @@ describe('FileCard — header, rows, and filters', () => {
     const titles = () => queryAll(m.container, '.lc-fa-row').map(r => r.title)
     const sortBtns = queryAll(m.container, '.lc-fa-sort .lc-gran-btn')
     assert.equal(sortBtns.length, 3)
-    // Count order by default: 9 ops → 4 ops → one-op files by recency.
     assert.ok(sortBtns[0].className.includes('lc-gran-on'))
     assert.deepEqual(titles(), ['/var/many.log', '/src/a.ts', '/shots/ui.png', 'solo.md', '/src/'])
     // Latest order: many.log (seq 28) → ui.png (9) → solo.md (8) → a.ts (7) → /src/ (6).

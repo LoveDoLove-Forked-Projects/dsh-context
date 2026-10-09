@@ -1,6 +1,3 @@
-// The activity heatmap (src/client/components/heatmap.tsx): grid math off
-// the injected today key, depth levels, day pinning, future cells, and the empty/degraded paths — rendered with real React.
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -74,7 +71,6 @@ describe('Heatmap', () => {
     // The zero-token day counts as activity (requests > 0); depths ride the
     // steps metric, so its pair of steps draws half the peak.
     assert.ok(byKey.get('2026-09-07')?.className.includes('lc-heat-2'))
-    // The tooltip is three lines: the date, the day's active sessions, its steps.
     assert.equal(byKey.get('2026-09-16')?.getAttribute('aria-label'), '2026-09-16\n2 active sessions\n4 steps')
     assert.equal(byKey.get('2026-09-10')?.getAttribute('aria-label'), '2026-09-10\n1 active sessions\n0 steps')
     // Inert cells: data-less days and future days draw as plain spans.
@@ -142,7 +138,6 @@ describe('Heatmap', () => {
       query<HTMLButtonElement>(m.container, 'button.lc-heat-cell').getAttribute('data-lc-tip'),
       '2026-09-16\n3 active sessions\n1 steps',
     )
-    // An empty day tips too — the bare date, one line.
     assert.match(query(m.container, 'span.lc-heat-0').getAttribute('data-lc-tip') ?? '', /^\d{4}-\d{2}-\d{2}$/)
     await m.unmount()
   })

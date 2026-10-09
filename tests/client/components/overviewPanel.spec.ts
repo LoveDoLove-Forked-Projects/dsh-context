@@ -1,7 +1,4 @@
-// The Context Insights page (src/client/components/overviewPanel.tsx) —
-// full renders through the standard-kit seams: KPI band, heatmap day-pin,
-// filters/sorts, pagination, session open path, hover tips, and the
-// degraded states. The page is the keyed `main` panel: mounting it IS
+// OverviewPanel (src/client/components/overviewPanel.tsx) rendered in the layout's keyed `main` panel: mounting it IS
 // opening it (the shell unmounts on panel switch), so no open flag exists.
 
 import { act, createElement as h } from 'react'
@@ -104,7 +101,6 @@ async function openPanel(
   return { m, Panel }
 }
 
-/** The fetch calls the page fired (the warm-up trigger POST), per test. */
 const backfillPosts: string[] = []
 
 /** One day cell of the page's portaled calendar picker, by its day key. */
@@ -149,7 +145,7 @@ describe('OverviewPanel', () => {
     const scrollRows = [...query(m.container, '.lc-ov-pagecontent').children].map(el => el.className.split(' ')[0])
     assert.deepEqual(scrollRows, ['lc-ov-pagehead', 'lc-ov-first', 'lc-ov-stats', 'lc-ov-body'])
     assert.equal(query(m.container, '.lc-ov-pagehead h1.lc-ov-pagetitle').textContent, 'Context Insights')
-    // The pair's halves: the KPI band's six cells, then the usage chart.
+    // The pair's halves: the KPI band's six cells.
     assert.equal(queryAll(m.container, '.lc-ov-first > .lc-ov-kpis .lc-stat').length, 6)
     assert.ok(query(m.container, '.lc-ov-first > .lc-card.lc-ov-usage') !== null, 'the usage chart rides the row')
     // KPI band: 2 sessions in the 30d range, 1750 tokens billed, priced cost, cache hit.
@@ -182,7 +178,6 @@ describe('OverviewPanel', () => {
     ])
     assert.equal(query(statsCards[1], '.lc-donut-center b').textContent, '3m0s')
     assert.ok(text(statsCards[1]).includes('LLM Gen'))
-    // Heatmap drew cells for the two ledger days.
     assert.ok(queryAll(m.container, 'button.lc-heat-cell').length >= 2)
     // Cards: a (current, running, grouped), b, and c is outside the 30d range.
     const cards = queryAll(m.container, '.lc-ov-grid > .lc-ov-session')
@@ -250,7 +245,6 @@ describe('OverviewPanel', () => {
       rangeButtons.every(b => !b.className.includes('lc-gran-on')),
       'a picked range and a preset are never both lit',
     )
-    // Clicking any preset takes the scope back and drops the chip's voice.
     await click(rangeButtons[3])
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 3, 'the stale session joins again')
     assert.ok(!query(m.container, '.lc-dp-trigger').className.includes('lc-dp-trigger-on'))
@@ -316,22 +310,18 @@ describe('OverviewPanel', () => {
     const { m } = await openPanel(ctx, { useSessions: useHookOf(snap) })
     await flush() // the catalog read lands
     assert.deepEqual(skillPosts, [{ cwd: '/repo/alpha', sessionId: 'a' }], 'the catalog read anchors on the current session')
-    // The card lists the skill, enriched by the catalog (the hover card carries the description).
     const skillRow = query<HTMLButtonElement>(m.container, 'button.lc-ov-skill')
     assert.ok(text(skillRow).includes('tdd'))
     await hover(skillRow)
     assert.ok(text(document.querySelector('#lc-skilltip-bubble') as HTMLElement).includes('Test-driven.'), 'the catalog’s description joins the hover card')
     await unhover(skillRow)
-    // Pin: the grid narrows to the skill's loaders and the list-head chip shows the pin.
     await click(skillRow)
     const cards = queryAll(m.container, '.lc-ov-grid > .lc-ov-session')
     assert.equal(cards.length, 1)
     assert.ok(text(cards[0]).includes('alpha session'))
     const chip = query<HTMLButtonElement>(m.container, '.lc-ov-day-chip[title="Clear the skill filter"]')
     assert.ok(text(chip).includes('Skill · tdd'))
-    // The pin's detail block rides the catalog.
     assert.ok(text(query(m.container, '.lc-ov-skill-detail')).includes('/p/tdd/SKILL.md'))
-    // The chip clears the pin.
     await click(chip)
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2)
     assert.equal(queryAll(m.container, '.lc-ov-skill-detail').length, 0, 'the detail block leaves with the pin')
@@ -349,7 +339,6 @@ describe('OverviewPanel', () => {
     const todayCellClass = (): string | undefined =>
       queryAll<HTMLButtonElement>(m.container, 'button.lc-heat-cell')
         .find(c => c.getAttribute('aria-label')?.startsWith(TODAY))?.className
-    // Steps (the default): today's pair of steps IS the window's steps peak.
     assert.ok(todayCellClass()?.includes('lc-heat-4'), 'steps mode (default): today holds the steps peak')
     const metricButtons = queryAll<HTMLButtonElement>(m.container, '.lc-heat-ctl .lc-gran-btn')
     assert.deepEqual(metricButtons.map(b => b.textContent), ['Sessions', 'Steps'])
@@ -376,14 +365,11 @@ describe('OverviewPanel', () => {
       }),
     })
     const input = query<HTMLInputElement>(m.container, 'input.lc-ov-search')
-    // Query by title.
     await actType(input, 'beta')
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1)
     assert.ok(text(m.container).includes('beta session'))
-    // Query by path.
     await actType(input, '/repo/a')
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 1)
-    // No match → the filtered empty note.
     await actType(input, 'zzz')
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 0)
     assert.ok(text(m.container).includes('No sessions match'))
@@ -404,21 +390,17 @@ describe('OverviewPanel', () => {
     const { m } = await openPanel(ctx)
     const chips = queryAll<HTMLButtonElement>(m.container, '.lc-ov-chip')
     assert.deepEqual(chips.map(c => c.textContent), ['All2', 'workspace-one1', 'Ungrouped1'])
-    // Select the workspace group: only its claimed session stays.
     await click(chips[1])
     let cards = queryAll(m.container, '.lc-ov-grid > .lc-ov-session')
     assert.equal(cards.length, 1)
     assert.ok(text(cards[0]).includes('alpha session'))
     assert.ok(queryAll<HTMLButtonElement>(m.container, '.lc-ov-chip')[1].className.includes('lc-ov-chip-on'))
-    // Switch to the ungrouped bucket: only the claimless one stays.
     await click(queryAll<HTMLButtonElement>(m.container, '.lc-ov-chip')[2])
     cards = queryAll(m.container, '.lc-ov-grid > .lc-ov-session')
     assert.equal(cards.length, 1)
     assert.ok(text(cards[0]).includes('beta session'))
-    // Toggle the active chip off → the whole scoped set returns.
     await click(queryAll<HTMLButtonElement>(m.container, '.lc-ov-chip')[2])
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2)
-    // The All chip clears an active selection too.
     await click(queryAll<HTMLButtonElement>(m.container, '.lc-ov-chip')[1])
     await click(queryAll<HTMLButtonElement>(m.container, '.lc-ov-chip')[0])
     assert.equal(queryAll(m.container, '.lc-ov-grid > .lc-ov-session').length, 2)
@@ -508,12 +490,10 @@ describe('OverviewPanel', () => {
 
   test('degraded states: unavailable list, empty list, no activity', async () => {
     const ctx = makeCtx()
-    // No sessions seat at all → the unavailable note.
     const bare = await openPanel(ctx, { useSessions: undefined, useWorkspaces: undefined })
     assert.ok(text(bare.m.container).includes('The session list is unavailable'))
     await bare.m.unmount()
 
-    // An empty-but-ready list → the empty note.
     const empty = await openPanel(ctx, {
       useSessions: useHookOf({ ids: [], byId: {}, phase: 'ready' }),
       useWorkspaces: useHookOf({ items: [] }),
@@ -522,7 +502,6 @@ describe('OverviewPanel', () => {
     assert.ok(text(empty.m.container).includes('No activity yet'))
     await empty.m.unmount()
 
-    // Sessions without any timeline → cards render metadata-only.
     const noTimeline = await openPanel(ctx, {
       useSessions: useHookOf({
         ids: ['x'],
@@ -537,7 +516,6 @@ describe('OverviewPanel', () => {
     assert.equal(kpiValues[3], '—', 'no cache hit without billed input')
     assert.equal(kpiValues[4], '0', 'no tool calls without timing')
     assert.equal(kpiValues[5], '—', 'no active time without timing')
-    // The aggregate cards degrade to their empty notes.
     assert.ok(text(noTimeline.m.container).includes('No billed tokens in this range'))
     assert.ok(text(noTimeline.m.container).includes('No timing data yet'))
     await noTimeline.m.unmount()

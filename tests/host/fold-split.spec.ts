@@ -1,8 +1,6 @@
-// The split wire generation (src/host/fold.ts buildTimelineHead /
-// buildTimelineDetail + the detailRev ledger): the slim head carries the
-// counters and the headline anchor while the detail payload serves the heavy
-// collections, and the revision bumps exactly on detail-mutating folds.
-// Also pins the equivalence: inline view = head + detail, so the two generations can never drift apart.
+// The split wire generation (src/host/fold.ts buildTimelineHead / buildTimelineDetail + the detailRev ledger): the slim head carries the
+// counters and headline anchor, the detail payload the heavy collections, and the revision bumps exactly on detail-mutating folds. Also
+// pins the equivalence: inline view = head + detail, so the two generations can never drift apart.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

@@ -1,7 +1,3 @@
-// UpgradeGate (src/client/components/upgradeGate.tsx) — the baseline-gate
-// modal rendered for real in jsdom: version rows, backdrop/card/Escape/OK/×
-// dismissal, and the per-session dismissal ledger across remounts and in-place session switches.
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -86,10 +82,8 @@ describe('UpgradeGate', () => {
     const m = await render('s-switch-a')
     await click(query(m.container, '.lc-gate-ok'))
     assert.equal(m.container.querySelector('.lc-modal-backdrop'), null)
-    // Switching to a fresh session shows its gate again on the same mount.
     await m.update(h(Gate, { sessionId: 's-switch-b', current: '0.1.0', minimum: '0.1.7-rc.2' }))
     assert.ok(m.container.querySelector('.lc-modal-backdrop') !== null)
-    // Switching back to the dismissed session stays closed.
     await m.update(h(Gate, { sessionId: 's-switch-a', current: '0.1.0', minimum: '0.1.7-rc.2' }))
     assert.equal(m.container.querySelector('.lc-modal-backdrop'), null)
     await m.unmount()

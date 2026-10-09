@@ -1,7 +1,5 @@
-// Integration tests for the Host-half plugin module (src/host/index.ts)
-// against the REAL cordis registry, session store, and session-projection
-// registry — the dsh-canonical harness: real envelopes appended to a real
-// session, folded by the registered units, read back through the snapshot cut and the change feed.
+// The Host-half plugin module (src/host/index.ts) against the REAL cordis registry, session store, and session-projection registry: real
+// envelopes appended to a real session, folded by the registered units, read back through the snapshot cut and the change feed.
 
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
@@ -22,7 +20,6 @@ const noConfig = {} as never
 /** The committed version-probe homes (see version.spec.ts). */
 const HOMES = fileURLToPath(new URL('./fixtures/version/homes', import.meta.url))
 
-/** Boot with the probe's home anchor pointing at one fixture harness home. */
 async function bootWithHome(home: string) {
   const ctx = new Context()
   ctx.provide('dshHomePath', (...segments: string[]) => join(HOMES, home, ...segments))
@@ -32,7 +29,6 @@ async function bootWithHome(home: string) {
   return { ctx, fiber }
 }
 
-/** Poll until the pending plugin fiber has started and folded the log. */
 async function until<T>(read: () => T | undefined, message: string): Promise<T> {
   for (let i = 0; i < 200; i++) {
     const value = read()
@@ -235,7 +231,6 @@ describe('dsh-context host plugin', () => {
     assert.equal(result.value.rev, timeline.detailRev, 'the payload mirrors the head revision')
     assert.equal(result.value.nodes.length, 3, 'user + assistant + tool-result surface nodes')
     assert.equal(result.value.requests.length, 1)
-    // The fold-derived op log rides the detail payload.
     const ops = (result.value as { fileOps?: { path: string; kind: string; tool: string }[] }).fileOps
     assert.deepEqual(ops?.map(o => [o.kind, o.tool, o.path]), [['read', 'read', 'src/a.ts']])
   })

@@ -92,7 +92,6 @@ export interface ClientSeam {
     nav: {
       /** The controller source (the public navigation face's implementation). */
       file: string
-      /** The `openResource` verb's declaration/comments marker. */
       needle: string
     }
     /** The guide-entry contract the plugin's contribution must satisfy: one
@@ -100,7 +99,6 @@ export interface ClientSeam {
     guideEntry: {
       /** The declaring source. */
       file: string
-      /** One needle per field the guide entry carries. */
       fields: readonly string[]
     }
   }
@@ -110,7 +108,6 @@ export interface Baseline {
   /** The dsh git tag in deepseek-ai/deepseek-harness (local checkout or CI fetch). */
   id: BaselineId
   tag: string
-  /** The vendored @deepseek-ai/cordis release that harness line ships. */
   cordis: string
   /** The @deepseek-ai/dsh-session release that line vendors. The staged
    * session-projection sources import runtime values from it (SessionLogOffset /
@@ -119,8 +116,8 @@ export interface Baseline {
   /** The durable-event families THIS line's log carries that the host fold
    * switches on — the probe asserts every one exists in the tag's
    * `KNOWN_SESSION_EVENT_TYPES`. Every supported line is the V4 generation,
-   * so the lists match; the matrix also asserts the union covers the fold's
-   * whole vocabulary, so a fold case added without a baseline list fails loudly instead of going unprobed. */
+   * so the lists match; the matrix also asserts `FOLD_EVENT_TYPES` ⊆ the
+   * baselines' union, so a fold case added without a baseline list fails loudly instead of going unprobed. */
   foldEventTypes: readonly string[]
   client: ClientSeam
   /** The step-boundary identity guard's host seam (src/host/stepIdentity.ts):
@@ -138,15 +135,11 @@ export interface Baseline {
    * (probed absent, so the plugin never calls it), and the browser half rides
    * the `configForms` service and the Plugins page's keyed `plugins.bundle.config` seat. */
   settings: {
-    /** The settings service source missing the register face. */
     serviceFile: string
-    /** Whether this generation serves `settings.register` (none do — asserted absent). */
     register: boolean
     /** The browser slot the preferences card registers on this generation. */
     cardSlot: string
-    /** The sources declaring (or missing) the card slot. */
     cardSlotFiles: readonly string[]
-    /** The browser settings-transport service this generation composes. */
     transport: 'configForms'
     /** The transport's declaring source, plus whether it exists. */
     transportFile: string
@@ -160,7 +153,6 @@ export interface Baseline {
    * registered-section `get(ns)` read is probed absent, so a resurrection
    * names the seam instead of silently shadowing the projection. */
   balance: {
-    /** The settings service source the face needles are asserted in. */
     settingsFile: string
     /** The retired `get(ns)` section read — absent on every supported line. */
     settingsGetNeedle: string

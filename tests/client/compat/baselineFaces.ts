@@ -1,6 +1,5 @@
-// Per-baseline harness client faces (tests/baselines.ts): the in-memory
-// service implementations a given dsh generation actually serves, so the
-// always-on suite can drive the plugin's client half through each baseline's
+// Per-baseline harness client faces (tests/baselines.ts): the in-memory service implementations a given dsh
+// generation actually serves, so the always-on suite can drive the plugin's client half through each baseline's
 // seams. The real-code complement runs in the `compat` vitest project.
 
 import { TestClientCtx } from '../helpers/harness'

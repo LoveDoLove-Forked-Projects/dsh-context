@@ -1,9 +1,6 @@
-// The skill-catalog route (src/host/skills.ts): the deferred-inject gating
-// on the connection face, the session-addressed resolution mirroring the
-// harness's own skill catalog (observeSession → cwd + preset; a live agent's
-// scoped registry wins; a cold session rides a scope lease; every gap falls
-// back to the global layers), the typed `null` for every unusable face (the
-// route must never throw into the transport), the per-entry narrowing, and the serve bound.
+// The skill-catalog route (src/host/skills.ts): deferred-inject gating on the connection face, the session-addressed resolution mirroring
+// the harness's own skill catalog (observeSession → cwd + preset; a live agent's scoped registry wins; a cold session rides a scope lease;
+// every gap falls back to the global layers), and the typed `null` for every unusable face — never a throw into the transport.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -54,7 +51,6 @@ function ctxOf(spec: CtxSpec): { ctx: Context; captured: { path?: string; fetch?
 
 const CONNECTION = { fetch: { register: () => () => {} } }
 
-/** A registry double logging its list options and serving the given rows (or throwing). */
 function registryOf(rows: unknown, log?: unknown[]): { list: (options: unknown) => Promise<unknown> } {
   return {
     list: async (options: unknown) => {
@@ -65,7 +61,6 @@ function registryOf(rows: unknown, log?: unknown[]): { list: (options: unknown) 
   }
 }
 
-/** A sessionQuery double serving one observation (or throwing) and tracking its disposal. */
 function queryOf(observation: unknown, opts: { throws?: boolean; disposed?: string[] } = {}): { observeSession: (id: string) => Promise<unknown> } {
   return {
     observeSession: async () => {
@@ -79,13 +74,11 @@ function queryOf(observation: unknown, opts: { throws?: boolean; disposed?: stri
   }
 }
 
-/** The canonical registry rows. */
 const ROWS = [
   { name: 'tdd', description: 'Test-driven development', path: '/home/u/.agents/skills/tdd/SKILL.md', source: 'user-agents', invocation: {}, provider: 'fs' },
   { name: 'ask-matt', description: 'A router', source: 'project-agents' },
 ]
 
-/** Serve the route with the given JSON body and parse the reply. */
 async function serve(captured: { fetch?: RouteFetch }, body: unknown = {}): Promise<Record<string, unknown>> {
   const response = await captured.fetch!(new Request('http://localhost' + SKILLS_ROUTE, {
     method: 'POST',
@@ -95,7 +88,6 @@ async function serve(captured: { fetch?: RouteFetch }, body: unknown = {}): Prom
   return await response.json() as Record<string, unknown>
 }
 
-/** Arm the route over the given faces and return the captured fetch. */
 function armed(spec: Omit<CtxSpec, 'connection'>): { path?: string; fetch?: RouteFetch } {
   const { ctx, captured } = ctxOf({ connection: CONNECTION, ...spec })
   watchSkillCatalog(ctx)

@@ -1,7 +1,5 @@
-// The timing fold (src/host/fold.ts): whole-session durations priced from the
-// durable step lifecycle (step/start → assistant/message with its embedded
-// stream → step/end) and the per-call tool durations (tool/call → tool/result
-// via callId), plus the bounded per-name tally. No mocks: the real fold runs.
+// The timing fold (src/host/fold.ts): durations priced from the durable step lifecycle (step/start → assistant/message with its embedded
+// stream → step/end) and per-call tool durations (tool/call → tool/result via callId). No mocks: the real fold runs.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -21,7 +19,6 @@ const text = (t: string) => [{ type: 'text', text: t }]
 /** One raw `chunk` record of an embedded assistant stream, at an absolute time. */
 const chunkRec = (time: number, chunk: unknown): unknown => ({ type: 'chunk', time, chunk })
 
-/** One full step lifecycle at explicit times: start, [first token], message, end. */
 function step(seq: number, startMs: number, lmMs: number, opts: { tokenMs?: number; usage?: Record<string, number> } = {}): TimelineEvent[] {
   const events: TimelineEvent[] = [{ type: 'step/start', seq, time: startMs }]
   const stream = opts.tokenMs === undefined
@@ -162,8 +159,7 @@ describe('timing — tool call durations', () => {
   test('an unpaired result carries no duration, no tally, and no `timing` slot at all', () => {
     const drive = driveTimeline([toolResult(1, { callId: 'ghost', content: text('ok') })])
     assert.equal(drive.state.timing, undefined)
-    // ABSENT, never materialized as an `undefined`-valued property: the fold
-    // priced no call, so the slot stays untouched — one such property fails
+    // ABSENT, never an `undefined`-valued property: one such property fails
     // every projection-cache write for the session (the plain-JSON contract).
     assert.equal(Object.hasOwn(drive.state, 'timing'), false)
   })
@@ -180,13 +176,10 @@ describe('timing — tool call durations', () => {
     const events: TimelineEvent[] = []
     let seq = 1
     for (let i = 0; i < 17; i++) {
-      // Tool 't0' is the cheapest (100ms); every later tool is costlier, so
-      // the cap eviction must repeatedly drop 't0'… until it returns with a
-      // heavier call — model a unique heavy tool per round instead.
+      // Tool 't0' is the cheapest (100ms); every later tool is costlier.
       events.push({ type: 'tool/call', seq: seq++, time: i * 1_000, data: { callId: 'c' + i, name: 't' + i, arguments: '{}' } })
       events.push(toolResult(seq++, { callId: 'c' + i, content: text('ok'), time: i * 1_000 + (i === 0 ? 100 : 5_000) }))
     }
-    // Feed the cheapest call LAST so the eviction path must drop it.
     const { state } = driveTimeline(events)
     assert.equal(Object.keys(state.timing?.tools ?? {}).length, 16)
     assert.equal(state.timing?.tools.t0, undefined, 'the cheapest tally left the ranking')

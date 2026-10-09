@@ -1,8 +1,6 @@
-// The shape-driven readers (src/host/logShapes.ts): the log spellings the
-// fold reconciles — the embedded assistant stream's first token, the
-// replacement op's endpoints, and the raw chunk token test. Hostile shapes
-// are pinned beside the happy paths: a malformed record must read as
-// "nothing here", never throw (the projection registry drives the fold with no error boundary of its own).
+// The shape-driven readers (src/host/logShapes.ts): the embedded assistant stream's first token, the
+// replacement op's endpoints, and the raw chunk token test. Hostile shapes are pinned beside the happy
+// paths — a malformed record reads as "nothing here", never throws (the registry drives the fold with no error boundary).
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

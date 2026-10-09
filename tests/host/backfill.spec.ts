@@ -1,10 +1,4 @@
-// The projection warm-up (src/host/backfill.ts) over the REAL cordis
-// context: the trigger route's gating (no connection, no registry — no
-// pass), the one-pass-per-process arm (either half landing first, later
-// route hits no-op), the deferred inject's service gating, the per-session
-// skip ladder (malformed, invisible, live, already fully served), the
-// cold-read → coldSnapshot fold path, per-session failure isolation with
-// the migration-refusal accounting (debug detail, one summary info), and abort-on-dispose.
+// The projection warm-up (src/host/backfill.ts) over the REAL cordis context — no mocks.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -12,7 +6,6 @@ import { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { BACKFILL_ROUTE, watchActivityBackfill } from '../../src/host/backfill'
 
-/** Poll until the async run reaches a condition. */
 async function until<T>(read: () => T | undefined, message: string): Promise<T> {
   for (let i = 0; i < 300; i++) {
     const value = read()
@@ -22,7 +15,6 @@ async function until<T>(read: () => T | undefined, message: string): Promise<T> 
   assert.fail(message)
 }
 
-/** One captured route registration (the trigger half's observable). */
 interface RouteBox {
   path?: string
   fetch?: (request: Request) => Promise<Response>
@@ -38,13 +30,11 @@ async function trigger(route: RouteBox): Promise<Response> {
   return route.fetch(new Request(`http://dsh.test${BACKFILL_ROUTE}`, { method: 'POST' }))
 }
 
-/** One log line the tests capture off the ctx logger. */
 interface LogLine {
   level: string
   text: string
 }
 
-/** Capture the pass's log lines through the logger service's exporter sink. */
 function captureLogs(ctx: Context): LogLine[] {
   const lines: LogLine[] = []
   // Lift every source's threshold to debug: the default exporter drops warn/debug records before they reach the sink.

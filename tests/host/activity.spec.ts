@@ -1,7 +1,3 @@
-// The `contextActivity` projection unit (src/host/activity.ts): the daily
-// ledger fold — event filtering, usage sanitizing, day accumulation, the
-// retention cap, the copying view, and the schema roundtrip.
-
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -168,12 +164,10 @@ function skillInvocation(time: number, source: unknown): SessionEvent {
   return { type: 'user/message', seq: 1, time, data: { source } } as never
 }
 
-/** A `tool/call` arming the given tool under the given id. */
 function toolCall(time: number, callId: unknown, name: unknown): SessionEvent {
   return { type: 'tool/call', seq: 1, time, data: { callId, name } } as never
 }
 
-/** A `tool/result` whose message renders the given first text block, paired to a call id. */
 function skillResult(time: number, text: string, callId?: string): SessionEvent {
   return {
     type: 'tool/result',

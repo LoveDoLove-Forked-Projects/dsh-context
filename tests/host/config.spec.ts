@@ -1,8 +1,6 @@
-// The entry `Config` schema (src/host/config.ts): schemastery serves two
-// consumers — cordis validates the `config:` block through its Standard
-// Schema face before apply, and the harness's Config-form generation derives
-// the Plugins page's live form from it (the volatile-marked preferences).
-// Exercised through the REAL schemastery the tests install.
+// The entry `Config` schema (src/host/config.ts): schemastery serves two consumers — cordis validates the `config:` block through its
+// Standard Schema face before apply, and the harness's Config-form generation derives the Plugins page's live form from it (the
+// volatile-marked preferences). Exercised through the REAL schemastery the tests install.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -46,7 +44,6 @@ describe('Config validator (cordis Standard Schema face)', () => {
     assert.equal(resolveBounds({ maxEvents: 7 }).maxEvents, 7)
     assert.equal(resolveBounds({ maxNodes: 7 }).maxNodes, 7)
     assert.equal(resolveBounds({ maxArchiveNodes: 7 }).maxArchiveNodes, 7)
-    // Untouched fields keep their defaults.
     assert.equal(resolveBounds({ maxNodes: 7 }).maxEvents, DEFAULT_BOUNDS.maxEvents)
   })
 

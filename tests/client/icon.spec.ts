@@ -1,10 +1,6 @@
-// The Context emblem (src/client/icon.tsx): the bundled document sheet that
-// fills the right-Sidebar tab type's two glyph seats — the guide capsule and
-// the chip title — in its polychrome default, plus the sidebar-foot entry
-// seat in the mono variant. Bundled rather than read off the harness
-// primitives, so these specs render the real component. The same sheet is
-// exported statically as the package-root icon.svg the Host's package-meta
-// reader serves to the Plugins page; a spec pins the two in lockstep.
+// The Context emblem (src/client/icon.tsx): the bundled document sheet behind the right-Sidebar tab type's glyph and
+// chip-title seats. Bundled rather than read off the harness primitives, so these specs render the real component; the
+// same sheet ships as the package-root icon.svg, pinned in lockstep by a spec here.
 
 import { readFile } from 'node:fs/promises'
 import { createElement as h } from 'react'

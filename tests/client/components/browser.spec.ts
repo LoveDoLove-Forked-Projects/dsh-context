@@ -19,12 +19,11 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** Swallow the fetch-on-miss warning one deliberately failing test would print. */
 function silenceFetchWarn(): void {
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 }
 
-// Category row order is CATS: system, tools, user, inject, assistant, tool.
+// Category row index follows the CATS order.
 const ROW = { system: 0, tools: 1, user: 2, inject: 3, skill: 4, assistant: 5, tool: 6 } as const
 
 function tl(over: Partial<ContextTimeline>): ContextTimeline {
@@ -71,7 +70,6 @@ async function pickStep(m: Mounted, value: string): Promise<void> {
   })
 }
 
-/** Click the delta-baseline toggle button ('prev step'/'prev turn') in the card title. */
 async function clickDeltaBase(m: Mounted, label: 'prev step' | 'prev turn'): Promise<void> {
   const btn = queryAll(m.container, '.lc-card-title .lc-gran-btn').find(b => text(b) === label)
   assert.ok(btn !== undefined, `toggle button ${label} exists`)
@@ -143,7 +141,6 @@ describe('ContextBrowser live surface', () => {
     assert.equal(queryAll(m.container, '.lc-br-cat-row').length, 7)
     assert.ok(text(catRow(m, 'user')).includes('1 Items'))
     assert.ok(queryAll(m.container, '.lc-br-cat')[ROW.inject].className.includes('lc-br-cat-empty'), 'empty category is marked')
-    // Picking the stamp-less request: meta degrades to zeroes, no baseline exists.
     await pickStep(m, '7')
     const meta2 = text(query(m.container, '.lc-br-meta'))
     assert.ok(meta2.includes('Turn 0 · Step 0'))
@@ -165,7 +162,6 @@ describe('ContextBrowser live surface', () => {
     assert.ok(queryAll(m.container, '.lc-br-pct').every(el => text(el) === ''))
     assert.equal(queryAll(m.container, '.lc-br-delta').length, 0)
     assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 0)
-    // 'prev turn' on a request-less live surface: no baseline exists at all, still no pills.
     await clickDeltaBase(m, 'prev turn')
     assert.equal(queryAll(m.container, '.lc-br-delta').length, 0)
     assert.equal(queryAll(m.container, '.lc-br-tdelta').length, 0)
@@ -324,7 +320,6 @@ describe('ContextBrowser live surface', () => {
     assert.ok(!catRow(m, 'user').className.includes('lc-br-cat-on'))
     await m.unmount()
 
-    // No hoverKey wiring at all: hovering is a no-op.
     const m2 = await mount(h(Browser, props({ data })))
     await hover(catRow(m2, 'user'))
     await m2.unmount()
@@ -471,7 +466,6 @@ describe('stepStampOf', () => {
 })
 
 describe('ContextBrowser header epochs', () => {
-  // The projection carries METADATA only; the epoch content arrives via fetchHeader.
   const HEADERS: ContextHeaders = {
     headers: [
       { seq: 15, time: 1500, systemTokens: 8, tools: [{ name: 'old', tokens: 1 }] },
@@ -492,9 +486,7 @@ describe('ContextBrowser header epochs', () => {
     const body = query(m.container, '.lc-br-body')
     assert.ok(text(body).includes('SYS B'), 'the newest epoch’s prompt shows on the live surface')
     assert.ok(text(body).includes('2 lines'), 'line count rides the section head')
-    // The open header holds the hover tint, every category alike.
     assert.ok(catRow(m, 'system').className.includes('lc-br-cat-open'))
-    // The single system row is already expanded.
     assert.equal(queryAll(m.container, '.lc-br-content').length, 1)
     assert.ok(queryAll(m.container, '.lc-ts-desc-md').length >= 1, 'markdown view by default')
     // Scope to the detail body: the header's own granularity toggles wear the same shared lc-gran classes.
@@ -536,7 +528,6 @@ describe('ContextBrowser header epochs', () => {
     await flush()
     assert.ok(text(query(m.container, '.lc-br-body')).includes('SYS B'))
     assert.equal(calls, 1)
-    // The other epoch costs its own fetch.
     await pickStep(m, '20')
     await click(catRow(m, 'system'))
     await flush()
@@ -595,7 +586,6 @@ describe('ContextBrowser header epochs', () => {
     await flush()
     assert.ok(!text(m.container).includes('Load failed'))
     assert.ok(text(query(m.container, '.lc-br-body')).includes('Loading'))
-    // The live epoch settles and renders.
     await act(async () => { pendings[1]!.resolve(CONTENTS[15]!) })
     await flush()
     assert.ok(text(query(m.container, '.lc-br-body')).includes('SYS A'))
@@ -760,8 +750,6 @@ describe('ContextBrowser header epochs', () => {
 })
 
 describe('ContextBrowser tool schemas', () => {
-  // Metadata rows (name/token/plugin) pair with fetched CONTENT carrying the
-  // descriptions and schemas — the lazy epoch contract.
   const headers: ContextHeaders = {
     headers: [{
       seq: 1, time: 1, systemTokens: 3,
@@ -904,14 +892,12 @@ describe('ContextBrowser tool schemas', () => {
     // The plugin chip matches: omega carries mcp:github.
     await typeToolSearch(m, 'github')
     assert.deepEqual(names(), ['omega'])
-    // No match degrades to a note; clearing restores every row.
     await typeToolSearch(m, 'zzz')
     assert.equal(elemRows(m).length, 0)
     assert.ok(text(m.container).includes('No tools match the current filter'))
     await typeToolSearch(m, '')
     assert.equal(elemRows(m).length, 9)
 
-    // Name sort re-ranks alphabetically; size restores the token-price ranking.
     await click(sortBtns[2])
     assert.ok(sortBtns[2].className.includes('lc-gran-on'))
     assert.deepEqual(names(), ['beta', 'delta', 'epsilon', 'gamma', 'mega', 'omega', 'rho', 'theta', 'zeta'])
@@ -1052,7 +1038,6 @@ describe('ContextBrowser tool schemas', () => {
     // The name still matches; the unstringifiable schema contributes no text.
     await typeToolSearch(m, 'loop')
     assert.deepEqual(elemRows(m).map(r => text(query(r, '.lc-br-preview'))), ['loop'])
-    // Searching schema-only text finds nothing here and shows the note.
     await typeToolSearch(m, 'properties')
     assert.equal(elemRows(m).length, 0)
     assert.ok(text(m.container).includes('No tools match the current filter'))
@@ -1399,7 +1384,6 @@ describe('ContextBrowser message categories', () => {
     const previews = () => elemRows(m).map(r => text(query(r, '.lc-br-preview')))
     assert.equal(elemRows(m).length, 8)
 
-    // Tools: the joined tool-call blocks plus the unjoined `calls` stamp.
     await click(chips()[1])
     assert.ok(chips()[1].className.includes('lc-gran-on'))
     assert.deepEqual(previews(), ['full cascade', 'b.ts', '(empty reply)', 'a.ts', 'done all'])
@@ -1414,7 +1398,6 @@ describe('ContextBrowser message categories', () => {
     await typeToolSearch(m, '')
     assert.equal(elemRows(m).length, 5)
 
-    // Re-click clears; the other two kinds each keep only their own rows.
     await click(chips()[1])
     assert.equal(elemRows(m).length, 8)
     await click(chips()[0])
@@ -1424,7 +1407,6 @@ describe('ContextBrowser message categories', () => {
     assert.ok(!chips()[0].className.includes('lc-gran-on'), 'the kinds are exclusive')
     assert.deepEqual(previews(), ['full cascade', 'legacy', 'Calls ', 'done all'])
 
-    // A category switch resets the picked kind with the text lens.
     await click(catRow(m, 'user'))
     assert.equal(queryAll(m.container, '.lc-br-toolctl .lc-gran-btn').length, 0)
     await click(catRow(m, 'assistant'))
@@ -1446,7 +1428,6 @@ describe('ContextBrowser message categories', () => {
     const open = queryAll(m.container, '.lc-br-elem-on')
     assert.equal(open.length, 1)
     assert.ok(text(open[0]).includes('done all'), 'the row toggle fired')
-    // The expanded body's call head is inert too: a click stays on the open row.
     const cascade = elemRows(m).find(r => text(r).includes('full cascade')) as HTMLElement
     await click(cascade)
     const head = queryAll(m.container, '.lc-ts-card-head b').find(el => text(el) === '→ bash') as HTMLElement
@@ -1529,7 +1510,6 @@ describe('ContextBrowser message categories', () => {
     assert.ok(heads.some(s => s.includes('Result')), 'nested tool-result text section')
     assert.ok(heads.filter(s => s.includes('Other content')).length === 6, 'unknown blocks render raw JSON')
     assert.ok(heads.some(s => s.includes('Images')))
-    // Call arg rows: string, number and object values.
     const argVals = queryAll(content, '.lc-ts-arg-row').map(el => text(el))
     assert.ok(argVals.some(s => s.includes('command') && s.includes('ls')))
     assert.ok(argVals.some(s => s.includes('timeout') && s.includes('30')))
@@ -1597,7 +1577,6 @@ describe('ContextBrowser message categories', () => {
     assert.ok(tags.includes('Notice|Notice'), 'empty-string text keeps the form label')
     assert.ok(tags.includes('Context Injection|no form'), 'formless inject defaults to the context label')
     assert.ok(tags.includes('Agent Relay|relay body'))
-    // Expanded inject joins the conversation content.
     await click(rows.find(r => text(r).includes('relay body')) as HTMLElement)
     const content = query(m.container, '.lc-br-content')
     assert.ok(text(content).includes('relay body full'))
@@ -1898,7 +1877,6 @@ describe('ContextBrowser targeted content fetch', () => {
     })
     await flush()
     assert.ok(text(query(m.container, '.lc-br-content')).includes('BODY 6'), 'stale rejection ignored')
-    // Reopening seq 5 renders once its own fetch settles.
     await click(elemRows(m)[1])
     await act(async () => {
       deferreds[2]?.resolve({ kind: 'user', seq: 5, content: [{ type: 'text', text: 'BODY 5' }] })
@@ -1957,7 +1935,6 @@ describe('ContextBrowser focus bridges', () => {
       })))
       assert.ok(text(query(m.container, '.lc-br-meta')).includes('Turn 1 · Step 1'))
       assert.equal(handled, 2)
-      // A node outside the assembled surface leaves nothing to scroll to.
       await m.update(h(Browser, props({
         data, headers, convNodes,
         nodeFocus: { step: 'live', key: 'n999', cat: 'user' },
@@ -2311,12 +2288,10 @@ describe('ContextBrowser DNA mode and the open-category bar pin', () => {
     assert.deepEqual(bands(m).map(seg => seg.className.includes('lc-stacked-seg-on')), [false, false, false, false, true, false])
     assert.ok(stack.className.includes('lc-stacked-dim'))
     assert.equal(queryAll(m.container, '.lc-bar-tip').length, 0, 'category mode mounts no tooltip slot — the pin floats nothing')
-    // A pointer hover overrides the pin; leaving resumes it.
     await hover(bands(m)[0])
     assert.deepEqual(bands(m).map(seg => seg.className.includes('lc-stacked-seg-on')), [true, false, false, false, false, false])
     await unhover(stack)
     assert.deepEqual(bands(m).map(seg => seg.className.includes('lc-stacked-seg-on')), [false, false, false, false, true, false])
-    // Closing the category clears the pin.
     await click(catRow(m, 'assistant'))
     assert.ok(!stack.className.includes('lc-stacked-dim'))
     assert.ok(bands(m).every(seg => !seg.className.includes('lc-stacked-seg-on')))
@@ -2364,7 +2339,6 @@ describe('ContextBrowser DNA mode and the open-category bar pin', () => {
     // Band order is now sys, bash, write, n3, n4, n5: the open-category pin still lights its group under the stale hover.
     await click(catRow(m, 'assistant'))
     assert.deepEqual(bands(m).map(seg => seg.className.includes('lc-stacked-seg-on')), [false, false, false, false, true, false])
-    // And a fresh hover on a rendered band still wins over the pin.
     await hover(bands(m)[3])
     assert.deepEqual(bands(m).map(seg => seg.className.includes('lc-stacked-seg-on')), [false, false, false, true, false, false])
     await m.unmount()

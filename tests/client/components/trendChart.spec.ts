@@ -1,8 +1,4 @@
 /**
- * TrendChart (src/client/components/trendChart.tsx) rendered with the REAL React 18 tree in jsdom: stacked step bars,
- * turn aggregation, total/delta geometry, compaction/prune markers, hover tooltips, scroll anchoring, and turn-label
- * centering. The pure helpers (aggregateByTurn/attachMarkers) are also driven directly.
- *
  * jsdom reports zero layout metrics, so beforeAll overrides them (scrollWidth follows the bar count, clientWidth is
  * test-controlled, the scrollLeft setter dispatches a real scroll event in a microtask) — the overflow/scroll-anchor
  * logic runs FOR REAL — and afterAll restores the originals.
@@ -230,7 +226,6 @@ describe('TrendChart step granularity, total mode', () => {
     assert.equal(segs3.length, 5)
     assert.ok(![...segs3].some(s => s.style.background.includes('var(--color-green-500)')))
 
-    // Total-mode axis: full quartile graduation — max, ¾, ½, ¼, 0.
     assert.equal(query(m.container, '.lc-axis-top').textContent, '660')
     assert.equal(query(m.container, '.lc-axis-q3').textContent, '495')
     assert.equal(query(m.container, '.lc-axis-mid').textContent, '330')
@@ -320,16 +315,13 @@ describe('TrendChart delta mode', () => {
     assert.ok(query(m.container, '.lc-grid-q1'))
 
     const bs = bars(m.container)
-    // First bar starts from zero: both diverging stacks render empty.
     assert.equal(queryAll(bs[0], '.lc-bar-up > div').length, 0)
     assert.equal(queryAll(bs[0], '.lc-bar-down > div').length, 0)
-    // Grown bar: six +10 segments above the zero line, nothing below.
     const up2 = queryAll(bs[1], '.lc-bar-up > div')
     assert.equal(up2.length, 6)
     assert.equal(up2[0].style.height, `${Math.round(10 * CHART_H / 180)}px`)
     assertColor(up2[0].style.background, CATS[0].color)
     assert.equal(queryAll(bs[1], '.lc-bar-down > div').length, 0)
-    // Shrunk bar: six -20 segments below, nothing above.
     const down3 = queryAll(bs[2], '.lc-bar-down > div')
     assert.equal(down3.length, 6)
     assert.equal(down3[0].style.height, `${Math.round(20 * CHART_H / 180)}px`)
@@ -494,7 +486,6 @@ describe('TrendChart category hover-link', () => {
     const r3 = req(3, { turn: 2, step: 0 })
     const m = await mount(h(TrendChart, propsOf([r1, r2, r3], { hoverCat: 'tools' })))
 
-    // No hover: the container carries no dim attribute at all.
     await m.update(h(TrendChart, propsOf([r1, r2, r3])))
     const chart = query(m.container, '.lc-chart')
     assert.equal(chart.hasAttribute('data-catdim'), false)
@@ -536,7 +527,6 @@ describe('TrendChart category focus (the browser open category)', () => {
     assert.equal(segs1[0].style.height, `${Math.round(60 / 120 * CHART_H)}px`)
     assert.equal(queryAll(bs[1], '.lc-bar-stack > div')[0].style.height, `${CHART_H}px`)
 
-    // The tooltip's metric row names the focused category and carries its own figure.
     await m.update(h(TrendChart, propsOf([r1, r2], { focusCat: 'tool', hoveredSeq: 1 })))
     assert.deepEqual(
       queryAll(query(m.container, '.lc-chart-tip'), 'span').map(r => r.textContent),
@@ -578,7 +568,6 @@ describe('TrendChart category focus (the browser open category)', () => {
     assert.equal(down.length, 1)
     assert.equal(down[0].style.height, `${Math.round(40 * CHART_H / 70)}px`)
 
-    // The delta tip reports the focused category's signed change.
     await m.update(h(TrendChart, propsOf([base, grown, shrunk], { mode: 'delta', focusCat: 'system', hoveredSeq: 2 })))
     assert.ok(query(m.container, '.lc-chart-tip').textContent!.includes(kit.t('tip.delta', { n: '+30' })))
     await m.unmount()
@@ -616,7 +605,6 @@ describe('TrendChart adaptive scale (the title-adjacent toggle)', () => {
     assert.equal(query(m.container, '.lc-axis-top').textContent, '100')
     assert.equal(queryAll(bars(m.container)[29], '.lc-bar-stack > div')[0].style.height, `${CHART_H}px`)
 
-    // Back to the left edge: the spike is on screen and takes the scale back.
     await scrollTo(scroll, 0)
     assert.equal(query(m.container, '.lc-axis-top').textContent, '900')
     assert.equal(queryAll(bars(m.container)[29], '.lc-bar-stack > div')[0].style.height, `${Math.round(100 / 900 * CHART_H)}px`)
@@ -765,7 +753,6 @@ describe('TrendChart duration overlay (durationCurve)', () => {
     assert.equal(halos.length, 1, 'each run paints a card-bg knockout underlay')
     assert.equal(halos[0].getAttribute('points'), lines[0].getAttribute('points'))
     assert.equal(queryAll(svg, 'circle').length, 0)
-    // The right-hand axis: max, ¾, ½, ¼, 0 — formatted as durations.
     const axis = query(m.container, '.lc-axis-r')
     assert.equal(query(axis, '.lc-axis-top').textContent, '4.0s')
     assert.equal(query(axis, '.lc-axis-q3').textContent, '3.0s')
@@ -810,7 +797,6 @@ describe('TrendChart duration overlay (durationCurve)', () => {
     const rows = queryAll(query(m.container, '.lc-chart-tip'), 'span').map(r => r.textContent)
     assert.equal(rows.length, 3)
     assert.equal(rows[2], kit.t('tip.duration', { n: '1.0s' }))
-    // Off again: the tip drops the duration row.
     await m.update(h(TrendChart, propsOf(reqs, { mode: 'delta', hoveredSeq: 1 })))
     assert.equal(queryAll(query(m.container, '.lc-chart-tip'), 'span').length, 2)
     await m.unmount()
@@ -916,11 +902,9 @@ describe('TrendChart tooltips', () => {
       [kit.t('tip.step', { t: 0, s: 0, n: 1 }), kit.t('tip.total', { n: '300' })],
     )
 
-    // A hoveredSeq outside the rendered list floats no tip.
     await m.update(h(TrendChart, propsOf(reqs, { ...handlers, hoveredSeq: 999 })))
     assert.equal(queryAll(m.container, '.lc-chart-tip').length, 0)
 
-    // Leaving the chart clears the hover and hides the tip.
     await m.update(h(TrendChart, propsOf(reqs, { ...handlers, hoveredSeq: 1 })))
     assert.equal(queryAll(m.container, '.lc-chart-tip').length, 1)
     await unhover(query(m.container, '.lc-chart'))
@@ -984,13 +968,11 @@ describe('TrendChart scroll anchoring', () => {
     // Mount anchors at the right edge (scrollLeft = 240 over scrollWidth 640 / clientWidth 400).
     assert.equal(scroll.scrollLeft, 240)
 
-    // A new request appended while the reader sits at the right edge → follows the newest bar.
     const grown = [...reqs, req(reqs.length + 1, { turn: 1 + Math.floor(reqs.length / 10), step: reqs.length % 10 })]
     await m.update(h(TrendChart, propsOf(grown, handlers)))
     await flush()
     assert.equal(scroll.scrollLeft, 256, 'near-edge reader follows the appended bar')
 
-    // A push while the reader is mid-chart leaves them where they were — no auto-follow yank.
     await scrollTo(scroll, 100)
     const grown2 = [...grown, req(grown.length + 1, { turn: 1 + Math.floor(grown.length / 10), step: grown.length % 10 })]
     await m.update(h(TrendChart, propsOf(grown2, handlers)))
@@ -1006,12 +988,10 @@ describe('TrendChart scroll anchoring', () => {
     await flush()
     assert.equal(query(m.container, '.lc-chart-scroll').scrollLeft, 240)
 
-    // Step → turn: 4 aggregated bars fit the viewport.
     await m.update(h(TrendChart, propsOf(aggregateByTurn(reqs), { ...handlers, granularity: 'turn' })))
     await flush()
     assert.equal(bars(m.container).length, 4)
 
-    // Turn → step re-anchors to the newest bars again.
     await m.update(h(TrendChart, propsOf(reqs, { ...handlers, granularity: 'step' })))
     await flush()
     assert.equal(bars(m.container).length, 40)
@@ -1023,7 +1003,6 @@ describe('TrendChart scroll anchoring', () => {
     const savedW = CLIENT_W
     CLIENT_W = 30
     try {
-      // Six aggregated turns (scrollWidth 96): the focus target sits far from the near-end stick zone.
       const agg = aggregateByTurn([...manySteps(), ...manySteps().map(r => ({ ...r, seq: r.seq + 40, turn: (r.turn ?? 0) + 4 }))])
       assert.equal(agg.length, 8)
       const { spies, handlers } = makeSpies()
@@ -1093,7 +1072,6 @@ describe('TrendChart scroll anchoring', () => {
     assert.equal(labels[1].style.visibility, 'hidden')
     assert.equal(labels[2].style.visibility, '')
 
-    // Narrower labels fit their blocks again → the hidden one is restored.
     for (const l of labels) Object.defineProperty(l, 'offsetWidth', { configurable: true, get: () => 8 })
     await scrollEvent(scroll)
     assert.equal(labels[1].style.visibility, '')
@@ -1301,7 +1279,6 @@ describe('TrendChart entrance rise', () => {
     assert.equal(slot(stacks[0]), '0')
     assert.equal(slot(stacks[1]), '1')
     assert.equal(slot(stacks[19]), '19')
-    // Past the cap every late bar joins at the same slot.
     assert.equal(slot(stacks[20]), '20')
     assert.equal(slot(stacks[24]), '20')
     await m.unmount()
@@ -1429,7 +1406,6 @@ describe('TrendChart DNA mode', () => {
     assert.ok(g2.includes('var(--color-blue-500) 33.33%, var(--color-blue-500) 46.67%'), g2)
     assert.ok(g2.includes('var(--color-green-500) 46.67%, var(--color-green-500) 63.33%'), g2)
     assert.ok(g2.includes('var(--color-teal-500) 63.33%, var(--color-teal-500) 100%'), g2)
-    // No segmented stacks, and the total-mode axis stays.
     assert.equal(queryAll(m.container, '.lc-bar-stack').length, 0)
     assert.equal(query(m.container, '.lc-axis-top').textContent, '600')
     // Without an onPickBand handler a band click is a quiet no-op (the pick guard's undefined arm).
@@ -1498,7 +1474,6 @@ describe('TrendChart DNA mode', () => {
     assert.equal(queryAll(m.container, '.lc-dna-slice').length, 0)
     assert.ok(tipText().includes(kit.t('tip.total', { n: '600' })))
 
-    // Leaving the whole chart clears the item hover too.
     await move(dnaDivs[0], 100)
     assert.equal(queryAll(m.container, '.lc-dna-slice').length, 2)
     await unhover(query(m.container, '.lc-chart'))
@@ -1574,7 +1549,6 @@ describe('TrendChart DNA mode', () => {
     assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('user'), n: '+40' })), 'the very top is the last up band')
     await move(dnaDivs[2], 55)
     assert.ok(tipText().includes(kit.t('trend.dnaItem', { label: kit.catLabel('assistant'), n: '-90' })), 'the down arm walks read order from the zero line')
-    // A band click picks through to the reveal bridge with the bar's seq.
     await act(async () => { dnaDivs[2].dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 55 })) })
     assert.deepEqual(picks, [[4, 'a1']])
 
@@ -1590,7 +1564,6 @@ describe('TrendChart DNA mode', () => {
     // Bar 4's down arm: a1 (90) then t1 (120) stack from the zero line — t1 hugs the floor.
     assert.equal(slices[1].style.bottom, `${Math.round(65 - 210 * 112 / 360)}px`)
     assert.equal(slices[1].style.height, `${Math.max(1, Math.round(120 * 112 / 360))}px`)
-    // Leaving the band (not the bar) drops the highlight.
     await unhover(dnaDivs[1])
     assert.equal(queryAll(m.container, '.lc-dna-slice').length, 0)
     await m.unmount()
@@ -1608,7 +1581,6 @@ describe('TrendChart DNA mode', () => {
     const m = await mount(h(TrendChart, propsOf(rs, { dna: ds, mode: 'delta', hoveredSeq: 2 })))
     const dnaDiv = query(m.container, '.lc-bar-dna')
     stubBarRect(dnaDiv)
-    // No onPickBand handler: the pick guard's undefined arm is a quiet no-op.
     await act(async () => { dnaDiv.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: 0 })) })
     // The very top of a down-only bar IS the zero line: it resolves to the first removed item.
     await move(dnaDiv, 0)

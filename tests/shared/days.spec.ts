@@ -1,6 +1,3 @@
-// Local-day keys (src/shared/days.ts): key construction, calendar arithmetic
-// across month/year/DST seams, and the malformed-input null paths.
-
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import {
@@ -121,7 +118,6 @@ describe('weekdayOf', () => {
 
 describe('monthGridOf', () => {
   test('lays a month out as Sunday-first weeks of seven cells', () => {
-    // September 2026 opens on a Tuesday (2 lead blanks) and closes on the 30th.
     const grid = monthGridOf('2026-09')
     assert.ok(grid !== null)
     assert.equal(grid[0].length, 7)
@@ -135,7 +131,6 @@ describe('monthGridOf', () => {
   })
 
   test('a month that opens on Sunday needs no lead blank', () => {
-    // February 2027 opens on a Monday; November 2026 opens on a Sunday.
     const nov = monthGridOf('2026-11')
     assert.ok(nov !== null)
     assert.equal(nov[0][0], '2026-11-01')
@@ -145,7 +140,7 @@ describe('monthGridOf', () => {
   test('malformed months and a month that leaves the key range yield null', () => {
     assert.equal(monthGridOf('2026-13'), null)
     assert.equal(monthGridOf('junk'), null)
-    // The last representable month runs out of day keys one day past its end.
+    // The last representable month still grids; stepping past it (shiftMonthKey) is what yields null.
     assert.ok(monthGridOf('9999-12') !== null)
   })
 })

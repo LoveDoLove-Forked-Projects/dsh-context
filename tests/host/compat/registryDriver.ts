@@ -1,16 +1,10 @@
-// A per-baseline driver over the session-projection registry's DOCUMENTED
-// semantics — the rules the REAL dsh registries enforce, mirrored from the
-// source at each baseline tag so the always-on suite pins the plugin's units against every supported registry generation:
-//   dsh-v0.1.7-rc.2  packages/session/session-projection/src/index.ts
-//   dsh-v0.2.0-rc.2  packages/session/session-projection/src/index.ts
-// The real-code matrix (tests/compat/matrix.spec.ts) runs the ACTUAL registry
-// sources per tag; this driver exists so `pnpm test` alone still detects a
-// definition that drifts from any supported generation's rules (a missing
-// wire block, a non-plain-JSON state, an init that cannot take the header…).
+// A per-baseline driver over the session-projection registry's DOCUMENTED semantics — the rules the REAL dsh registries enforce, mirrored
+// from `packages/session/session-projection/src/index.ts` at each supported tag. The real-code matrix (tests/compat/matrix.spec.ts) runs
+// the ACTUAL registry sources per tag; this driver exists so `pnpm test` alone still detects a definition that drifts from any supported
+// generation's rules (a missing wire block, a non-plain-JSON state, an init that cannot take the header…).
 
 import type { Baseline } from '../../baselines'
 
-/** Type-erased unit view the registry machinery works with. */
 interface ErasedDefinition {
   key: string
   stateSchema: { parse(value: unknown): unknown }
@@ -202,9 +196,7 @@ export class RegistryDriver {
     return floor === undefined ? undefined : Math.max(floor - 1, 0)
   }
 
-  /** Cold read: seed usable rows through stateSchema.parse, refold the rest.
-   * `inheritedEventCount` is the fork-inherited prefix length the registry
-   * hands to unit initialization (0 for a plain session). */
+  /** Cold read: seed usable rows through stateSchema.parse, refold the rest. */
   restore(checkpoint: Checkpoint, events: { seq: number }[], baseSeq: number, header: unknown, inheritedEventCount = 0): ProjectionSnapshot {
     const endSeq = events.at(-1)?.seq ?? baseSeq - 1
     const values: Record<string, unknown> = {}

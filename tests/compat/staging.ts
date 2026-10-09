@@ -1,9 +1,7 @@
-// Staging + probe helpers for the compat matrix (matrix.spec.ts): stage the
-// REAL harness sources at a baseline tag, boot the plugin's BUILT host entry
-// on the tag's real registry + vendored cordis, and read the tag's client seams straight from its sources.
-// The registry probe runs as a small spawned driver INSIDE the staging dir,
-// so the bare `@deepseek-ai/cordis` import resolves to the cordis release
-// that harness line vendors (not this repo's) — one process per baseline, reported as one JSON line.
+// Staging + probe helpers for the compat matrix (matrix.spec.ts): stage the REAL harness sources at a baseline tag, boot the plugin's BUILT
+// host entry on the tag's real registry + vendored cordis, and read the tag's client seams straight from its sources. The registry probe
+// runs as a small spawned driver INSIDE the staging dir, so the bare `@deepseek-ai/cordis` import resolves to the cordis release that
+// harness line vendors (not this repo's) — one process per baseline, reported as one JSON line.
 
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -87,9 +85,9 @@ export interface DriverReport {
   keys: string[]
   gateOk: boolean
   coldMatches: boolean
-  /** V4 tool-registry changes survive the real registry's cache/read paths. */
   developerTokens: number | null
   developerRequestTokens: number | null
+  /** V4 tool-registry `developer/message` changes survive the real cache/read paths. */
   developerRestoreMatches: boolean
   /** Issue #44: hostile gateway usage keeps the served values schema-valid on the REAL registry. */
   hostileSnapshotOk: boolean
@@ -288,9 +286,7 @@ export function bundleRequires(): string[] {
 }
 
 /** The slot registrations the client half mounts on EVERY baseline (identical
- * spellings in each generation's sources). The preferences card seat and the
- * settings transport are asserted separately, per generation — the matrix
- * spec pins them to the baseline's `settings` seam (`plugins.bundle.config` + `configForms` on every supported line). */
+ * spellings in each generation's sources). */
 export const SLOT_SEAMS = [
   'conversation.view',
   'conversation.chat.assistant-actions',
@@ -316,7 +312,7 @@ export const ICON_SEAMS = [
 /** The event families the host fold switches on (src/host/fold.ts) — the UNION
  * over every supported generation. The per-baseline probe asserts the
  * baseline's own `foldEventTypes` subset, and a matrix test asserts this
- * union equals the baselines' union — a fold case added without a baseline list fails loudly instead of going unprobed. */
+ * constant ⊆ the baselines' union — a family added to the fold without any baseline list fails loudly instead of going unprobed. */
 export const FOLD_EVENT_TYPES = [
   'request/header', 'request/context', 'step/start', 'step/end',
   'user/message', 'developer/message', 'tool/call', 'tool/result', 'assistant/message',

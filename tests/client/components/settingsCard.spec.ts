@@ -1,7 +1,3 @@
-// The preference card (src/client/components/settingsCard.tsx): the
-// Plugins-page seat rendered with real React against the real DICT_EN
-// strings; the select rows open the REAL Menu primitive (portaled into document.body) and pick through it.
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -57,7 +53,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
     const selects = queryAll<HTMLButtonElement>(m.container, '.lc-settings-select')
     assert.ok(selects.every(s => !s.disabled))
     assert.equal(m.container.querySelector('.lc-settings-note'), null)
-    // The placement row leads; its label resolves through the options list.
     assert.ok(text(m.container).includes(DICT_EN['settings.placement']))
     assert.ok(text(selects[0]).includes(DICT_EN['placement.all']))
     await click(selects[0])
@@ -74,7 +69,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
     assert.equal(selects[0].getAttribute('aria-expanded'), 'false')
     assert.equal(document.body.querySelector('[role="menu"]'), null)
 
-    // The insights-entry row follows the placement one; its pick writes the visibility field.
     assert.ok(text(m.container).includes(DICT_EN['settings.insightsEntry']))
     assert.ok(text(selects[1]).includes(DICT_EN['insightsEntry.show']))
     await click(selects[1])
@@ -83,7 +77,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
     await click(entryItems[1]) // 'Hide'
     assert.deepEqual(calls, [['defaultPlacement', 'sidebar'], ['insightsEntry', 'hide']])
 
-    // The granularity row follows.
     assert.ok(text(selects[2]).includes(DICT_EN['gran.step']))
     assert.ok(text(selects[3]).includes(DICT_EN['gran.total']))
     // The duration-curve row follows the trend-mode one, reusing the entry's show/hide labels.
@@ -107,7 +100,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
       ['defaultGranularity', 'turn'],
     ])
 
-    // The trend-mode row writes the other field.
     await click(selects[3])
     const modeItems = menuItems()
     assert.deepEqual(modeItems.map(i => text(i)), [DICT_EN['gran.total'], DICT_EN['gran.delta']])
@@ -119,7 +111,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
       ['defaultTrendMode', 'delta'],
     ])
 
-    // The duration-curve row writes its field through the same show/hide vocabulary.
     await click(selects[4])
     const curveItems = menuItems()
     assert.deepEqual(curveItems.map(i => text(i)), [DICT_EN['insightsEntry.show'], DICT_EN['insightsEntry.hide']])
@@ -132,7 +123,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
       ['defaultDurationCurve', 'hide'],
     ])
 
-    // The delta-baseline row writes its field through the toolbar's vocabulary.
     await click(selects[5])
     const baseItems = menuItems()
     assert.deepEqual(baseItems.map(i => text(i)), [DICT_EN['browser.base.step'], DICT_EN['browser.base.turn']])
@@ -146,7 +136,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
       ['defaultDeltaBase', 'turn'],
     ])
 
-    // The tool-sort row leads the file-sort one.
     await click(selects[6])
     const toolItems = menuItems()
     assert.deepEqual(toolItems.map(i => text(i)), [
@@ -165,7 +154,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
       ['defaultToolSort', 'name'],
     ])
 
-    // The file-sort row writes the last field.
     await click(selects[7])
     const sortItems = menuItems()
     assert.deepEqual(sortItems.map(i => text(i)), [
@@ -186,7 +174,6 @@ describe('PluginConfigCard (the Plugins-page seat)', () => {
     ])
     assert.equal(document.body.querySelector('[role="menu"]'), null)
 
-    // Anchor toggles shut too (setOpen(v => !v) back edge).
     await click(selects[0])
     assert.equal(selects[0].getAttribute('aria-expanded'), 'true')
     await click(selects[0])

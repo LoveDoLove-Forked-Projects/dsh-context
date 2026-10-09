@@ -1,9 +1,4 @@
-// ContextView (src/client/components/contextView.tsx) — the Context tab root
-// rendered for real: stats, composition, trend chart, events, file activity
-// and the composed Context browser, driven by real projection values and real
-// plugin settings. Covers the view's own branches (projections absent /
-// garbage / well-formed, granularity/trend-mode state, brief→browser
-// locate bridge, kind filter, scroll ledger, locale arms, error boundary).
+// ContextView — the Context tab root, driven by real projection values and real plugin settings.
 
 import { act, createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'
@@ -89,7 +84,6 @@ function makeView(ctx: TestClientCtx, settings = createContextSettings()) {
   return makeContextView(asClientCtx(ctx), kit, settings)
 }
 
-/** A button whose text matches (case-sensitively) the given label. */
 function buttonByText(container: ParentNode, label: string): HTMLElement {
   const hit = queryAll(container, 'button').find(b => text(b) === label)
   if (hit === undefined) throw new Error(`button not found: ${label}`)
@@ -243,7 +237,6 @@ describe('ContextView — baseline gate', () => {
       sessionId: 'sv-gated',
       useProjection: projectionsFor(timeline({ unsupported: { current: '0.1.1-rc.2', minimum: '0.1.7-rc.2' } })),
     }))
-    // The modal pops over the tab, naming both versions.
     assert.ok(m.container.querySelector('.lc-modal-backdrop') !== null)
     const card = query(m.container, '.lc-gate-card')
     assert.ok(text(card).includes(DICT_EN['gate.title']))
@@ -253,7 +246,6 @@ describe('ContextView — baseline gate', () => {
     assert.ok(text(m.container).includes(DICT_EN['overview.title']))
     assert.ok(text(m.container).includes(DICT_EN['trend.empty']))
     assert.ok(text(m.container).includes(DICT_EN['events.empty']))
-    // Dismissal reveals the (blank) cards.
     await click(buttonByText(m.container, DICT_EN['gate.ok']))
     assert.equal(m.container.querySelector('.lc-modal-backdrop'), null)
     assert.ok(text(m.container).includes(DICT_EN['stats.title']))
@@ -272,7 +264,7 @@ describe('ContextView — baseline gate', () => {
   })
 })
 
-/** The rich tab: full projection (stats, chart, markers, browser headers) over two turns plus a turn-less step. */
+/** Full projection over two steps of one turn plus a turn-less step. */
 async function mountRich(sessionId: string) {
   const View = makeView(new TestClientCtx())
   const m = await mount(h(View, {
@@ -359,7 +351,6 @@ describe('ContextView — interactions', () => {
     await click(bar4)
     assert.ok(bar4.className.includes('lc-bar-selected'))
     assert.equal(pick.value, '4')
-    // The pinned step carries the compaction marker chip in the detail head.
     assert.ok(query(m.container, '.lc-detail').textContent?.includes('✂') === true)
 
     await click(bar4)
@@ -453,7 +444,6 @@ describe('ContextView — interactions', () => {
     assert.equal(segs.length, 3)
     for (const s of segs) assert.equal(s.getAttribute('data-cat'), 'assistant')
 
-    // Collapsing the category restores the whole composition.
     await click(queryAll(m.container, '.lc-br-cat-row')[5])
     assert.equal(text(query(m.container, '.lc-axis-top')), '420')
     assert.equal(queryAll(m.container, '.lc-bar[data-seq="4"] .lc-bar-stack > .lc-cat-seg').length, 5)
@@ -501,7 +491,6 @@ describe('ContextView — interactions', () => {
       })),
     }))
 
-    // The switch rides inside the title-adjacent modifier group, after the adaptive one.
     const msBtn = () => buttonByText(m.container, DICT_EN['trend.duration'])
     const group = msBtn().parentElement as HTMLElement
     assert.ok(group.className.includes('lc-trend-mods'))
@@ -514,7 +503,6 @@ describe('ContextView — interactions', () => {
     assert.equal(text(query(m.container, '.lc-axis-r .lc-axis-top')), '2.0s')
     assert.equal(text(query(m.container, '.lc-axis-r .lc-axis-mid')), '1.0s')
 
-    // Off: the curve and its axis drop away; back on they return. Mount-local, never written back.
     await click(msBtn())
     assert.ok(!msBtn().className.includes('lc-gran-on'))
     assert.equal(queryAll(m.container, '.lc-duration').length, 0)
@@ -535,7 +523,6 @@ describe('ContextView — interactions', () => {
     assert.equal(dnaBtn().getAttribute('title'), DICT_EN['trend.dnaTip'])
     assert.equal(dnaBtn().nextElementSibling, buttonByText(m.container, DICT_EN['trend.adaptive']), 'DNA rides left of the adaptive switch')
 
-    // DNA on: the bars become per-item fingerprints and the axis reads totals.
     await click(dnaBtn())
     assert.ok(dnaBtn().className.includes('lc-gran-on'))
     assert.equal(queryAll(m.container, '.lc-bar-dna').length, 3)
@@ -555,7 +542,6 @@ describe('ContextView — interactions', () => {
     assert.equal(queryAll(m.container, '.lc-bar-dna').length, 2)
     assert.ok(text(query(m.container, '.lc-axis-mid')).includes('0'), 'the delta zero line label rides the axis')
 
-    // DNA off: the segmented delta arms are back with the Delta state intact.
     await click(dnaBtn())
     assert.ok(!dnaBtn().className.includes('lc-gran-on'))
     assert.equal(queryAll(m.container, '.lc-bar-dna').length, 0)
@@ -569,12 +555,10 @@ describe('ContextView — interactions', () => {
     const browserDna = () => query(m.container, '.lc-br-dna-ctl .lc-gran-btn')
     assert.ok(!trendDna().className.includes('lc-gran-on') && !browserDna().className.includes('lc-gran-on'), 'both off at mount')
 
-    // The browser follows the trend toggle — its composition bar redraws as a fingerprint too.
     await click(trendDna())
     assert.ok(browserDna().className.includes('lc-gran-on'), 'the browser follows the trend toggle')
     assert.equal(queryAll(m.container, '.lc-br-bar-dna').length, 1)
 
-    // And the trend follows the browser toggle — the chart's strips drop away.
     await click(browserDna())
     assert.ok(!trendDna().className.includes('lc-gran-on'), 'the trend follows the browser toggle')
     assert.equal(queryAll(m.container, '.lc-bar-dna').length, 0)
@@ -687,7 +671,6 @@ describe('ContextView — file activity card', () => {
 
   test('follows the chart pick: the scope label and the exclusive next-step bound', async () => {
     const { m, card } = await mountFiles('sv-files-scope')
-    // Default (latest bar): everything served, edit delta included.
     assert.ok(text(card).includes(DICT_EN['files.scopeLatest']))
     assert.ok(text(card).includes('+1') && text(card).includes('−2'))
 
@@ -713,13 +696,10 @@ describe('ContextView — file activity card', () => {
     const pick = query<HTMLSelectElement>(m.container, 'select.lc-br-pick')
 
     await click(buttonByText(m.container, DICT_EN['gran.turn']))
-    // Turn 1's aggregate (two steps) labels the scope as a turn.
     await hover(query(m.container, '.lc-bar[data-seq="4"]'))
     assert.ok(text(card).includes(DICT_EN['detail.turn'].replace('{t}', '1').replace('{n}', '2')))
-    // The turn-less pair aggregates too: a turn label with zeroed turn.
     await hover(query(m.container, '.lc-bar[data-seq="7"]'))
     assert.ok(text(card).includes(DICT_EN['detail.turn'].replace('{t}', '0').replace('{n}', '2')))
-    // A single-step turn aggregate labels as a plain step.
     await hover(query(m.container, '.lc-bar[data-seq="8"]'))
     assert.ok(text(card).includes('Turn 2 · Step 1'))
     await unhover(query(m.container, '.lc-chart'))
@@ -822,10 +802,8 @@ describe('ContextView — file activity card', () => {
     await flush()
     const card = queryAll(m.container, '.lc-card').find(c => text(c).includes(DICT_EN['files.title']))
     assert.ok(card !== undefined)
-    // The read inside the session cwd displays './'-relative…
     const row = query(card, '.lc-fa-row')
     assert.ok(row.querySelector('.lc-fa-path em')?.textContent === './src/')
-    // …and its name opens on the system through the session's open remote.
     const name = query(row, '.lc-fa-file')
     assert.equal(name.getAttribute('title'), DICT_EN['files.open'])
     await click(name)
@@ -868,7 +846,6 @@ describe('ContextView — file activity card', () => {
     const card = queryAll(m.container, '.lc-card').find(c => text(c).includes(DICT_EN['files.title']))
     assert.ok(card !== undefined)
     const name = query(query(card, '.lc-fa-row'), '.lc-fa-file')
-    // The preview affordance leads where the column exists; the system open stays unreached.
     assert.equal(name.getAttribute('title'), DICT_EN['files.preview'])
     await click(name)
     assert.deepEqual(previewed, ['dsh-resource://file/session/sv-preview/src/a.ts'])
@@ -1126,7 +1103,6 @@ describe('ContextView — scroll ledger', () => {
     scroller1.scrollTop = 42
     await m1.unmount()
 
-    // Remounting the same session restores the saved position.
     const scroller2 = document.createElement('div')
     scroller2.setAttribute('data-conversation-scroll', '')
     const m2 = await mountInScroller(
@@ -1175,7 +1151,6 @@ describe('ContextView — locale and settings', () => {
     assert.ok(text(m2.container).includes('¥'))
     await m2.unmount()
 
-    // A locale service without getLocale falls back to USD.
     const ctxBare = new TestClientCtx({ services: { locale: {} } })
     const m3 = await mount(h(makeView(ctxBare), {
       sessionId: 'sv-bare',
@@ -1224,7 +1199,6 @@ describe('ContextView — locale and settings', () => {
     assert.ok(!buttonByText(m.container, DICT_EN['trend.duration']).className.includes('lc-gran-on'))
     // Turn aggregation applies at mount: two bars (turn 1 aggregate + turn-less).
     assert.equal(queryAll(m.container, '.lc-bar').length, 2)
-    // The File Activity card opens sorted by the 'path' preference, not by op count.
     assert.deepEqual(queryAll(m.container, '.lc-fa-row').map(r => r.title), ['/a.ts', '/z.ts'])
     await m.unmount()
     detach()
@@ -1326,7 +1300,6 @@ describe('ContextView — chat→Context jump', () => {
     const View = makeView(new TestClientCtx())
     const props = { sessionId: 'sv-jumpscroll', useProjection: projectionsFor(richTimeline()) }
 
-    // Seed the ledger: a first visit scrolls, the unmount saves 42.
     const scroller1 = document.createElement('div')
     scroller1.setAttribute('data-conversation-scroll', '')
     const m1 = await mountInScroller(h(View, props), scroller1)
@@ -1387,7 +1360,6 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
     }
   }
 
-  /** Stub the global fetch to serve (or fail) the plugin's detail route. */
   function slimCtx(serve: () => Promise<unknown>): TestClientCtx {
     vi.stubGlobal('fetch', async () => ({ ok: true, status: 200, json: async () => await serve() }))
     return new TestClientCtx()
@@ -1406,7 +1378,6 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
     assert.equal(queryAll(m.container, '.lc-bar').length, 0, 'the chart waits for the detail')
     assert.equal(queryAll(m.container, '.lc-br-pick option').length, 1, 'the picker holds only the live row')
 
-    // The detail lands: every card renders its real content, the notes clear.
     await until(() => queryAll(m.container, '.lc-bar').length === 3, 'the detail never landed')
     assert.ok(!text(m.container).includes(DICT_EN['detail.loading']))
     assert.ok(text(m.container).includes('heads-up'), 'the events list serves the detail')
@@ -1440,7 +1411,6 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
       return parent
     }
 
-    // Answers: the assistant section opens with the Answer chip picked.
     const cells = queryAll(m.container, '.lc-flow-kv-btn')
     assert.equal(cells.length, 2)
     await click(cells[1])
@@ -1450,7 +1420,6 @@ describe('ContextView — the split generation (slim head + detail channel)', ()
     assert.ok(answerChip !== undefined && answerChip.className.includes('lc-gran-on'), 'the Answer chip is picked')
     assert.equal(queryAll(assistantCat, '.lc-br-elem').length, 3, 'all three textual replies survive the filter')
 
-    // Skill Loads: the skill section opens, no chip there — the loaded skill rides.
     await click(cells[0])
     await flush()
     const skillCat = openCat()

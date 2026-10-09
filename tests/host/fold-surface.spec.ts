@@ -1,8 +1,5 @@
-// applySurface paths of the fold (src/host/fold.ts): per-category node
-// projection (text/calls/tool/skill/plugin previews, image counts), the
-// callNames consume-once lifecycle, the shadow-price claim arm/consume
-// protocol, and every surfaceOp variant (append, range replace, shadowed-seq
-// replace with the net-freed event rewrite). No mocks: the real fold runs.
+// applySurface paths of the fold (src/host/fold.ts): per-category node projection, the callNames
+// consume-once lifecycle, the shadow-price claim protocol, and every surfaceOp variant. No mocks: the real fold runs.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -54,7 +51,6 @@ describe('applySurface tool/result branch', () => {
   })
 
   test('an unknown source callId pairs nothing (a replay window where the tool/call event is gone)', () => {
-    // Note the fold assigns the lookup miss onto the node, so this state is not assertPlainJson-able.
     const { state } = driveTimeline([toolResult(1, { callId: 'ghost', content: text('ok') })])
     assert.equal(state.surface.at(-1)?.tool, undefined)
     assert.deepEqual(state.callNames, {})

@@ -1,8 +1,6 @@
-// A faithful in-memory implementation of the harness client context the
-// plugin's `apply` consumes. Every member implements the DOCUMENTED contract
-// (cordis effect/inject semantics, locale fallback chain, slot registry,
-// sessions scope) rather than a test-specific stub — registrations
-// and disposals behave the way the real harness's do, so specs assert through the same seams the production runtime uses.
+// A faithful in-memory implementation of the harness client context the plugin's `apply` consumes: every member
+// implements the DOCUMENTED contract (cordis effect/inject semantics, locale fallback chain, slot registry,
+// sessions scope) rather than a test-specific stub, so specs assert through the same seams production uses.
 
 import type { ClientCtx, LocaleService, SlotRegistration, SlotsService } from '../../../src/client/services'
 import { makeTranslate } from './kit'
@@ -88,7 +86,6 @@ export class TestClientCtx {
     if (!(name in this)) {
       Object.defineProperty(this, name, { get: () => this.services.get(name), configurable: true })
     }
-    // Cordis replays waiting injects once their dependency list completes.
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i]
       if (p.deps.every(d => this.services.has(d))) {

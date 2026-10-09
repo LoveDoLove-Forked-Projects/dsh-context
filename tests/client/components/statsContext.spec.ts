@@ -1,16 +1,6 @@
-// StatsContext (src/client/components/statsContext.tsx) rendered with real
-// React: the session-as-a-flow diagram — the two source cards (I/O: the
-// whole-session human-input tally plus the file read/write/search/image
-// pills; Context Events broken down by kind) feeding the session node
-// (turns/steps/skill loads), which drains into the two effect cards (Tool
-// Calls with the most-called pills; the Agent Team ledger — the family's
-// billed-token and estimated-cost totals, then one row per scope: the
-// current agent and the subagent subtree — ALL levels, the fold walks the
-// whole descendant tree) — in both locales, against an injected model-price
-// book (the store never reaches the network). The connector geometry is
-// pinned through measureFlow's unit tests (jsdom has no layout); the event
-// rows themselves live on the events card (contextView.spec.ts).
-// `countsOfRecords` and `toolTallyOf` derive the tallies the split generation's wire head carries, pinned here.
+// StatsContext (src/client/components/statsContext.tsx) rendered in both locales against an injected model-price book (the store never
+// reaches the network). Connector geometry is pinned through measureFlow's unit tests (jsdom has no layout); the event rows live on the
+// events card (contextView.spec.ts). `countsOfRecords` and `toolTallyOf` derive the tallies the split generation's slim head carries.
 
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -73,7 +63,6 @@ function rowsOf(node: HTMLElement): string[] {
   return queryAll(node, '.lc-flow-row').map(el => (el.querySelector('.lc-flow-row-label')?.textContent ?? '') + (el.querySelector('.lc-flow-pair')?.textContent ?? ''))
 }
 
-/** The four card headers (inputs / events / tools / cost), in DOM order. */
 function headsOf(container: HTMLElement): { labels: string[]; totals: string[] } {
   const heads = queryAll(container, '.lc-flow-head')
   return {
@@ -213,7 +202,6 @@ describe('StatsContext', () => {
     assert.deepEqual(pillsOf(nodes[1]), ['Inject3', 'Compact2', 'Prune1'])
     // The three most-called tools pill out; the rest fold into the overflow pill.
     assert.deepEqual(pillsOf(nodes[3]), ['read8', 'bash3', 'grep2', '+2 more'])
-    // The team ledger: the current agent's own share, then the (empty) subtree.
     assert.deepEqual(rowsOf(nodes[4]), ['Current Agent1.0M/$0.30', 'Subagents × 0?0/—'])
     // The session node carries two figure rows under its label — turns/steps
     // above skill loads/answers (two skills, three answers above).
@@ -393,7 +381,6 @@ describe('StatsContext', () => {
     assert.ok(costTip.includes('每百万 Token 价格'))
     assert.ok(costTip.includes('按 deepseek · deepseek-v4-flash 在 models.dev 的刊登价格如上。'))
     assert.ok(costTip.includes('人民币按 1 元 = 0.15 美元换算。'), 'the CNY display carries the conversion footnote')
-    // The table lists the book rates converted at the fixed rate.
     assert.ok(costTip.includes('缓存输入 ¥0.02'))
     assert.ok(costTip.includes('未缓存输入 ¥1.00'))
     assert.ok(costTip.includes('缓存写入 ¥1.00'))
@@ -516,10 +503,8 @@ describe('StatsContext', () => {
     Object.defineProperty(root, 'clientHeight', { value: 200 })
     agents.getBoundingClientRect = () => ({ top: 120 }) as DOMRect
     const team = query(m.container, '.lc-flow-team')
-    // A click on the card body lands the namesake flush at the scrollport top.
     await click(team)
     assert.equal(root.scrollTop, 120)
-    // A click inside the price link keeps the link's own navigation — never a scroll.
     root.scrollTop = 0
     await click(query(m.container, 'a.lc-flow-head'))
     assert.equal(root.scrollTop, 0, 'the price link never triggers the reveal')
@@ -562,7 +547,6 @@ describe('StatsContext', () => {
     assert.ok(cells[0].getAttribute('title') !== null && cells[0].getAttribute('title') !== '', 'the jump tip rides')
     await click(cells[0])
     assert.deepEqual(calls, ['skills'])
-    // Keyboard parity: Enter fires, other keys stay quiet.
     cells[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
     assert.deepEqual(calls, ['skills', 'answers'])
     cells[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }))
@@ -597,10 +581,8 @@ describe('StatsContext — the subagent split (injected seat)', () => {
     // Family total: 1M × $0.30 (the doubled peak) + 2M × $0.075; own share $0.30, the subagents' $0.15.
     assert.equal(headsOf(m.container).totals[3], '3.0M/$0.45')
     assert.deepEqual(rowsOf(flowNodes(m.container)[4]), ['Current Agent1.0M/$0.30', 'Subagents × 2?2.0M/$0.15'])
-    // The team ledger's subtree row carries the session count.
     assert.deepEqual(queryAll(flowNodes(m.container)[4], '.lc-flow-row-label').map(el => el.textContent), ['Current Agent', 'Subagents × 2?'])
     const tips = queryAll(m.container, '.lc-stat-tip').map(el => text(el))
-    // The rate table covers BOTH sides' models in either tip.
     assert.ok(tips[1].includes('for deepseek · deepseek-v4-flash.'))
     assert.ok(tips[1].includes('for zhipuai · glm-5.3-flash.'))
     assert.ok(tips[2].includes('every descendant subagent session'))

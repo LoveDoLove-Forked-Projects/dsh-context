@@ -1,8 +1,5 @@
-// Unit tests for the contextTimeline projection unit (src/host/timeline.ts) —
-// the projection-definition contract surface (stateSchema + required wire),
-// its wire/state schemas, and the config-resolved retention bounds. Fold
-// semantics themselves live in fold.ts; here we pin the definition's contract
-// over a real folded log built with the shared envelope builders.
+// The contextTimeline projection unit (src/host/timeline.ts) — the projection-definition contract surface (stateSchema + required wire),
+// its schemas, and the config-resolved retention bounds, over a real folded log. Fold semantics themselves live in fold.ts.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

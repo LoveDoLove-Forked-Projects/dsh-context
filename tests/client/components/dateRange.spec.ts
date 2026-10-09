@@ -1,7 +1,3 @@
-// The Insights page's date-range picker (src/client/components/dateRange.tsx)
-// — the two-click range in either order, the highlighted band and edges, the
-// portaled panel's own seat and every way out of it, and the month nav plus the grid's keyboard cursor.
-
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'vitest'
@@ -21,17 +17,14 @@ const DateRange = makeDateRange(makeKit())
 /** Every tree this spec mounted, torn down after each test (the panel portals to <body>). */
 const mounted: Mounted[] = []
 
-/** The portaled panel, wherever it landed. */
 function panel(): HTMLElement | null {
   return document.querySelector<HTMLElement>('.lc-dp-panel')
 }
 
-/** The trigger chip, in the mounted tree. */
 function trigger(m: Mounted): HTMLElement {
   return query(m.container, '.lc-dp-trigger')
 }
 
-/** One calendar day cell, by its day key. */
 function cell(m: Mounted, key: string): HTMLElement {
   const found = queryAll(document.body, '.lc-dp-cell').find(el => el.getAttribute('aria-label') === key)
   if (found === undefined) throw new Error(`no day cell: ${key}`)
@@ -45,7 +38,6 @@ async function fireWindow(ev: Event): Promise<void> {
 
 interface Harness {
   m: Mounted
-  /** Every value the picker handed up, in order. */
   changes: (DayRange | null)[]
   /** Re-render with new props, as a controlled parent would. */
   set: (next: Partial<DateRangeProps>) => Promise<void>
@@ -73,7 +65,6 @@ async function open(over: Partial<DateRangeProps> = {}): Promise<Harness> {
   }
 }
 
-/** Press the trigger, opening (or closing) the panel. */
 async function toggle(m: Mounted): Promise<void> {
   await click(trigger(m))
 }
@@ -299,7 +290,6 @@ describe('the keyboard cursor', () => {
     await keydown('ArrowRight', grid())
     assert.match(cell(m, TODAY).className, /lc-dp-cursor/)
 
-    // Back a month, the whole month walks.
     await click(queryAll(panel()!, '.lc-dp-navbtn')[0])
     assert.match(cell(m, '2026-09-01').className, /lc-dp-cursor/, 'a month step re-seats the cursor on the 1st')
     await keydown('ArrowDown', grid())
@@ -344,7 +334,6 @@ describe('the panel seat', () => {
       assert.equal(seated.style.left, '660px', 'right-aligned to the trigger')
       assert.equal(seated.style.top, '374px', 'flipped above: below the trigger there is no room for 300px')
 
-      // A trigger at the left edge: the seat clamps inside the viewport.
       rect.left = 10
       rect.right = 110
       await toggle(m)

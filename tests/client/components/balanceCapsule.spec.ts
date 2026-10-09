@@ -1,11 +1,3 @@
-// BalanceCapsule (src/client/components/balanceCapsule.tsx): the remembered
-// figure paints at once while a background read revalidates it, nothing
-// remembered (and an absent or failed route) renders nothing, the locale's
-// currency shows with the account's first currency as fallback, and the
-// non-zero parts of the breakdown (topped-up / granted; the pill itself
-// carries the total) ride the page's hover tip via the pill's data
-// attributes. The route read is stubbed per test; memory and storage are reset between tests.
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
@@ -55,7 +47,6 @@ describe('BalanceCapsule', () => {
     assert.equal(text(m2.container), '')
     await m2.unmount()
 
-    // A route that never answers leaves an unremembered capsule empty too.
     let release!: () => void
     const gate = new Promise<void>((resolve) => { release = resolve })
     vi.stubGlobal('fetch', async () => {
@@ -177,7 +168,6 @@ describe('BalanceCapsule — the fast close-reopen window (issue #82)', () => {
       await gate
       return { ok: true, json: async () => ({ ok: true, value: WIRE_BALANCE }) }
     })
-    // The first open: its read goes in flight, then the dashboard closes.
     const Capsule = makeBalanceCapsule(asClientCtx(new TestClientCtx({ locale: 'en' })), kit)
     const first = await mount(h(Capsule, {}))
     assert.equal(text(first.container), '', 'nothing remembered yet')

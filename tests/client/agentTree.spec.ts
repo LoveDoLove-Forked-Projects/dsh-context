@@ -1,8 +1,4 @@
-// agentTree (src/client/agentTree.ts) — the pure model behind the Agent
-// network card: row/identity/timing narrowing, per-node stat folding from
-// projection values, forest building over the session-list snapshot
-// (lineage walk, sibling order, cap/overflow, cycles, self-stat merge),
-// tidy layout, donut geometry, face narrowing, duration formatting.
+// agentTree (src/client/agentTree.ts) — the pure model behind the Agent network card.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

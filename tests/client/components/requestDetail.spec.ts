@@ -1,7 +1,3 @@
-// RequestDetail (src/client/components/requestDetail.tsx) rendered with real
-// React in jsdom: header chips, delta mode, per-category rows, and the step
-// brief (chipParts/nodeLine cascades, locate linkage).
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -113,7 +109,6 @@ describe('RequestDetail header', () => {
     assert.equal(chip.getAttribute('title'), 'Context compacted (summary replaced 3 messages)')
     await m.unmount()
 
-    // Cross-turn gap.
     const m2 = await mount(h(RequestDetail, {
       request: req({}),
       marker: { seq: 9, time: 1, kind: 'prune', fromTurn: 2, fromStep: 8, turn: 3, step: 1 },
@@ -216,13 +211,11 @@ describe('RequestDetail composition bar hover-link', () => {
     assert.equal(segs.length, 6, 'all six categories render')
     assert.ok(segs[1].className.includes('lc-stacked-seg-on'), 'exactly the tools segment (CATS order) lights')
     assert.ok(segs.filter(s => s.className.includes('lc-stacked-seg-on')).length === 1)
-    // The per-category detail rows follow the same key.
     const rows = queryAll(m.container, '.lc-detail-row')
     assert.ok(rows[1].className.includes('lc-detail-row-on'), 'the tools row lights too')
     assert.ok(rows.filter(r => r.className.includes('lc-detail-row-on')).length === 1)
     assert.equal(queryAll(m.container, '.lc-bar-tip').length, 0, 'a mirrored hover floats no tooltip')
 
-    // No hover: the bar renders neutral, still tip-less.
     const m2 = await mount(h(RequestDetail, { request: req({}) }))
     assert.equal(query(m2.container, '.lc-stacked').className, 'lc-stacked')
     assert.equal(queryAll(m2.container, '.lc-detail-row-on').length, 0)
@@ -279,17 +272,14 @@ describe('RequestDetail brief section', () => {
     assert.equal(rows.length, 3)
     assert.ok(text(rows[0]).includes('please refactor this'), 'opener row carries the user text')
     assert.ok(text(rows[0]).includes('User'), 'opener tagged as the turn opener')
-    // Inputs: three chips + the overflow pill.
     const chips = queryAll(rows[1], '.lc-brief-chip')
     assert.equal(chips.length, 3, 'inputs capped at MAX_CHIPS')
     assert.ok(text(rows[1]).includes('+1'), 'overflow pill counts the hidden inputs')
     assert.ok(text(chips[0]).includes('bash') && text(chips[0]).includes('list files'), 'tool chip: name tag + call summary')
     assert.ok(text(chips[1]).includes('State Snapshot') && text(chips[1]).includes('Snapshot: state v2'))
     assert.ok(text(chips[2]).includes('Image ×3'), 'user chip counts attachments')
-    // Rows are inert without onLocate.
     assert.equal(rows[0].tagName, 'DIV')
     assert.ok(!chips[0].className.includes('lc-brief-chip-link'))
-    // Reply: one grown chip with the call breadcrumb.
     const replyChip = query(rows[2], '.lc-brief-chip')
     assert.ok(replyChip.className.includes('lc-brief-chip-grow'))
     assert.ok(text(replyChip).includes('bash › write'))
@@ -318,9 +308,7 @@ describe('RequestDetail brief section', () => {
     }))
     const rows = queryAll(m.container, '.lc-brief-row')
     assert.equal(rows[0].tagName, 'BUTTON', 'rows become buttons when locate is wired')
-    // Error dot on the failed tool chip.
     assert.equal(queryAll(rows[1], '.lc-br-err-dot').length, 1)
-    // Chip click: locates the chip's node, not the row's first input twice.
     const chip = queryAll(rows[1], '.lc-brief-chip')[1]
     assert.ok(chip.className.includes('lc-brief-chip-link'))
     await click(chip)
@@ -403,7 +391,6 @@ describe('RequestDetail brief section', () => {
     assert.equal(chipText(m4, 1), 'hi')
     await m4.unmount()
 
-    // The skill bucket names itself; an invocation message previews its text.
     const m5 = await render([surfaceNode({ seq: 41, cat: 'skill', skill: 'ponytail' })])
     assert.equal(chipText(m5, 0), 'Skill · ponytail', 'a text-less skill row tags the name')
     await m5.unmount()
@@ -419,7 +406,6 @@ describe('RequestDetail brief section', () => {
     assert.equal(chipText(m8, 0), '', 'hostile cat with no text renders an inert chip')
     await m8.unmount()
 
-    // A text-less skill row without a join: the name tag carries the chip alone.
     const m11 = await render([surfaceNode({ seq: 47, cat: 'skill', skill: 'grilling', tool: 'skill' })])
     assert.equal(chipText(m11, 0), 'Skill · grilling')
     await m11.unmount()
@@ -431,7 +417,6 @@ describe('RequestDetail brief section', () => {
     assert.equal(chipText(m11b, 0), 'Catalog Update')
     assert.equal(chipText(m11b, 1), 'Context Injection')
     await m11b.unmount()
-    // Textless injection: the form tag carries the chip alone.
     const m12 = await render([surfaceNode({ seq: 48, cat: 'inject', form: 'notice' })])
     assert.equal(chipText(m12, 0), 'Notice')
     await m12.unmount()
@@ -442,7 +427,6 @@ describe('RequestDetail brief section', () => {
     const onLocate = (n: SurfaceNode, isResponse: boolean): void => {
       calls.push({ seq: n.seq, isResponse })
     }
-    // A turn's opening step: opener known, zero inputs — the In row still occupies its line.
     const brief: StepBrief = {
       opener: surfaceNode({ seq: 1, cat: 'user' }),
       inputs: [],
@@ -468,7 +452,6 @@ describe('RequestDetail brief section', () => {
     assert.equal(queryAll(m2.container, '.lc-brief-more').length, 0, 'no overflow pill at the cap')
     await m2.unmount()
 
-    // Opener carrying an image upload: the fact tag shows on the opener row.
     const m3 = await mount(h(RequestDetail, {
       request: req({}),
       brief: { opener: surfaceNode({ seq: 7, cat: 'user', text: 'see attached', imgs: 2 }), inputs: [] },

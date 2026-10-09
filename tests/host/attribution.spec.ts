@@ -1,6 +1,5 @@
-// Unit tests for the runtime register() attribution hook (src/host/attribution.ts)
-// against a REAL cordis Context: plugin fibers read `ctx.tools` (firing the
-// internal/get waterfall) and call `register()` on a fake tools service.
+// The runtime register() attribution hook (src/host/attribution.ts) against a REAL cordis Context:
+// plugin fibers read `ctx.tools` (firing the internal/get waterfall) and call `register()` on a fake tools service.
 
 import assert from 'node:assert/strict'
 import path from 'node:path'
@@ -10,7 +9,6 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { UNKNOWN_TOOL_SOURCE } from '../../src/shared/types'
 import { callerPackageFrom, createToolAttribution, packageNameFrom, type ToolAttribution } from '../../src/host/attribution'
 
-/** Render an absolute fs path as a `file://` URL for synthetic stack frames. */
 const fileUrl = (file: string) => 'file:///' + file.replace(/\\/g, '/')
 
 /** Absolute path of this spec file (a file inside the dsh-context package). */

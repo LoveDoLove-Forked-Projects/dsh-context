@@ -1,8 +1,6 @@
-// The fold-derived file-op log (src/host/fold.ts + shared/fileOps.ts): ops
-// book at tool/result off the armed call's arguments and the result's
-// presentation meta; Code-Mode sub-dispatches buffer under their run_code
-// root and flush at its result with parent/program stamps; the log trims to
-// maxFileOps with a coverage floor; and the detail builder serves detached copies. Driven through the real projection unit.
+// The fold-derived file-op log (src/host/fold.ts + shared/fileOps.ts): ops book at tool/result off the armed call's arguments and the
+// result's presentation meta; Code-Mode sub-dispatches buffer under their run_code root and flush at its result with parent/program stamps;
+// the log trims to maxFileOps with a coverage floor. Driven through the real projection unit.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

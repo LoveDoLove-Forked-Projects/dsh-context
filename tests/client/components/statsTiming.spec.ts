@@ -1,9 +1,3 @@
-// StatsTiming (src/client/components/statsTiming.tsx) rendered with real
-// React: the active-time donut (TTFT + generation vs tools vs overhead) and
-// the pct-led slice rows with call counts and true durations — plus the
-// bottom session-time strip (the fold's per-step spans packed by their share
-// of the active time in occurrence order, joined into the hover link by KIND), and the empty and hostile-timing degrades.
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -79,7 +73,6 @@ describe('StatsTiming', () => {
     // slice paints no arc AND its legend row is omitted: 3 circles, 3 rows.
     assert.equal(queryAll(m.container, '.lc-donut circle').length, 3)
     assert.equal(queryAll(m.container, '.lc-sl-row').length, 3)
-    // The hover link: a painted row dims the ring and lights its own arc.
     const rows = queryAll(m.container, '.lc-sl-row')
     await hover(rows[2])
     assert.ok(rows[2].className.includes('lc-sl-row-on'))
@@ -254,7 +247,6 @@ describe('StatsTiming — the throughput figure', () => {
 })
 
 describe('StatsTiming — the session-time strip', () => {
-  // The generation-split timing: genMs 140s splits into thinking 90s, answer 30s, tool args 20s.
   const SPLIT: TimingTotals = {
     wallMs: 600_000, ttftMs: 100_000, genMs: 140_000, reasoningMs: 90_000, textMs: 30_000, toolArgMs: 20_000,
     calls: 10, toolsMs: 300_000, toolCalls: 25, tools: { bash: { calls: 15, ms: 200_000 } },

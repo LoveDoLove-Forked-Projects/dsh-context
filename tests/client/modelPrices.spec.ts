@@ -1,7 +1,5 @@
-// The model-price book (src/client/modelPrices.ts): the boundary sanitizer
-// over the models.dev payload (every field re-proved, junk entries dropped
-// whole) and the fetch store (kick on first subscribe, visible failure with
-// a backed-off automatic retry, test-loader injection).
+// The model-price book (src/client/modelPrices.ts): the boundary sanitizer over the models.dev payload and the
+// fetch store (kick on first subscribe, visible failure with a backed-off automatic retry, test-loader injection).
 
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, test, vi } from 'vitest'

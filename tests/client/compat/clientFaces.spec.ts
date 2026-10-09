@@ -1,12 +1,6 @@
-// The always-on compatibility matrix — CLIENT side. For every supported dsh
-// baseline (tests/baselines.ts) the plugin's client half is driven through
-// THAT generation's faces: the finalized-nodes seat (`useChat`'s
-// ChatSnapshot), the durable-image loader service, the seq-anchored history
-// face and its response envelope (the remote.session gateway), and the
-// MarkdownText chrome prop (required `labels`). These are the seams whose
-// drift produced the recurring client-side incidents (issues #8, #12, #26).
-// The real-code complement — the ACTUAL dsh sources per tag — runs in the
-// `compat` vitest project (tests/compat/matrix.spec.ts).
+// The always-on compatibility matrix — CLIENT side. For every supported dsh baseline (tests/baselines.ts) the plugin's client half is
+// driven through THAT generation's faces — the seams whose drift produced the recurring client-side incidents (issues #8, #12, #26). The
+// real-code complement — the ACTUAL dsh sources per tag — runs in the `compat` vitest project (tests/compat/matrix.spec.ts).
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'

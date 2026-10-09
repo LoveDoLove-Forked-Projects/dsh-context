@@ -1,6 +1,5 @@
-// images.tsx — imageRefOf narrowing (pure) plus ImageCard and its preview
-// wiring, rendered with real React. The preview itself is the platform
-// ImageLightbox; its dialog behavior is covered upstream, so only the plugin-owned open/close wiring is pinned here.
+// ImagesCard (src/client/components/images.tsx): the preview it renders is the platform ImageLightbox, whose dialog
+// behavior is covered upstream, so only the plugin-owned open/close wiring is pinned here.
 
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
@@ -229,7 +228,6 @@ describe('ImageLightbox wiring', () => {
     await flush()
     await click(query(m.container, '.lc-att-item'))
     assert.ok(dialog() !== null)
-    // New attachment with a pending load: src resets, preview drops out.
     await m.update(h(ImageCard, { attachment: { ...FULL, attachmentId: 'a2' }, load: () => new Promise<string>(() => {}) }))
     assert.equal(dialog(), null)
     await m.unmount()

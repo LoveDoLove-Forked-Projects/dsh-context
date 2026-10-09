@@ -1,7 +1,6 @@
-// The right Sidebar's Context tab (src/client/sidebar.ts): the OPTIONAL
-// three-stage registration — tab type into `sidebarRightTabs`, body into the
-// keyed `sidebar.right.pane.tab` seat, chip title into `sidebar.right.pane.tab.title` — and its silent degrade on every harness
-// that serves no right Sidebar (the older supported lines).
+// The right Sidebar's Context tab (src/client/sidebar.ts): the OPTIONAL three-stage registration — tab type into
+// `sidebarRightTabs`, body into the keyed `sidebar.right.pane.tab` seat, chip title into `sidebar.right.pane.tab.title`
+// — and its silent degrade on every harness that serves no right Sidebar.
 
 import { createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'

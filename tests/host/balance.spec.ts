@@ -1,10 +1,6 @@
-// The DeepSeek balance route (src/host/balance.ts): the deferred-inject
-// gating on the connection face (load-order independent, absent face = no
-// route), the per-request resolution of the llm-deepseek connection facts
-// (settings section + credentials), the typed `null` for every
-// not-configured or failed read (the route must never throw into the
-// transport), the payload's hostile-entry dropping, and the read that serves
-// every caller the platform's current figures (shared only while in flight).
+// The DeepSeek balance route (src/host/balance.ts): deferred-inject gating on the connection face,
+// per-request resolution of the llm-deepseek connection facts (settings section + credentials), and
+// the typed `null` for every not-configured or failed read — never a throw into the transport.
 
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, test, vi } from 'vitest'
@@ -77,7 +73,6 @@ function settingsOf(section: unknown): { describe(): unknown } {
   return settingsDescribeOf([{ ns: 'llm-deepseek', value: section }])
 }
 
-/** The harness credentials face serving one resolved value. */
 function credentialsOf(value: unknown, calls?: string[]): { resolve(ref: string): Promise<{ value: unknown } | undefined> } {
   return {
     resolve(ref: string) {
@@ -105,7 +100,6 @@ function configuredCtx(spec: CtxSpec = {}): CtxSpec {
 
 interface FetchLog { url?: string; auth?: string; accept?: string }
 
-/** Stub the platform fetch to serve `body` (or fail per `mode`) and log each call. */
 function stubPlatform(body: unknown | undefined, mode: 'ok' | 'reject' | 'status' | 'badjson' = 'ok'): { log: FetchLog[]; calls: () => number } {
   const log: FetchLog[] = []
   setBalanceFetcher(async (url, init) => {

@@ -1,12 +1,8 @@
-// The bundle smoke, as part of the `compat` project: the only check that
-// exercises the BUILT artifacts (lib/client.js) — the packaging glue (the
-// `window.__ModuleLoader__.load({id, factory})` handoff, the CSS channel's
-// data-plugin style tags, platform-module requires) only exists after tsdown
-// runs. Skipped cleanly when lib/ is absent (run `pnpm run build` first);
-// the release workflow builds before `pnpm test`, so it always runs there.
-// Everything here runs against the REAL bundle in its own JSDOM with REAL
-// React and the REAL ui-primitives — only the harness services
-// (locale/slots/effects) are in-memory implementations of their documented contracts.
+// The bundle smoke, as part of the `compat` project: the only check that exercises the BUILT artifacts (lib/client.js) — the packaging glue
+// (the `window.__ModuleLoader__.load({id, factory})` handoff, the CSS channel's data-plugin style tags, platform-module requires) only
+// exists after tsdown runs. Skipped cleanly when lib/ is absent (run `pnpm run build` first); the release workflow builds before `pnpm
+// test`, so it always runs there. Everything here runs against the REAL bundle in its own JSDOM with REAL React and the REAL ui-primitives
+// — only the harness services (locale/slots/effects) are in-memory implementations of their documented contracts.
 
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -24,7 +20,6 @@ describe.skipIf(staging.artifactsMissing())('bundle smoke — the built lib/clie
   // worker (per-file fork), so the assignment stays file-local.
   const globals = globalThis as { window?: unknown; document?: unknown }
 
-  /** The factory handoff the bundle registers through. */
   let handoff: { id: string; factory: (require: (spec: string) => unknown) => unknown } | null = null
   /** Everything the assertions below look at, captured by the setup. */
   const state: {
@@ -42,9 +37,7 @@ describe.skipIf(staging.artifactsMissing())('bundle smoke — the built lib/clie
     globals.window = dom.window
     globals.document = dom.window.document
 
-    // The module table: the shell seeds exactly these specifiers. The bundle
-    // must require nothing else (the tsdown purity gate pins this too). The
-    // primitives dist ships CSS modules Node cannot parse — the bundle only
+    // The primitives dist ships CSS modules Node cannot parse — the bundle only
     // references its components as React leaves, so inert stand-ins play the
     // shell's role here (their real rendering is covered by the vitest jsdom lane).
     const inert = (name: string) => {

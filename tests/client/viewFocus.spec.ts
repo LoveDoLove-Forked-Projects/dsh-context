@@ -1,5 +1,5 @@
-// viewFocus (src/client/viewFocus.ts) — the chat→Context jump relay, the
-// sidebar-tab opener, and the conversation-tab activation, driven against a real jsdom tab bar.
+// viewFocus (src/client/viewFocus.ts) — the chat→Context jump relay, the sidebar-tab opener, and the
+// conversation-tab activation against a real jsdom tab bar.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

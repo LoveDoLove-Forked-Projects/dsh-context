@@ -1,6 +1,3 @@
-// SliceList (src/client/components/sliceList.tsx) rendered with real React:
-// the donut legend rows — the primary line (color dot, label, bold share) over the secondary quantity line.
-
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -45,7 +42,6 @@ describe('SliceList', () => {
     const rows = queryAll(m.container, '.lc-sl-row')
     assert.ok(rows[0].className.includes('lc-sl-row-dim'))
     assert.ok(!rows[1].className.includes('lc-sl-row-dim'))
-    // Only the row carrying a count grows the secondary line.
     assert.equal(queryAll(m.container, '.lc-sl-sub').length, 1)
     assert.equal(queryAll(m.container, '.lc-sl-pct').length, 2)
     assert.ok(text(m.container).includes('—'))

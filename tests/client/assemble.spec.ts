@@ -1,5 +1,4 @@
-// Context assembly (src/client/assemble.ts): the header epoch lookup and
-// the per-step surface reconstruction with its coverage flags.
+// Context assembly (src/client/assemble.ts): the header epoch lookup and the per-step surface reconstruction with its coverage flags.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

@@ -1,7 +1,6 @@
-// Durable session-event envelope builders for the fold specs. Shapes mirror
-// the harness's durable vocabulary (`SessionEventMap` in @deepseek-ai/dsh-session,
-// plus the dsh-compaction declaration-merged `compaction/*` family) — the same
-// envelopes a real session log carries, minus fields the fold never reads.
+// Durable session-event envelope builders for the fold specs. Shapes mirror the harness's durable vocabulary (`SessionEventMap` in
+// @deepseek-ai/dsh-session, plus the dsh-compaction declaration-merged `compaction/*` family) — the same envelopes a real session log
+// carries, minus fields the fold never reads.
 
 import type { TimelineEvent } from '../../../src/host/fold'
 import type { ContentBlock, MessageSource } from '../../../src/host/pricing'

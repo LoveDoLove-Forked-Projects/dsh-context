@@ -1,10 +1,3 @@
-// The Insights page's skill card (src/client/components/overviewSkills.tsx):
-// scope labelling, the color-dot/hairline row rendering, the click-to-pin
-// relay, the structured hover card (head/description/path/footer, measure and
-// flip, scroll/resize retract), the pinned skill's detail block with its
-// copyable path line, the render bound's overflow line, and the empty note —
-// rendered with real React over the real dictionaries.
-
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
@@ -74,8 +67,7 @@ describe('OverviewSkills', () => {
     assert.equal(text(query(rows[0], '.lc-ov-skill-count')), '×12')
     assert.equal(text(query(rows[0], '.lc-ov-skill-last')), '3h ago')
     assert.equal(text(query(rows[1], '.lc-ov-skill-last')), 'just now')
-    // The dot and the bar carry the skill's stable palette color; the top row's bar spans full width.
-    // (jsdom's CSSOM drops var() from the shorthand property read — the attribute string is the truth.)
+    // jsdom's CSSOM drops var() from the shorthand property read — the attribute string is the truth.
     assert.ok(query<HTMLElement>(rows[0], '.lc-ov-skill-dot').getAttribute('style')?.includes(skillColorOf('tdd')))
     assert.ok(query<HTMLElement>(rows[0], '.lc-ov-skill-bar').getAttribute('style')?.includes('calc(100% - 12px)'))
     assert.ok(query<HTMLElement>(rows[1], '.lc-ov-skill-bar').getAttribute('style')?.includes('calc(25% - 3px)'), 'the share of the heaviest row')
@@ -182,7 +174,6 @@ describe('OverviewSkills', () => {
     assert.equal(await chipOf(rows[2]), 'Built-in')
     assert.equal(await chipOf(rows[3]), '', 'a source-less entry carries no chip')
     await unhover(rows[3])
-    // The unknown source displays raw; the long description caps at the ellipsis.
     const m2 = await mount(h(Skills, { stats: [stat('custom-skill', 1, NOW)], catalog: CATALOG, now: NOW }))
     await hover(query(m2.container, 'button.lc-ov-skill'))
     assert.equal(text(query(bubble()!, '.lc-skilld-chip')), 'team-registry')
@@ -314,7 +305,6 @@ describe('OverviewSkills', () => {
       await click(query(m.container, 'button.lc-skilld-pathv'))
       await flush()
       assert.equal(text(query(m.container, '.lc-skilld-pathv-text')), 'Copied')
-      // The pin moves to the other cataloged skill: the flash resets, the new path shows.
       await m.update(h(Skills, { stats: [], selected: 'custom-skill', catalog: CATALOG, now: NOW }))
       assert.equal(text(query(m.container, '.lc-skilld-grid .lc-skilld-v')), 'team-registry', 'the unknown source displays raw in the grid')
       assert.equal(text(query(m.container, '.lc-skilld-pathv-text')), '/opt/skills/custom.md')

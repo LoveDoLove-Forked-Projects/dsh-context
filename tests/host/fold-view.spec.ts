@@ -1,7 +1,4 @@
-// Wire-view tests for buildTimelineView (src/host/fold.ts): counters,
-// non-aliasing copies, the cost buckets, the serving window (newest tail +
-// pinned injects + coverage floors), event→request attribution, and view
-// purity. Driven through the real projection unit (driveTimeline / def.wire.view).
+// buildTimelineView (src/host/fold.ts) driven through the real projection unit (driveTimeline / def.wire.view).
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -366,7 +363,7 @@ describe('buildTimelineView event attribution', () => {
 
   test('a turn-less previous request stamps no from-side', () => {
     const { view } = driveTimeline([
-      assistantMessage(1, {}), // no turn/step: a replayed log row
+      assistantMessage(1, {}),
       planMode(2, { active: true }),
       assistantMessage(3, { turn: 1, step: 1 }),
     ])

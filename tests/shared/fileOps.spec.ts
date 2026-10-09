@@ -1,9 +1,3 @@
-// The shared file-op parser (src/shared/fileOps.ts): the ONE per-call
-// assembly consumed by the host fold and the client's inline-generation
-// fallback alike. Pins the whole producer matrix: the six built-ins, the
-// Anthropic-style editor, the search meta attribution (complete / truncated
-// / malformed / args-less), the read window vs the limit estimate, the pattern-target fallback, and the zero-ops degradations.
-
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import { opsOfCall, parseCallArgs } from '../../src/shared/fileOps'

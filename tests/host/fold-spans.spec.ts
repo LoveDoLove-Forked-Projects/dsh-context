@@ -1,12 +1,6 @@
-// The timing strip's span fold (src/host/fold.ts): every completed step
-// flushes its painted time slices — the TTFT wait, the decode blocks in
-// stream order, the tool-run windows, and the in-step residue — into the
-// persisted `spans` collection the client packs gapless by duration share.
-// Pinned here: the step/end tiling (clamp into the step window, first-wins
-// de-overlap, residue gap-fill, so the step always tiles gapless while IDLE
-// time between steps carries no span), the supersede/consume lifecycle of
-// the accumulator, the detail-revision bump, the newest-tail cap, and the
-// wire/state schema faces. No mocks: the real fold runs.
+// The timing strip's span fold (src/host/fold.ts): every completed step flushes its painted time slices — the TTFT wait, the decode blocks
+// in stream order, the tool-run windows, and the in-step residue — into the persisted `spans` collection the client packs gapless by
+// duration share (IDLE time between steps carries no span). No mocks: the real fold runs.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

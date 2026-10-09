@@ -1,16 +1,10 @@
-// The compatibility matrix as a vitest project (`compat`): the REAL-CODE
-// regression for the supported dsh baselines (tests/baselines.ts). The
-// always-on host/client lanes pin the plugin against MIRRORED seam
-// semantics; this project runs the plugin against the harness's ACTUAL
-// sources at each baseline tag — the tag's real `SessionProjectionRegistry`
-// on the cordis release that line vendors, the tag's own settings-namespace
-// pattern, its durable-event vocabulary, its platform module table, and its
-// client seam sources (slots, seats, image/history faces, markdown chrome).
-// A failing probe names the SEAM — the connection point to re-fit or refactor — not just "it broke somewhere".
-// Preconditions (skipped cleanly when absent; the release workflow fetches
-// the baseline tags before `pnpm test`, so it always runs there):
-//   - a dsh checkout with the baseline tags (env DSH_REPO, default     ~/dev/deepseek-harness),
-//   - the built plugin (`pnpm run build` first — the matrix exercises the     BUILT artifacts, lib/index.js + lib/client.js).
+// The always-on host/client lanes pin the plugin against MIRRORED seam semantics; this project runs the plugin
+// against the harness's ACTUAL sources at each baseline tag. A failing probe names the SEAM — the connection point
+// to re-fit or refactor — not just "it broke somewhere".
+// Preconditions (skipped cleanly when absent; the release workflow fetches the baseline tags before `pnpm test`,
+// so it always runs there):
+//   - a dsh checkout with the baseline tags (env DSH_REPO, default ~/dev/deepseek-harness),
+//   - the built plugin (`pnpm run build` first — the matrix exercises the BUILT artifacts, lib/index.js + lib/client.js).
 
 import assert from 'node:assert/strict'
 import { beforeAll, describe, test } from 'vitest'
@@ -22,9 +16,8 @@ if (reasons.length > 0) {
   console.warn(`[compat] matrix skipped — ${reasons.join('; ')}`)
 }
 
-// The always-runnable part (no checkout needed): every specifier the built
-// bundle requires at runtime must be seeded by EACH baseline's platform
-// module table — a require the shell cannot answer is a guaranteed boot crash on that generation.
+// The always-runnable part (no checkout needed): every specifier the built bundle requires at runtime must be seeded by EACH baseline's
+// platform module table — a require the shell cannot answer is a guaranteed boot crash on that generation.
 describe('compat matrix — the per-baseline fold vocabularies', () => {
   test('their union covers every event family the fold switches on', () => {
     const union = new Set(BASELINES.flatMap(baseline => baseline.foldEventTypes))

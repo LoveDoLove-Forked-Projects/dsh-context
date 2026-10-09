@@ -1,8 +1,4 @@
-// applyTimeline switch-case paths of the fold (src/host/fold.ts): every
-// durable event type's record-keeping (headers, context, tool calls,
-// injections, skill tagging, request records, plan mode, compaction arming)
-// plus the session-cost accumulation (model family match, Beijing peak
-// windows, per-period running totals). No mocks: the real fold runs.
+// applyTimeline paths of the fold (src/host/fold.ts). No mocks: the real fold runs.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

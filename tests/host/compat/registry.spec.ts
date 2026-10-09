@@ -1,15 +1,8 @@
-// The always-on compatibility matrix — HOST side. For every supported dsh
-// baseline (tests/baselines.ts) the plugin's REAL projection definitions are
-// registered through a driver of that baseline's registry semantics
-// (registryDriver.ts, mirrored from the dsh source at each tag) and driven
-// over a canonical session log. This is the regression net for the recurring
-// host-side compatibility incidents: a fold that throws under one registry
-// generation (issues #26/#8 — the tab stuck "Reading the session log…"), a
-// state that fails the projection cache's plain-JSON write gate (issues
-// #5-#7, #27-#30 — session creation/titles broke host-wide), a stale-row
-// restore that must seed through stateSchema, and an init that must tolerate the registry's header argument.
-// The real-code complement — the ACTUAL dsh registry sources per tag — runs
-// in the `compat` vitest project (tests/compat/matrix.spec.ts).
+// The always-on compatibility matrix — HOST side. For every supported dsh baseline (tests/baselines.ts) the plugin's REAL projection
+// definitions are registered through a driver of that baseline's registry semantics (registryDriver.ts) and driven over a canonical session
+// log — the regression net for the recurring host-side incidents, from a fold that throws under one registry generation (issues #26/#8 —
+// the tab stuck "Reading the session log…") to a state that fails the projection cache's plain-JSON write gate. The real-code complement —
+// the ACTUAL dsh registry sources per tag — runs in the `compat` vitest project (tests/compat/matrix.spec.ts).
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -117,7 +110,6 @@ for (const [index, baseline] of BASELINES.entries()) {
       assert.equal(timeline.counts?.steps, 2, 'the counters travel on the head')
       assert.equal(timeline.nodes.length, 0, 'the collections stay off the wire')
       assert.equal(timeline.requests.length, 0)
-      // The cache contract is unchanged: plain-JSON rows, and a restore that refolds to the live cut.
       assert.ok(driver.checkpointJson(session) !== undefined)
       const cold = driver.restore({}, log, 0, session.header)
       assert.deepEqual(cold.values, driver.snapshot(session).values)
@@ -151,7 +143,6 @@ for (const [index, baseline] of BASELINES.entries()) {
         assert.equal(row.ver, key === 'contextTimeline' ? 27 : 1)
         assert.equal(row.seq, 12)
       }
-      // And the write-gate equivalent on every intermediate state of a fresh fold.
       assertStatesPlainJson(driveTimeline(canonicalLog()))
     })
 
@@ -166,7 +157,7 @@ for (const [index, baseline] of BASELINES.entries()) {
       // A stale-row tail read: the floor anchors one below the lowest usable watermark.
       const floor = driver.restoreFloor(rows)
       assert.equal(floor, 12)
-      // A full cold read (empty rows, baseSeq 0) refolds from init and matches the live snapshot.
+      // A cold read from scratch (empty rows, baseSeq 0) matches the live snapshot.
       const cold = driver.restore({}, log, 0, session.header)
       assert.deepEqual(cold.values, driver.snapshot(session).values)
 
@@ -214,7 +205,6 @@ for (const [index, baseline] of BASELINES.entries()) {
           },
         },
       }
-      // The cache-read rung skips the stale-version row instead of serving it.
       const { driver, session } = bootSession(index, log)
       assert.equal(driver.viewCheckpoint(stale).contextTimeline, undefined)
       // The cold read refolds from init over the full durable log; a schema

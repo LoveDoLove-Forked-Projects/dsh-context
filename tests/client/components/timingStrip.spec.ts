@@ -1,11 +1,3 @@
-// TimingStrip (src/client/components/timingStrip.tsx) rendered with real
-// React: the session-time strip packs every span shoulder-to-shoulder in
-// occurrence order on the 0 → cumulative-active-time axis (each band's width
-// is its share of the active time; idle time takes no track), the fixed
-// zero/quartile/full ticks, the kind-keyed hover link (every span of a kind
-// lights together while the tip answers only the strip's OWN pointer), and
-// the hostile-span sanitize — an unknown kind or a NaN/inverted instant drops out whole instead of poisoning the axis.
-
 import { createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -21,9 +13,8 @@ const StripZh = makeTimingStrip(kitZh)
 /** Local HH:MM:SS exactly as the kit's fmtTime renders it (a timezone-free assertion). */
 const timeOf = (ms: number): string => new Date(ms).toLocaleTimeString('en-GB', { hour12: false })
 
-// A 50-second session window (epoch 1s → 51s) holding 40s of ACTIVE time: the
-// three decode slices, then tools and overhead — with 5s idle gaps between
-// them (21s → 26s and 41s → 46s) that must take NO track on the strip.
+// A 50-second session window (epoch 1s → 51s) holding 40s of ACTIVE time: the three decode slices, then tools and overhead — with 5s idle
+// gaps between them (21s → 26s and 41s → 46s) that must take NO track on the strip.
 const SPANS: TimingSpan[] = [
   { kind: 'ttft', start: 1_000, end: 6_000 },
   { kind: 'reasoning', start: 6_000, end: 16_000 },
@@ -59,14 +50,12 @@ describe('TimingStrip', () => {
     assert.ok(ticks[0].className.includes('lc-tstrip-tick-first'))
     assert.ok(!ticks[2].className.includes('lc-tstrip-tick-first') && !ticks[2].className.includes('lc-tstrip-tick-last'))
     assert.ok(ticks[4].className.includes('lc-tstrip-tick-last'))
-    // The strip names itself for assistive tech; the tip rests hidden.
     assert.equal(query(m.container, '.lc-tstrip').getAttribute('role'), 'img')
     assert.equal(query(m.container, '.lc-bar-tip').className, 'lc-tip lc-bar-tip')
     await m.unmount()
   })
 
   test('the grow-in rides ONE wrapper, never a per-band animation (a packed strip must not storm the compositor)', async () => {
-    // A long session's strip: hundreds of bands, one sweep.
     const spans: TimingSpan[] = []
     for (let i = 0; i < 300; i++) spans.push({ kind: 'tools', start: i * 1_000, end: i * 1_000 + 500 })
     const m = await mount(h(Strip, { spans }))

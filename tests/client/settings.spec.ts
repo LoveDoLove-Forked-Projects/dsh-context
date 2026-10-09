@@ -1,5 +1,4 @@
-// Settings binding (src/client/settings.ts): defaults, the observable store,
-// form attach/sync, preference parsing, and the local-echo set path.
+// Settings binding (src/client/settings.ts): the local-echo store over the harness configForms section.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -166,8 +165,6 @@ describe('set', () => {
   })
 
   test('a rejected insights-entry write degrades to show when the scope carries no valid value', async () => {
-    // Fail open: the unpersisted echo must not keep the panel's entry hidden
-    // until the next reload — with nothing valid in the scope's truth, fall back to `show`.
     const s = createContextSettings()
     const scope = new TestSettingsScope({ status: 'ready', value: {}, writable: true })
     s.attach(scope)

@@ -1,6 +1,3 @@
-// Donut (src/client/components/donut.tsx) rendered with real React:
-// proportional SVG segments around the center label, with the empty ring fallback and hostile-value skips.
-
 import { createElement as h, useState } from 'react'
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -65,7 +62,6 @@ describe('Donut', () => {
     assert.equal(queryAll(m.container, 'circle').length, 1)
     assert.ok(query(m.container, '.lc-donut-track'))
     assert.equal(query(m.container, '.lc-donut-center b').textContent, '—')
-    // No center sub when absent.
     assert.equal(queryAll(m.container, '.lc-donut-center span').length, 0)
     await m.unmount()
   })

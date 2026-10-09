@@ -1,6 +1,4 @@
-// Client entry (src/client/index.ts): the plugin's apply() wiring asserted
-// through the faithful harness-context seams — dictionaries, slots, the
-// /context trigger source, and the deferred configForms inject — plus real renders of the registered components.
+// Client entry (src/client/index.ts): the plugin's apply() wiring through the faithful harness-context seams.
 
 import { createElement as h, type ReactElement } from 'react'
 import assert from 'node:assert/strict'
@@ -11,8 +9,7 @@ import type { SettingsField, SettingsScopeLike, SettingsState } from '../../src/
 import { TestClientCtx, TestSessions, asClientCtx } from './helpers/harness'
 import { mount, query, queryAll, text } from './helpers/kit'
 
-// The entry ships via `module.exports` (bundle handoff shape); its runtime
-// exports are the plugin triple, opaque to the static import type.
+// The entry ships via `module.exports` (bundle handoff shape); its runtime exports are the plugin triple, opaque to the static import type.
 const { name, inject, apply } = (await import('../../src/client/index')) as unknown as {
   name: string
   inject: string[]

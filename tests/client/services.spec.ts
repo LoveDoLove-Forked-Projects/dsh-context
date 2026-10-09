@@ -1,7 +1,4 @@
-// Projection narrowing (src/client/services.ts): the no-white-screen wire
-// guards — numOf, timelineOf fast/slow paths, contextPressureOf,
-// contextBreakdownOf, tokenUsageOf, timingOf, headersOf — plus the seat
-// helpers over the harness service faces (conversationNodesOf, imageLoaderOf).
+// Projection narrowing (src/client/services.ts): the no-white-screen wire guards and the service-face seat helpers.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
@@ -775,7 +772,6 @@ describe('canOpenPathsOf / openPathVia', () => {
     assert.equal(await canOpenPathsOf(ctxWith({ connection: rpcConn({ 'session/canOpenWorkspacePath': () => 'garbage' }) })), false)
     // The harness's own gate: a page not on the operator's machine never opens.
     assert.equal(await canOpenPathsOf(ctxWith({ connection: { isLoopback: false, rpc: openable().rpc } })), false)
-    // No connection service at all.
     assert.equal(await canOpenPathsOf(ctxWith({})), false)
   })
 

@@ -1,6 +1,5 @@
-// Unit tests for the token-pricing heuristic (src/host/pricing.ts) — a mirror
-// of the harness token-meter's fixed-density estimator with the image-block
-// refinement. Pure functions: each case constructs a real payload and prices it.
+// The token-pricing heuristic (src/host/pricing.ts) — a mirror of the harness token-meter's
+// fixed-density estimator with the image-block refinement. Pure functions over real payloads.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

@@ -1,7 +1,5 @@
-// measureDock (src/client/dockMeasure.ts) — the /context modal's sidebar
-// insets: the ancestor walk to the app frame's inline grid template, the
-// leading/trailing px parses with the centre-minimum clamp (the frame's own
-// columns solve), and every degrade-to-full-mask branch.
+// measureDock (src/client/dockMeasure.ts) — the /context modal's sidebar insets: the ancestor walk to the app
+// frame's inline grid template and the leading/trailing px parses with the centre-minimum clamp.
 
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'

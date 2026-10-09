@@ -1,8 +1,4 @@
-// Session-cost estimate (src/client/cost.ts): the model-price-book lookup
-// (exact, case-insensitive, and the model-side resolution tiers behind the
-// cross-provider fallback), the USD→CNY conversion at the fixed 1 CNY = 0.15
-// USD, the null degradations, the numOf coercion of garbage bucket fields,
-// the money/rate formatting, and the deep merge behind the stats board's family-scope cost cells.
+// Session-cost estimate (src/client/cost.ts): the model-price-book lookup tiers and the fixed 1 CNY = 0.15 USD conversion.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'

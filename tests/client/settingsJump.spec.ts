@@ -1,7 +1,5 @@
-// openPluginSettings (src/client/settingsJump.ts): the guarded DOM jump to
-// the plugin's preferences on the Plugins main panel — panel entry first,
-// the bundle card's open control after the page settles — plus the hostile
-// degradations (missing chrome, throwing elements, a card that never lists). jsdom supplies the real document.
+// openPluginSettings (src/client/settingsJump.ts): the guarded DOM jump to the plugin's preferences on the Plugins
+// main panel — panel entry first, the bundle card's open control after the page settles.
 
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'vitest'
@@ -22,7 +20,6 @@ function trigger(doc: Document, expanded: 'true' | 'false'): HTMLButtonElement {
   return b
 }
 
-/** Count native click dispatches on an element. */
 function clicks(el: HTMLElement): { count: () => number } {
   let n = 0
   el.addEventListener('click', () => { n++ })
@@ -73,7 +70,6 @@ describe('openPluginSettings (the Plugins main panel)', () => {
     // The list has not rendered the card yet: the poll keeps ticking.
     runs[0]()
     assert.equal(runs.length, 2)
-    // The card renders: its title control opens the bundle's page.
     const { title, switchEl } = bundleCard(document)
     const titleClicks = clicks(title)
     const switchClicks = clicks(switchEl)

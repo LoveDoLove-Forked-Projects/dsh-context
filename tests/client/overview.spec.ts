@@ -1,5 +1,4 @@
-// The Context Dashboard's data layer (src/client/overview.ts): the hostile-
-// snapshot row join, filters, sorts, aggregations, and relative time — every guard branch with hostile fixtures.
+// The Context Dashboard's data layer (src/client/overview.ts) under deliberately hostile fixtures.
 
 import assert from 'node:assert/strict'
 import { describe, test, vi } from 'vitest'
@@ -901,7 +900,6 @@ describe('skillLoadsOf', () => {
 
 describe('rowLoadedSkill', () => {
   const NOW = Date.UTC(2026, 8, 20, 12)
-  /** The local day key `back` days before NOW — TZ-independent. */
   const day = (back: number): string => {
     const key = dayKeyOf(NOW - back * 86_400_000)
     assert.ok(key !== null)

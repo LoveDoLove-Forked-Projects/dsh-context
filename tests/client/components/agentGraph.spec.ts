@@ -1,8 +1,3 @@
-// AgentGraph (src/client/components/agentGraph.tsx) — the Agent network card
-// rendered for real against a faithful in-memory sessions face: tree
-// rendering with donut/ring geometry, hover inspector, click/keyboard
-// navigation, catalog refresh, live snapshot updates, and every degrade arm (no service, no anchor, no stats).
-
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
@@ -35,7 +30,6 @@ async function clickEl(el: Element): Promise<void> {
   })
 }
 
-/** A faithful in-memory `ctx.sessions` double: snapshot feed + navigation + catalog refresh. */
 class FakeSessions {
   opened: string[] = []
   refreshed: string[] = []
@@ -64,7 +58,6 @@ class FakeSessions {
     return this.rejectRefresh ? Promise.reject(new Error('catalog unavailable')) : Promise.resolve()
   }
 
-  /** Swap the snapshot and notify (act-wrapped by the caller via flush). */
   setState(byId: Record<string, unknown>): void {
     this.state = { byId }
     for (const fn of this.listeners) fn()
@@ -137,7 +130,6 @@ describe('AgentGraph — degrade arms', () => {
     const m2 = await mount(h(View, { sessionId: '', self: selfStats() }))
     assert.equal(text(m2.container), '')
     await m2.unmount()
-    // Neither mount touched the catalog.
     assert.deepEqual(face.refreshed, [])
   })
 })
@@ -158,7 +150,6 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(rendered.includes('2 running'))
     assert.ok(rendered.includes('2.3k tokens in context'))
 
-    // The current node wears the brand self-ring and shows the freshest stats.
     const self = query(m.container, 'g.lc-agent-self')
     assert.equal(self.getAttribute('data-agent'), 'root')
     assert.equal(self.getAttribute('role'), 'img')
@@ -172,7 +163,6 @@ describe('AgentGraph — the family tree', () => {
     assert.equal(queryAll(m.container, 'path.lc-agents-link-live').length, 1)
     assert.equal(queryAll(m.container, 'path.lc-agents-flow').length, 1)
 
-    // The worker node: descriptor label, running halo class, fused ring (composition + free remainder).
     const worker = query(m.container, 'g[data-agent="worker"]')
     assert.ok(text(worker).includes('worker-bee'))
     assert.ok(text(worker).includes('83%'))
@@ -181,7 +171,6 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(workerSegs.length > 1)
     assert.ok(worker.querySelector('circle.lc-agent-free') !== null)
 
-    // The one-shot child: no timeline → id label, pressure-only fused ring (arc + free), done halo class.
     const done = query(m.container, 'g[data-agent="done"]')
     assert.ok(text(done).includes('95%'))
     assert.ok(done.classList.contains('lc-agent-done'))
@@ -189,7 +178,6 @@ describe('AgentGraph — the family tree', () => {
     assert.equal(doneSegs.length, 2)
     assert.ok(done.querySelector('circle.lc-agent-free') !== null)
 
-    // The inspector mirrors the current node by default, with the self badge.
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('Main Agent'))
     assert.ok(text(inspector).includes('current'))
@@ -198,7 +186,6 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(text(inspector).includes('1.2k billed'))
     assert.ok(!text(inspector).includes('click to open'))
 
-    // The legend lists all six categories plus the free-window and running-edge keys.
     assert.equal(queryAll(m.container, '.lc-agents-legend-item').length, 9)
 
     // The stage cancels a horizontal swipe it cannot consume, so the browser never reads it as a history swipe
@@ -228,11 +215,9 @@ describe('AgentGraph — the family tree', () => {
     await unhover(worker)
     assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('Main Agent'))
 
-    // Click and keyboard both navigate; the current node never navigates.
     await clickEl(worker)
     assert.deepEqual(face.opened, ['worker'])
 
-    // The one-shot child's inspector shows its mode badge and sample-derived occupancy.
     await hover(query(m.container, 'g[data-agent="done"]'))
     const doneInspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(doneInspector).includes('one-shot'))
@@ -357,7 +342,6 @@ describe('AgentGraph — the family tree', () => {
     // Long labels wrap in full — no ellipsis truncation.
     assert.ok(text(query(m.container, 'g[data-agent="longname"]')).includes('a-very-long-descriptor-label'))
 
-    // The inspector for a stat-less node shows just the identity.
     await hover(bare)
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('bare'))
@@ -367,11 +351,9 @@ describe('AgentGraph — the family tree', () => {
     await hover(query(m.container, 'g[data-agent="windowless"]'))
     assert.equal(query(m.container, '.lc-agents-inspector-stats').textContent, '640')
 
-    // All-zero usage: no billed bit at all.
     await hover(query(m.container, 'g[data-agent="flatusage"]'))
     assert.ok(!text(query(m.container, '.lc-agents-inspector')).includes('billed'))
 
-    // Self with no stats: no percentage, no chips tokens.
     assert.ok(text(query(m.container, 'g.lc-agent-self')).includes('—'))
 
     await m.unmount()
@@ -384,7 +366,6 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(rendered.includes('Agent 网络'))
     assert.ok(rendered.includes('3 个 Agent'))
     assert.ok(rendered.includes('当前'))
-    // Hovering the continuable child surfaces its mode badge in the inspector.
     await hover(query(m.container, 'g[data-agent="worker"]'))
     assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('多轮'))
     await m.unmount()
@@ -432,7 +413,6 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     }
   }
 
-  /** A programmable global fetch recording its reads: POSTs resolve `value` (or throw, or hold until released). */
   function detailFetch(options: { reject?: boolean; head?: unknown; nullValue?: boolean; defer?: boolean } = {}) {
     const calls: string[] = []
     let release: ((value: unknown) => void) | undefined

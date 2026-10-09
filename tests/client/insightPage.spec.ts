@@ -1,7 +1,5 @@
-// The Context Insights page's registrations (src/client/insightPage.ts):
-// the keyed `main` panel and the `sidebar.panellist` entry under one id,
-// mounted while the `insightsEntry` preference shows them and unwound on
-// 'hide'; the watcher's own disposer unsubscribes and unwinds any live mount.
+// The Context Insights page's registrations (src/client/insightPage.ts): the keyed `main` panel and the
+// `sidebar.panellist` entry under one id, mounted while the `insightsEntry` preference shows them and unwound on 'hide'.
 
 import assert from 'node:assert/strict'
 import { createElement as h, type ReactElement } from 'react'

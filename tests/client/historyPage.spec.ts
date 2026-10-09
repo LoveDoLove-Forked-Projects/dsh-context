@@ -1,6 +1,4 @@
-// historyPage (src/client/historyPage.ts): the targeted content fetch — raw
-// durable-log pages mapped into the browser's conversation-node shapes, plus
-// the per-session fetcher built over the shared api client.
+// historyPage (src/client/historyPage.ts): raw durable-log pages mapped into the browser's conversation-node shapes.
 
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'

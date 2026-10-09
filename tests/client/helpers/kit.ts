@@ -1,6 +1,5 @@
-// Client test kit: real dictionaries, real React rendering, and a faithful
-// harness-context implementation (the documented cordis/locale/slots
-// contracts, not mocks of plugin code). Shared by every client spec so each test file stays small and stateless.
+// Client test kit: real dictionaries, real React rendering, and a faithful harness-context implementation
+// (the documented cordis/locale/slots contracts, not mocks of plugin code), shared by every client spec.
 
 import { act, type ReactElement, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -38,7 +37,6 @@ export function makeKit(active: 'en' | 'zh' = 'en'): ViewKit {
 export interface Mounted {
   container: HTMLElement
   root: Root
-  /** Re-render with new props (act-wrapped). */
   update(el: ReactElement): Promise<void>
   unmount(): Promise<void>
 }
@@ -134,7 +132,6 @@ export async function unhover(el: Element): Promise<void> {
   })
 }
 
-/** Dispatch a real keydown (Escape etc.) on window, act-wrapped. */
 export async function keydown(key: string, target: HTMLElement | Window = window): Promise<void> {
   await act(async () => {
     target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))

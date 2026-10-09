@@ -1,8 +1,3 @@
-// ContextModal (src/client/components/contextModal.tsx) — the /context
-// dialog rendered through the REGISTERED composition (makeContextModal over
-// a TestClientCtx), with the per-session modal store driving open/close,
-// real sessions faces for the consume-token bail, and real projections.
-
 import { act, createElement as h, useSyncExternalStore } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
@@ -33,7 +28,6 @@ function timeline(over: Record<string, unknown> = {}): ContextTimeline {
   } as ContextTimeline
 }
 
-/** A useContextModal hook really bound to the per-session store. */
 function boundModalHook(sessionId: string) {
   const store = modalStoreOf(sessionId)
   return (sel: (open: boolean) => boolean): boolean =>
@@ -218,7 +212,6 @@ describe('ContextModal', () => {
     assert.equal(sessions.bails.length, 1)
     assert.equal(sessions.bails[0].event, 'slash/input-consume-token')
     assert.deepEqual(sessions.bails[0].payload, { guard: { kind: 'bare-token', token: '/context' } })
-    // The guard was taken, not left behind.
     assert.equal(takePendingConsume(sid), undefined)
     await m.unmount()
   })
@@ -471,7 +464,6 @@ describe('ContextModal — the split generation', () => {
     // The composition card paints off the head while the browser's detail note shows.
     assert.ok(text(m.container).includes(DICT_EN['overview.title']))
     assert.ok(text(m.container).includes(DICT_EN['detail.loading']))
-    // The detail lands: the browser serves the step picker + the sections.
     await until(() => !text(m.container).includes(DICT_EN['detail.loading']), 'the modal detail never landed')
     assert.equal(queryAll(m.container, '.lc-br-pick option').length, 2, 'live + the one served step')
     assert.ok(text(m.container).includes('1 Item'), 'the assistant section counts the served node')

@@ -1,8 +1,3 @@
-// RichText/RichSwitch/RichCopy/useRichMode (src/client/components/richText.tsx):
-// markdown mode renders through the REAL shared MarkdownText; raw mode is an
-// exact-text line-numbered <pre>; the switch drives the mode hook; the copy
-// control writes the exact source through the harness clipboard primitive.
-
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
 import { afterEach, describe, test, vi } from 'vitest'
