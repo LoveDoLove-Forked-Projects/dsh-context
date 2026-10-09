@@ -96,7 +96,15 @@
 .lc-pi-row-btn { appearance: none; border: 0; background: none; font: inherit; color: inherit; text-align: left; padding: 0; cursor: pointer; width: 100%; }
 .lc-pi-row { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; text-decoration: none; color: inherit; }
 .lc-pi-hint { text-decoration: none; }
-.lc-pi-update { color: var(--dsw-alias-state-warn-primary); font-size: 11px; margin-left: 6px; white-space: nowrap; }
+/*
+ The update notice takes its own line under the version instead of trailing it.
+ Sharing the line left the value box overflowing by 29-44px at the card's 240px
+ floor (measured, English labels), and the notice sat last in that box, so the
+ ellipsis always ate it first — ~15px of a 52px chip was all that survived, at
+ every version string tried. A block-level chip drops below instead, leaving the
+ version its own ellipsis on the first line.
+ */
+.lc-pi-update { display: block; color: var(--dsw-alias-state-warn-primary); font-size: 11px; margin-top: 1px; white-space: nowrap; }
 .lc-pi-label { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The leading site mark rides inline so the row's baseline alignment keeps the label text on the value's baseline. */
 .lc-pi-labelicon { display: inline-block; vertical-align: -2px; margin-right: 4px; }
