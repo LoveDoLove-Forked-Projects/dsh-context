@@ -109,7 +109,7 @@ describe('StatsTiming', () => {
     }
     const m = await mount(h(StatsTiming, { timing }))
     const labels = queryAll(m.container, '.lc-sl-label').map(n => n.textContent)
-    assert.deepEqual(labels, ['TTFT', 'Answer'], 'zero buckets and zero tools are gone')
+    assert.deepEqual(labels, ['TTFT', 'Answers'], 'zero buckets and zero tools are gone')
     assert.equal(queryAll(m.container, '.lc-sl-row').length, queryAll(m.container, '.lc-donut-seg').length)
     await m.unmount()
   })
@@ -136,7 +136,7 @@ describe('StatsTiming — the generation split', () => {
     assert.equal(queryAll(m.container, '.lc-sl-row').length, 6)
     assert.deepEqual(rowOf(m.container, 0), { pct: '16.7%', label: 'TTFT', count: '1m40s · 10 calls', dim: false })
     assert.deepEqual(rowOf(m.container, 1), { pct: '15.0%', label: 'Thinking', count: '1m30s', dim: false })
-    assert.deepEqual(rowOf(m.container, 2), { pct: '5.0%', label: 'Answer', count: '30.0s', dim: false })
+    assert.deepEqual(rowOf(m.container, 2), { pct: '5.0%', label: 'Answers', count: '30.0s', dim: false })
     assert.deepEqual(rowOf(m.container, 3), { pct: '3.3%', label: 'Tool args', count: '20.0s', dim: false })
     assert.deepEqual(rowOf(m.container, 4), { pct: '50.0%', label: 'Tool runs', count: '5m0s · 25 runs', dim: false })
     assert.deepEqual(rowOf(m.container, 5), { pct: '10.0%', label: 'Overhead', count: '1m0s', dim: false })
@@ -164,7 +164,7 @@ describe('StatsTiming — the generation split', () => {
     const timing: TimingTotals = { ...SPLIT, reasoningBlocks: 14, textBlocks: 5, toolArgBlocks: 26 }
     const m = await mount(h(StatsTiming, { timing }))
     assert.deepEqual(rowOf(m.container, 1), { pct: '15.0%', label: 'Thinking', count: '1m30s · 14 blocks', dim: false })
-    assert.deepEqual(rowOf(m.container, 2), { pct: '5.0%', label: 'Answer', count: '30.0s · 5 blocks', dim: false })
+    assert.deepEqual(rowOf(m.container, 2), { pct: '5.0%', label: 'Answers', count: '30.0s · 5 blocks', dim: false })
     assert.deepEqual(rowOf(m.container, 3), { pct: '3.3%', label: 'Tool args', count: '20.0s · 26 blocks', dim: false })
     await m.unmount()
   })
@@ -183,7 +183,7 @@ describe('StatsTiming — the generation split', () => {
   test('the split labels localize', async () => {
     const m = await mount(h(StatsTimingZh, { timing: SPLIT }))
     assert.equal(rowOf(m.container, 1).label, '模型思考')
-    assert.equal(rowOf(m.container, 2).label, '模型输出')
+    assert.equal(rowOf(m.container, 2).label, '模型回复')
     assert.equal(rowOf(m.container, 3).label, '工具参数')
     await m.unmount()
   })
@@ -208,8 +208,8 @@ describe('StatsTiming — the generation split', () => {
     const timing: TimingTotals = { ...SPLIT, reasoningMs: 400_000, textMs: 100_000, toolArgMs: 0 }
     const m = await mount(h(StatsTiming, { timing }))
     assert.deepEqual(rowOf(m.container, 1), { pct: '66.7%', label: 'Thinking', count: '6m40s', dim: false })
-    assert.deepEqual(rowOf(m.container, 2), { pct: '16.7%', label: 'Answer', count: '1m40s', dim: false })
-    // The zero tool-args bucket is omitted whole, so Tools follows Answer.
+    assert.deepEqual(rowOf(m.container, 2), { pct: '16.7%', label: 'Answers', count: '1m40s', dim: false })
+    // The zero tool-args bucket is omitted whole, so Tools follows Answers.
     assert.equal(rowOf(m.container, 3).label, 'Tool runs')
     await m.unmount()
   })
