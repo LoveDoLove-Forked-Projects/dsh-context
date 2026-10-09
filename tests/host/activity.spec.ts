@@ -539,6 +539,28 @@ describe('contextActivity unit: the schemas over the pricing record', () => {
     assert.deepEqual(view.days, state.days, 'the view copies the entries whole')
   })
 
+  test('the served view never aliases a day\'s nested cost or skill records', () => {
+    const def = createContextActivityDefinition()
+    let state = applyActivity(def.init(), requestHeader('deepseek-v4', 'deepseek-official'))
+    state = applyActivity(state, stepStart(at(0)))
+    state = applyActivity(state, assistantMessage(at(0), { inputTokens: 1, outputTokens: 2 }))
+    state = applyActivity(state, skillInvocation(at(0), INVOCATION))
+    const view = def.wire.view(state)
+    const day = Object.keys(state.days)[0]
+    const served = view.days[day]
+    const persisted = state.days[day]
+    assert.ok(persisted.cost !== undefined && persisted.skills !== undefined, 'the fixture carries both records')
+    // `cost` is four levels deep and `skills` two; a shallow day copy would leave both pointing at persisted state,
+    // so a mutating registry, cache writer, or wire payload would write straight into the fold's own record.
+    assert.notEqual(served.cost, persisted.cost)
+    assert.notEqual(served.cost?.['deepseek-official'], persisted.cost?.['deepseek-official'])
+    assert.notEqual(served.cost?.['deepseek-official']?.['deepseek-v4'], persisted.cost?.['deepseek-official']?.['deepseek-v4'])
+    assert.notEqual(served.cost?.['deepseek-official']?.['deepseek-v4']?.off, persisted.cost?.['deepseek-official']?.['deepseek-v4']?.off)
+    assert.notEqual(served.skills, persisted.skills)
+    assert.notEqual(served.skills?.tdd, persisted.skills?.tdd)
+    assert.deepEqual(served, persisted)
+  })
+
   test('a malformed pricing record fails both schemas (strict: no drift)', () => {
     const def = createContextActivityDefinition()
     const bad = {

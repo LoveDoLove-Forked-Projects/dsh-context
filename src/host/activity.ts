@@ -17,7 +17,7 @@ import { z } from 'zod'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from './compat'
 import { skillNameOf } from './fold'
-import { addBilledUsage, tokenCountOf } from './foldMetering'
+import { addBilledUsage, copyCostUsage, tokenCountOf } from './foldMetering'
 import type { BilledUsage, UsageLike } from './foldMetering'
 import { costUsageSchema } from './timeline'
 import { dayKeyOf } from '../shared/days'
@@ -245,12 +245,19 @@ export function createContextActivityDefinition(): ProjectionDefinition<'context
     stateSchema: activityStateSchema,
     init: (): ActivityState => ({ days: {} }),
     apply: (state: ActivityState, event: SessionEvent) => applyActivity(state, event),
-    // The view copies the ledger (entries included) so the registry, the cache writer, and the
+    // The view copies the ledger AND each entry's nested records so the registry, the cache writer, and the
     // wire can never mutate the fold's own record; every mutation above clones along its path.
     wire: {
       viewSchema: contextActivitySchema,
       view: state => ({
-        days: Object.fromEntries(Object.entries(state.days).map(([k, v]) => [k, { ...v }])),
+        days: Object.fromEntries(Object.entries(state.days).map(([k, v]) => [k, {
+          ...v,
+          // Conditional spread: an `undefined`-valued property fails the whole lossless-JSON push.
+          ...(v.cost !== undefined ? { cost: copyCostUsage(v.cost) } : {}),
+          ...(v.skills !== undefined
+            ? { skills: Object.fromEntries(Object.entries(v.skills).map(([n, t]) => [n, { ...t }])) }
+            : {}),
+        }])),
       }),
     },
     stateVersion: 4,

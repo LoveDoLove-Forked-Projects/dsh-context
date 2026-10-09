@@ -74,6 +74,24 @@ export function addBilledUsage(
   return { ...(prev ?? {}), [provider]: nextModels }
 }
 
+/** The mirror of {@link addBilledUsage}: a served value must never alias the persisted record it was folded
+ * from, so every level of the ledger is copied. */
+export function copyCostUsage(cost: SessionCostUsage): SessionCostUsage {
+  const copy: SessionCostUsage = {}
+  for (const provider in cost) {
+    const models: Record<string, CostModelUsage> = {}
+    for (const model in cost[provider]) {
+      const periods = cost[provider][model]
+      const modelCopy: CostModelUsage = {}
+      if (periods.peak !== undefined) modelCopy.peak = { ...periods.peak }
+      if (periods.off !== undefined) modelCopy.off = { ...periods.off }
+      models[model] = modelCopy
+    }
+    copy[provider] = models
+  }
+  return copy
+}
+
 /** The key is the request envelope's (provider, model) face; a request without a model has nothing to price. */
 export function accumulateCost(st: TimelineState, time: number, usage: BilledUsage): void {
   const model = st.model

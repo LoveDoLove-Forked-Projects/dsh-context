@@ -3,7 +3,8 @@
  * Every field is a copy, so a served value never aliases persisted state.
  */
 
-import type { ContextTimelineDetail, CostModelUsage, SessionCostUsage, Snapshot, ToolTimingTotals } from '../shared/types'
+import type { ContextTimelineDetail, Snapshot, ToolTimingTotals } from '../shared/types'
+import { copyCostUsage } from './foldMetering'
 import type { FoldBounds } from './config'
 import type { TimelineState } from './foldState'
 
@@ -42,19 +43,7 @@ function headFieldsOf(state: TimelineState): Snapshot {
   }
   // The cost totals ride the wire as COPIES, like the collections.
   if (state.cost !== undefined) {
-    const cost: SessionCostUsage = {}
-    for (const provider in state.cost) {
-      const models: Record<string, CostModelUsage> = {}
-      for (const model in state.cost[provider]) {
-        const periods = state.cost[provider][model]
-        const copy: CostModelUsage = {}
-        if (periods.peak !== undefined) copy.peak = { ...periods.peak }
-        if (periods.off !== undefined) copy.off = { ...periods.off }
-        models[model] = copy
-      }
-      cost[provider] = models
-    }
-    result.cost = cost
+    result.cost = copyCostUsage(state.cost)
   }
   // The timing totals ride the wire as COPIES too (per-name rows included).
   if (state.timing !== undefined) {
