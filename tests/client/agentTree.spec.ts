@@ -524,6 +524,9 @@ describe('subagentCostFoldOf', () => {
 })
 
 describe('layoutForest', () => {
+  /** The natural cell pitch (agentTree.ts SLOT_MAX) — the width a roomy stage settles on. */
+  const SLOT = 276
+
   function forestOf(ids: [string, string?][]): AgentForest {
     const nodes = ids.map(([id, parent], i) => ({
       id,
@@ -572,19 +575,19 @@ describe('layoutForest', () => {
     assert.equal(layout.points.length, 1)
     assert.equal(layout.points[0].depth, 0)
     assert.equal(layout.links.length, 0)
-    assert.equal(layout.width, 208)
+    assert.equal(layout.width, SLOT)
     assert.equal(layout.height, 48 + 104 + 24)
-    assert.equal(layout.cardW, 208 - 12)
+    assert.equal(layout.cardW, SLOT - 12)
   })
 
   test('levels follow depth, siblings claim leaf slots, parents center over children', () => {
     const layout = layoutForest(forestOf([['root'], ['a', 'root'], ['b', 'root'], ['g', 'a']]))
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
     // Two leaf cells (g under a, then b); root centers between them.
-    assert.equal(pointOf.get('g')?.x, 104)
-    assert.equal(pointOf.get('a')?.x, 104)
-    assert.equal(pointOf.get('b')?.x, 104 + 208)
-    assert.equal(pointOf.get('root')?.x, 104 + 104)
+    assert.equal(pointOf.get('g')?.x, SLOT / 2)
+    assert.equal(pointOf.get('a')?.x, SLOT / 2)
+    assert.equal(pointOf.get('b')?.x, SLOT / 2 + SLOT)
+    assert.equal(pointOf.get('root')?.x, SLOT)
     // One row per depth level.
     assert.equal(pointOf.get('root')?.y, 48)
     assert.equal(pointOf.get('a')?.y, 48 + 144)
@@ -602,15 +605,15 @@ describe('layoutForest', () => {
     assert.equal(linkG.color, familyHue(0))
     assert.equal(layout.links.find(l => l.to === 'b')?.color, familyHue(1))
     assert.equal(layout.links.length, 3)
-    assert.equal(layout.width, 2 * 208)
+    assert.equal(layout.width, 2 * SLOT)
     assert.equal(layout.height, 48 + 2 * 144 + 104 + 24)
   })
 
   test('responsive: a wide stage keeps the natural pitch', () => {
     const forest = forestOf([['root'], ['a', 'root'], ['b', 'root'], ['c', 'root']])
     const layout = layoutForest(forest, 4000)
-    assert.equal(layout.width, 3 * 208)
-    assert.equal(layout.cardW, 208 - 12)
+    assert.equal(layout.width, 3 * SLOT)
+    assert.equal(layout.cardW, SLOT - 12)
   })
 
   test('responsive: a tighter stage compresses the slot pitch to fit exactly', () => {

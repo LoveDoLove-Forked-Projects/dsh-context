@@ -173,11 +173,11 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(query(m.container, '[data-agent="worker"]').querySelector('.lc-agent-self-badge') === null)
 
     // Links join both children as bezier curves out of the root card's foot
-    // (x=208: root centers over the two leaf slots) with joint plugs at both ends;
-    // the running one layers a flowing pulse over the solid lineage stroke.
+    // (x=276: the natural slot pitch, with the root centered over the two leaf slots)
+    // with joint plugs at both ends; the running one layers a flowing pulse over the solid lineage stroke.
     const links = queryAll(m.container, 'path.lc-agents-link')
     assert.equal(links.length, 2)
-    assert.ok(links.every(l => l.getAttribute('d')?.startsWith('M 208 ')))
+    assert.ok(links.every(l => l.getAttribute('d')?.startsWith('M 276 ')))
     assert.ok(links.every(l => l.getAttribute('d')?.includes(' C ')))
     assert.equal(queryAll(m.container, 'path.lc-agents-link-live').length, 1)
     assert.equal(queryAll(m.container, 'path.lc-agents-flow').length, 1)
