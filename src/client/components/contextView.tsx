@@ -551,6 +551,7 @@ export function makeContextView(
             billed: usage !== null ? numOf(usage.uncachedInputTokens) + numOf(usage.outputTokens)
               + numOf(usage.cacheReadTokens) + numOf(usage.cacheWriteTokens) : null,
             requests: requests.length,
+            costUsage: data.cost ?? null,
           }}
         />
 

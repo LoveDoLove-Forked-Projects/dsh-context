@@ -132,6 +132,19 @@ export async function unhover(el: Element): Promise<void> {
   })
 }
 
+/** Keyboard focus. React synthesizes onFocus/onBlur from the BUBBLING focusin/focusout pair. */
+export async function focus(el: Element): Promise<void> {
+  await act(async () => {
+    el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+  })
+}
+
+export async function blur(el: Element): Promise<void> {
+  await act(async () => {
+    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+  })
+}
+
 export async function keydown(key: string, target: HTMLElement | Window = window): Promise<void> {
   await act(async () => {
     target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))

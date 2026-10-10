@@ -3,17 +3,18 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
 import {
-  AGENT_NODE_R,
   AGENT_TREE_LIMIT,
   agentDurationOf,
   agentForestOf,
   agentIdentityOf,
   agentRowOf,
   agentStatsOf,
+  barSegments,
   familyHue,
-  ringSegments,
   fmtDurationCompact,
   layoutForest,
+  lineageOf,
+  pressureColorOf,
   sessionsFaceOf,
   subagentCostFoldOf,
   type AgentForest,
@@ -98,16 +99,17 @@ describe('agentDurationOf', () => {
 describe('agentStatsOf', () => {
   test('absent values degrade to empty stats', () => {
     assert.deepEqual(agentStatsOf(undefined), {
-      head: null, requests: 0, billed: null, durationMs: null, identity: null,
+      head: null, requests: 0, billed: null, costUsage: null, durationMs: null, identity: null,
     })
     assert.deepEqual(agentStatsOf({}), {
-      head: null, requests: 0, billed: null, durationMs: null, identity: null,
+      head: null, requests: 0, billed: null, costUsage: null, durationMs: null, identity: null,
     })
   })
 
   test('timeline rows produce a full headline with parts and request count', () => {
+    const cost: SessionCostUsage = { 'deepseek-official': { 'deepseek-v4-flash': { peak: { uncached: 1, cacheRead: 2, cacheWrite: 0, output: 3 } } } }
     const stats = agentStatsOf({
-      contextTimeline: timeline(500, 3),
+      contextTimeline: { ...timeline(500, 3), cost },
       contextPressure: { projectedTokens: 800, contextWindow: 1000 },
       contextBreakdown: { systemTokens: 10, toolsTokens: 20, messageTokens: 470 },
       tokenUsage: { uncachedInputTokens: 100, outputTokens: 50, cacheReadTokens: 30, cacheWriteTokens: 20 },
@@ -121,6 +123,7 @@ describe('agentStatsOf', () => {
     assert.ok(stats.head.parts.length > 0)
     assert.equal(stats.requests, 3)
     assert.equal(stats.billed, 200)
+    assert.deepEqual(stats.costUsage, cost)
     assert.equal(stats.durationMs, 2000)
     assert.deepEqual(stats.identity, { mode: 'continuable', label: 'helper' })
   })
@@ -182,17 +185,20 @@ describe('agentForestOf', () => {
 
   test('merges live self stats onto the current node', () => {
     const head = { tokens: 9, window: 10, pct: 90, parts: [] }
-    const forest = agentForestOf(snap({}), 's1', { head, billed: 7, requests: 4 })
+    const selfCost: SessionCostUsage = { p: { m: { peak: { uncached: 5, cacheRead: 0, cacheWrite: 0, output: 0 } } } }
+    const forest = agentForestOf(snap({}), 's1', { head, billed: 7, requests: 4, costUsage: selfCost })
     assert.ok(forest !== null)
     assert.equal(forest.nodes[0].head, head)
     assert.equal(forest.nodes[0].billed, 7)
     assert.equal(forest.nodes[0].requests, 4)
+    assert.deepEqual(forest.nodes[0].costUsage, selfCost)
     // Null self fields keep the row-derived stats; zero requests never erases the row's count.
+    const rowCost: SessionCostUsage = { p: { m: { off: { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 9 } } } }
     const withRow = agentForestOf(
       snap({
         s1: row({
           projectionValues: {
-            contextTimeline: timeline(10, 2),
+            contextTimeline: { ...timeline(10, 2), cost: rowCost },
             tokenUsage: { uncachedInputTokens: 1, outputTokens: 1, cacheReadTokens: 1, cacheWriteTokens: 1 },
           },
         }),
@@ -203,6 +209,7 @@ describe('agentForestOf', () => {
     assert.ok(withRow !== null)
     assert.equal(withRow.nodes[0].requests, 2)
     assert.equal(withRow.nodes[0].billed, 4)
+    assert.deepEqual(withRow.nodes[0].costUsage, rowCost)
     assert.ok(withRow.nodes[0].head !== null)
   })
 
@@ -330,6 +337,62 @@ describe('agentForestOf', () => {
     // a → b → a(chain hit): the walk roots at b, whose subtree holds both.
     assert.deepEqual(forest.nodes.map(n => n.id), ['b', 'a'])
     assert.equal(forest.overflow, 0)
+  })
+
+  test('siblings follow the parent catalog spawn order when cached', () => {
+    // The activity heuristic alone would lead with running/recent a; the parent's
+    // subagentCatalog (the harness header popup's own order) says b first.
+    const forest = agentForestOf(snap({
+      root: row({
+        projectionValues: {
+          subagentCatalog: [
+            { id: 'b', createdAt: 2, mode: 'one-shot' },
+            { id: 'a', createdAt: 1, mode: 'one-shot' },
+          ],
+        },
+      }),
+      a: row({ parentId: 'root', running: true, updatedAt: 9 }),
+      b: row({ parentId: 'root', updatedAt: 1 }),
+    }), 'root')
+    assert.ok(forest !== null)
+    assert.deepEqual(forest.nodes.map(n => n.id), ['root', 'b', 'a'])
+  })
+
+  test('uncataloged children sort after cataloged ones; malformed catalog entries drop alone', () => {
+    const forest = agentForestOf(snap({
+      root: row({
+        projectionValues: {
+          subagentCatalog: [
+            { id: 'b', createdAt: 2 },
+            'garbage',
+            { id: 42 },
+            { id: '' },
+            // A repeated id keeps its first rank.
+            { id: 'b', createdAt: 3 },
+          ],
+        },
+      }),
+      // Insertion order a→b→c makes the sort compare the cataloged b against the
+      // uncataloged a in both argument directions.
+      a: row({ parentId: 'root', updatedAt: 5 }),
+      b: row({ parentId: 'root', updatedAt: 1 }),
+      c: row({ parentId: 'root', running: true }),
+    }), 'root')
+    assert.ok(forest !== null)
+    // b cataloged first; the uncataloged tail keeps the activity heuristic (running c, then a).
+    assert.deepEqual(forest.nodes.map(n => n.id), ['root', 'b', 'c', 'a'])
+  })
+
+  test('a hostile or empty catalog value keeps the activity heuristic', () => {
+    for (const cat of ['nope', 42, [], [null], [{ id: '' }]]) {
+      const forest = agentForestOf(snap({
+        root: row({ projectionValues: { subagentCatalog: cat } }),
+        a: row({ parentId: 'root', updatedAt: 1 }),
+        b: row({ parentId: 'root', updatedAt: 9 }),
+      }), 'root')
+      assert.ok(forest !== null)
+      assert.deepEqual(forest.nodes.map(n => n.id), ['root', 'b', 'a'], `catalog ${JSON.stringify(cat)} ignored`)
+    }
   })
 
   test('the blank current session survives the blank filter', () => {
@@ -473,6 +536,7 @@ describe('layoutForest', () => {
       head: null,
       requests: 0,
       billed: null,
+      costUsage: null,
       durationMs: null,
       identity: null,
     }))
@@ -506,45 +570,45 @@ describe('layoutForest', () => {
     assert.equal(layout.points.length, 1)
     assert.equal(layout.points[0].depth, 0)
     assert.equal(layout.links.length, 0)
-    assert.equal(layout.width, 184)
-    assert.equal(layout.height, 56 + 90 + 28)
-    assert.equal(layout.captionW, 184 - 8)
+    assert.equal(layout.width, 208)
+    assert.equal(layout.height, 48 + 104 + 24)
+    assert.equal(layout.cardW, 208 - 12)
   })
 
   test('levels follow depth, siblings claim leaf slots, parents center over children', () => {
     const layout = layoutForest(forestOf([['root'], ['a', 'root'], ['b', 'root'], ['g', 'a']]))
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
     // Two leaf cells (g under a, then b); root centers between them.
-    assert.equal(pointOf.get('g')?.x, 92)
-    assert.equal(pointOf.get('a')?.x, 92)
-    assert.equal(pointOf.get('b')?.x, 92 + 184)
-    assert.equal(pointOf.get('root')?.x, 92 + 92)
+    assert.equal(pointOf.get('g')?.x, 104)
+    assert.equal(pointOf.get('a')?.x, 104)
+    assert.equal(pointOf.get('b')?.x, 104 + 208)
+    assert.equal(pointOf.get('root')?.x, 104 + 104)
     // One row per depth level.
-    assert.equal(pointOf.get('root')?.y, 56)
-    assert.equal(pointOf.get('a')?.y, 56 + 154)
-    assert.equal(pointOf.get('g')?.y, 56 + 2 * 154)
-    // Links exit the parent's cell bottom and enter the child's top.
+    assert.equal(pointOf.get('root')?.y, 48)
+    assert.equal(pointOf.get('a')?.y, 48 + 144)
+    assert.equal(pointOf.get('g')?.y, 48 + 2 * 144)
+    // Links exit the parent card's bottom edge and enter the child card's top edge.
     const linkG = layout.links.find(l => l.to === 'g')
     assert.ok(linkG !== undefined)
     assert.equal(linkG.x1, pointOf.get('a')?.x)
-    assert.equal(linkG.y1, (pointOf.get('a')?.y as number) + 90)
+    assert.equal(linkG.y1, (pointOf.get('a')?.y as number) + 104)
     assert.equal(linkG.x2, pointOf.get('g')?.x)
-    assert.equal(linkG.y2, (pointOf.get('g')?.y as number) - AGENT_NODE_R - 10)
+    assert.equal(linkG.y2, pointOf.get('g')?.y)
     assert.equal(linkG.running, false)
     assert.equal(layout.links.find(l => l.to === 'b')?.running, true)
     // Links carry the family hue of the child's level-1 subtree: g inherits a's family (0); b is its own family (1).
     assert.equal(linkG.color, familyHue(0))
     assert.equal(layout.links.find(l => l.to === 'b')?.color, familyHue(1))
     assert.equal(layout.links.length, 3)
-    assert.equal(layout.width, 2 * 184)
-    assert.equal(layout.height, 56 + 2 * 154 + 90 + 28)
+    assert.equal(layout.width, 2 * 208)
+    assert.equal(layout.height, 48 + 2 * 144 + 104 + 24)
   })
 
   test('responsive: a wide stage keeps the natural pitch', () => {
     const forest = forestOf([['root'], ['a', 'root'], ['b', 'root'], ['c', 'root']])
     const layout = layoutForest(forest, 4000)
-    assert.equal(layout.width, 3 * 184)
-    assert.equal(layout.captionW, 184 - 8)
+    assert.equal(layout.width, 3 * 208)
+    assert.equal(layout.cardW, 208 - 12)
   })
 
   test('responsive: a tighter stage compresses the slot pitch to fit exactly', () => {
@@ -552,7 +616,7 @@ describe('layoutForest', () => {
     const layout = layoutForest(forest, 500)
     const slot = 500 / 3
     assert.equal(layout.width, 500)
-    assert.equal(layout.captionW, slot - 8)
+    assert.equal(layout.cardW, slot - 12)
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
     assert.equal(pointOf.get('a')?.x, slot / 2)
     assert.equal(pointOf.get('b')?.x, slot * 1.5)
@@ -560,20 +624,24 @@ describe('layoutForest', () => {
     assert.equal(pointOf.get('root')?.x, slot * 1.5)
   })
 
-  test('responsive: two leaves on a narrow stage compress below the minimum pitch (no wrap needed)', () => {
-    // Stage 180 → perLevel = max(2, 1) = 2, and 2 leaves fit: the pitch just
-    // drops to 90px — the layout always matches the stage, never scrolls.
+  test('responsive: a narrow stage folds the family into a single-column stack', () => {
+    // Stage 180 → perLevel = max(1, 1) = 1: cards fold one per row — a readable
+    // vertical stack instead of two crushed mini-cards; the layout still matches the stage exactly.
     const layout = layoutForest(forestOf([['root'], ['a', 'root'], ['b', 'root']]), 180)
     assert.equal(layout.width, 180)
-    assert.equal(layout.captionW, 90 - 8)
+    assert.equal(layout.cardW, 180 - 12)
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
-    assert.equal(pointOf.get('a')?.x, 45)
-    assert.equal(pointOf.get('b')?.x, 135)
     assert.equal(pointOf.get('root')?.x, 90)
+    assert.equal(pointOf.get('a')?.x, 90)
+    assert.equal(pointOf.get('b')?.x, 90)
+    assert.equal(pointOf.get('root')?.y, 48)
+    assert.equal(pointOf.get('a')?.y, 48 + 144)
+    assert.equal(pointOf.get('b')?.y, 48 + 2 * 144)
+    assert.equal(layout.height, 48 + 2 * 144 + 104 + 24)
   })
 
   test('responsive: a level too wide even at the minimum pitch wraps into bands', () => {
-    // Stage 300 → perLevel = floor(300/112) = 2: the 3-child level splits 2+1
+    // Stage 300 → perLevel = floor(300/150) = 2: the 3-child level splits 2+1
     // at a 150px cell pitch; short bands center themselves.
     const layout = layoutForest(forestOf([['root'], ['a', 'root'], ['b', 'root'], ['c', 'root']]), 300)
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
@@ -582,38 +650,38 @@ describe('layoutForest', () => {
     assert.equal(pointOf.get('b')?.x, 75 + 150)
     assert.equal(pointOf.get('c')?.x, 150)
     // The wrapped band is a row of its own.
-    assert.equal(pointOf.get('root')?.y, 56)
-    assert.equal(pointOf.get('a')?.y, 56 + 154)
-    assert.equal(pointOf.get('c')?.y, 56 + 2 * 154)
-    // Links still join every child — the cross-band one keeps the bezier fallback.
+    assert.equal(pointOf.get('root')?.y, 48)
+    assert.equal(pointOf.get('a')?.y, 48 + 144)
+    assert.equal(pointOf.get('c')?.y, 48 + 2 * 144)
+    // Links still join every child, the cross-band one included.
     const linkC = layout.links.find(l => l.to === 'c')
     assert.ok(linkC !== undefined)
-    assert.equal(linkC.y1, 56 + 90)
-    assert.equal(linkC.y2, 56 + 2 * 154 - AGENT_NODE_R - 10)
+    assert.equal(linkC.y1, 48 + 104)
+    assert.equal(linkC.y2, 48 + 2 * 144)
     assert.equal(linkC.color, familyHue(2))
     assert.equal(layout.links.find(l => l.to === 'a')?.color, familyHue(0))
     assert.equal(layout.width, 300)
-    assert.equal(layout.height, 56 + 2 * 154 + 90 + 28)
-    assert.equal(layout.captionW, 150 - 8)
+    assert.equal(layout.height, 48 + 2 * 144 + 104 + 24)
+    assert.equal(layout.cardW, 150 - 12)
   })
 
   test('responsive: full bands at an intermediate pitch fit the stage exactly', () => {
-    // Stage 400 → perLevel = 3; six children split 3+3 at a 133px cell pitch.
+    // Stage 400 → perLevel = 2; six children split 2+2+2 at a 200px cell pitch.
     const kids: [string, string?][] = [['root']]
     for (const id of ['a', 'b', 'c', 'd', 'e', 'f']) kids.push([id, 'root'])
     const layout = layoutForest(forestOf(kids), 400)
-    const slot = 400 / 3
+    const slot = 400 / 2
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
     assert.equal(pointOf.get('a')?.x, slot / 2)
-    assert.equal(pointOf.get('c')?.x, slot * 2.5)
-    assert.equal(pointOf.get('d')?.y, 56 + 2 * 154)
+    assert.equal(pointOf.get('c')?.x, slot / 2)
+    assert.equal(pointOf.get('d')?.y, 48 + 2 * 144)
     assert.equal(layout.width, 400)
     assert.equal(layout.links.length, 6)
-    assert.equal(layout.captionW, slot - 8)
+    assert.equal(layout.cardW, slot - 12)
   })
 
   test('responsive: child bands interleave with later parent bands (kinship order)', () => {
-    // Stage 224 → perLevel = 2. Root's children split [p1,p2] / [p3]; p1's
+    // Stage 320 → perLevel = 2. Root's children split [p1,p2] / [p3]; p1's
     // kids' band lands right after p1's own band — BEFORE p3's band, so a family never straddles a stranger's row.
     const layout = layoutForest(forestOf([
       ['root'],
@@ -622,19 +690,19 @@ describe('layoutForest', () => {
       ['p3', 'root'],
       ['k1', 'p1'],
       ['k2', 'p1'],
-    ]), 224)
+    ]), 320)
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
-    assert.equal(pointOf.get('root')?.y, 56)
-    assert.equal(pointOf.get('p1')?.y, 56 + 154)
-    assert.equal(pointOf.get('k1')?.y, 56 + 2 * 154)
-    assert.equal(pointOf.get('p3')?.y, 56 + 3 * 154)
+    assert.equal(pointOf.get('root')?.y, 48)
+    assert.equal(pointOf.get('p1')?.y, 48 + 144)
+    assert.equal(pointOf.get('k1')?.y, 48 + 2 * 144)
+    assert.equal(pointOf.get('p3')?.y, 48 + 3 * 144)
     // Kinship interleave: p1's grandchildren sit between p1's band and p3's band.
     assert.ok((pointOf.get('k1')?.y as number) < (pointOf.get('p3')?.y as number))
     // Links keep their family hue through the interleave: p1's subtree is family 0, p3 is family 2.
     assert.equal(layout.links.find(l => l.to === 'k1')?.color, familyHue(0))
     assert.equal(layout.links.find(l => l.to === 'p3')?.color, familyHue(2))
-    assert.equal(layout.width, 224)
-    assert.equal(layout.height, 56 + 3 * 154 + 90 + 28)
+    assert.equal(layout.width, 320)
+    assert.equal(layout.height, 48 + 3 * 144 + 104 + 24)
   })
 
   test('responsive: a partially filled band flushes before an overflowing sibling group', () => {
@@ -649,10 +717,10 @@ describe('layoutForest', () => {
       ['k2b', 'p2'],
     ]), 300)
     const pointOf = new Map(layout.points.map(p => [p.id, p]))
-    assert.equal(pointOf.get('p1')?.y, 56 + 154)
-    assert.equal(pointOf.get('k1')?.y, 56 + 2 * 154)
-    assert.equal(pointOf.get('k2a')?.y, 56 + 3 * 154)
-    assert.equal(pointOf.get('k2b')?.y, 56 + 3 * 154)
+    assert.equal(pointOf.get('p1')?.y, 48 + 144)
+    assert.equal(pointOf.get('k1')?.y, 48 + 2 * 144)
+    assert.equal(pointOf.get('k2a')?.y, 48 + 3 * 144)
+    assert.equal(pointOf.get('k2b')?.y, 48 + 3 * 144)
     assert.equal(layout.links.length, 5)
     // k2a/k2b inherit p2's family hue (1), k1 inherits p1's (0).
     assert.equal(layout.links.find(l => l.to === 'k2a')?.color, familyHue(1))
@@ -660,67 +728,101 @@ describe('layoutForest', () => {
   })
 })
 
-describe('ringSegments', () => {
-  test('no window and no composition yield no segments at all', () => {
-    assert.deepEqual(ringSegments([], null, 10, 'gray'), [])
-    assert.deepEqual(ringSegments([{ key: 'user', color: 'c', value: 0 }], null, 10, 'gray'), [])
+describe('lineageOf', () => {
+  const forest = agentForestOf(snap({
+    root: row({}),
+    a: row({ parentId: 'root' }),
+    b: row({ parentId: 'root' }),
+    g: row({ parentId: 'a' }),
+  }), 'root')
+  assert.ok(forest !== null)
+
+  test('null or unknown id lights nothing', () => {
+    assert.equal(lineageOf(forest, null), null)
+    assert.equal(lineageOf(forest, 'ghost'), null)
   })
 
-  test('no window: composition fills the whole circle, negatives excluded', () => {
-    const segs = ringSegments([
+  test('a leaf lights its ancestor chain only', () => {
+    assert.deepEqual([...lineageOf(forest, 'g') ?? []].sort(), ['a', 'g', 'root'])
+  })
+
+  test('the root lights its whole subtree; a mid node lights both directions', () => {
+    assert.deepEqual([...lineageOf(forest, 'root') ?? []].sort(), ['a', 'b', 'g', 'root'])
+    assert.deepEqual([...lineageOf(forest, 'a') ?? []].sort(), ['a', 'g', 'root'])
+  })
+
+  test('a parentage cycle terminates instead of looping', () => {
+    const cycle = agentForestOf(snap({
+      a: row({ parentId: 'b' }),
+      b: row({ parentId: 'a' }),
+    }), 'a')
+    assert.ok(cycle !== null)
+    assert.deepEqual([...lineageOf(cycle, 'a') ?? []].sort(), ['a', 'b'])
+  })
+})
+
+describe('barSegments', () => {
+  test('no window and no composition yield no segments at all', () => {
+    assert.deepEqual(barSegments([], null, 'gray'), [])
+    assert.deepEqual(barSegments([{ key: 'user', color: 'c', value: 0 }], null, 'gray'), [])
+  })
+
+  test('no window: composition fills the whole bar, negatives excluded', () => {
+    const segs = barSegments([
       { key: 'system', color: 'red', value: 1 },
       { key: 'user', color: 'green', value: -5 },
       { key: 'tool', color: 'blue', value: 3 },
-    ], null, 10, 'gray')
-    const c = 2 * Math.PI * 10
+    ], null, 'gray')
     assert.equal(segs.length, 2)
-    assert.equal(segs[0].len, c / 4)
-    assert.equal(segs[0].offset, 0)
+    assert.equal(segs[0].share, 0.25)
     assert.equal(segs[0].free, false)
-    assert.equal(segs[1].len, (3 * c) / 4)
-    assert.equal(segs[1].offset, c / 4)
+    assert.equal(segs[1].share, 0.75)
   })
 
   test('a known window scales composition to the occupancy share and appends the free remainder', () => {
-    const segs = ringSegments([
+    const segs = barSegments([
       { key: 'system', color: 'red', value: 1 },
       { key: 'tool', color: 'blue', value: 3 },
-    ], 50, 10, 'gray')
-    const c = 2 * Math.PI * 10
+    ], 50, 'gray')
     assert.equal(segs.length, 3)
-    assert.equal(segs[0].len, c / 8)
-    assert.equal(segs[1].len, (3 * c) / 8)
-    assert.equal(segs[1].offset, c / 8)
+    assert.equal(segs[0].share, 0.125)
+    assert.equal(segs[1].share, 0.375)
     assert.equal(segs[2].free, true)
-    assert.equal(segs[2].len, c / 2)
-    assert.equal(segs[2].offset, c / 2)
+    assert.equal(segs[2].share, 0.5)
   })
 
-  test('pressure-only rows draw one threshold-colored arc plus the free remainder', () => {
-    const segs = ringSegments([], 40, 10, 'orange')
-    const c = 2 * Math.PI * 10
+  test('pressure-only rows draw one threshold-colored fill plus the free remainder', () => {
+    const segs = barSegments([], 40, 'orange')
     assert.equal(segs.length, 2)
     assert.equal(segs[0].key, 'fill')
     assert.equal(segs[0].color, 'orange')
-    assert.equal(segs[0].len, c * 0.4)
+    assert.equal(segs[0].share, 0.4)
     assert.equal(segs[1].free, true)
-    assert.equal(segs[1].len, c * 0.6)
+    assert.equal(segs[1].share, 0.6)
   })
 
-  test('zero occupancy on a known window draws just the free outline; out-of-range pct clamps', () => {
-    const c = 2 * Math.PI * 10
-    const zero = ringSegments([{ key: 'system', color: 'red', value: 5 }], 0, 10, 'gray')
+  test('zero occupancy on a known window draws just the free remainder; out-of-range pct clamps', () => {
+    const zero = barSegments([{ key: 'system', color: 'red', value: 5 }], 0, 'gray')
     assert.equal(zero.length, 1)
     assert.equal(zero[0].free, true)
-    assert.equal(zero[0].len, c)
-    // Over-100 pct clamps to a full circle with no remainder.
-    const over = ringSegments([{ key: 'system', color: 'red', value: 5 }], 150, 10, 'gray')
+    assert.equal(zero[0].share, 1)
+    // Over-100 pct clamps to a full bar with no remainder.
+    const over = barSegments([{ key: 'system', color: 'red', value: 5 }], 150, 'gray')
     assert.equal(over.length, 1)
-    assert.equal(over[0].len, c)
+    assert.equal(over[0].share, 1)
     // Negative pct clamps to empty.
-    const neg = ringSegments([], -5, 10, 'gray')
+    const neg = barSegments([], -5, 'gray')
     assert.equal(neg.length, 1)
     assert.equal(neg[0].free, true)
+  })
+})
+
+describe('pressureColorOf', () => {
+  test('occupancy thresholds', () => {
+    assert.equal(pressureColorOf(null), 'var(--dsw-alias-border-l1)')
+    assert.equal(pressureColorOf(95), 'var(--color-red-500)')
+    assert.equal(pressureColorOf(70), 'var(--color-amber-500)')
+    assert.equal(pressureColorOf(12), 'var(--color-green-500)')
   })
 })
 

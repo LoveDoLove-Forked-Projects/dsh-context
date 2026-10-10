@@ -1,8 +1,11 @@
 /**
  * The Agent network card — the foot of the Context tab: the current agent's
  * whole family (ancestors, siblings, subagents) as a node graph, where every
- * node is a live donut of that session's own context composition ringed by
- * its occupancy, and a click jumps to that agent's session.
+ * node is a live card of that session's own context — title, occupancy, and a
+ * composition bar — and a click jumps to that agent's session. Links are
+ * bezier curves fanned out from the parent's foot, hued per level-1 family;
+ * hovering a card lights its whole lineage (ancestors and subtree) and the
+ * inspector below mirrors its details.
  *
  * Data rides the harness's existing planes end to end — the session-list
  * snapshot (`ctx.sessions.list`: lineage rows + per-session projection
@@ -16,22 +19,24 @@
  * the card.
  */
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactElement } from 'react'
 import { CATS } from '../categories'
 import type { AgentHeads } from '../agentHeads'
 import { makeAgentHeads, useSessionsSnapshot } from '../agentHeads'
+import { billedTokensOf, estimateSessionCost, formatCost, type CostCurrency, type ModelBook } from '../cost'
+import { useModelPrices } from '../modelPrices'
 import { containHorizontalOverscroll } from '../overscroll'
 import { openSessionVia, type ClientCtx } from '../services'
 import type { ViewKit } from '../viewkit'
 import type { ContextTimeline } from '../../shared/types'
 import type { AgentNode, AgentSelfStats } from '../agentTree'
 import {
-  AGENT_NODE_R,
-  AGENT_RING_R,
   agentForestOf,
+  barSegments,
   fmtDurationCompact,
   layoutForest,
-  ringSegments,
+  lineageOf,
+  pressureColorOf,
   sessionsFaceOf,
 } from '../agentTree'
 
@@ -41,15 +46,13 @@ export interface AgentGraphProps {
   self?: AgentSelfStats
 }
 
-/** Caption box height under a node (3 wrapped label lines + the tokens line). */
-const CAPTION_H = 60
+/** Entrance stagger cap for the cards and their bar segments (the stackedBar idiom). */
+const STAGGER_CAP = 8
 
-/** Fallback arc color for pressure-only nodes (no composition data), by fill ratio. */
-export function ringColorOf(pct: number | null): string {
-  if (pct === null) return 'var(--dsw-alias-border-l1)'
-  if (pct >= 90) return 'var(--color-red-500)'
-  if (pct >= 70) return 'var(--color-amber-500)'
-  return 'var(--color-green-500)'
+/** The link's S-curve: vertical tangents at both card edges, curvature proportional to the drop, clamped to [24, 96]. */
+function linkPath(x1: number, y1: number, x2: number, y2: number): string {
+  const k = Math.min(96, Math.max(24, (y2 - y1) * 0.5))
+  return `M ${x1} ${y1} C ${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}`
 }
 
 export function makeAgentGraph(
@@ -60,6 +63,12 @@ export function makeAgentGraph(
 ): (props: AgentGraphProps) => ReactElement | null {
   const { t, fmt, catLabel } = kit
 
+  /** The display currency follows the active locale — read per render: the slot outlet re-renders on a locale switch. */
+  function activeCurrency(): CostCurrency {
+    const locale = ctx.locale
+    return typeof locale.getLocale === 'function' && locale.getLocale().active === 'zh' ? 'cny' : 'usd'
+  }
+
   function AgentGraph(props: AgentGraphProps): ReactElement | null {
     // Resolved lazily at mount (not at apply): the outward sessions service belongs to the client runtime's
     // composition, and a deployment without it keeps the card hidden.
@@ -67,6 +76,10 @@ export function makeAgentGraph(
     const snapshot = useSessionsSnapshot(face)
     const sessionId = props.sessionId
     const [hoverId, setHoverId] = useState<string | null>(null)
+    // The shared price book (the stats board's own store): a card's cost estimate
+    // appears once the book lands, and never blocks the rest of the card.
+    const { book } = useModelPrices()
+    const currency = activeCurrency()
 
     // The layout is fully responsive: re-run it whenever the stage's visible
     // width changes (sidebar toggles, window resizes, split views).
@@ -76,8 +89,10 @@ export function makeAgentGraph(
       /* v8 ignore start -- jsdom has neither ResizeObserver nor layout; tests exercise the natural-pitch fallback (stageWidth 0). */
       const el = stageRef.current
       if (el === null || typeof ResizeObserver !== 'function') return
-      setStageWidth(el.clientWidth)
-      const observer = new ResizeObserver(() => { setStageWidth(el.clientWidth) })
+      // contentRect, not clientWidth: the stage's 4px side padding is breathing room for
+      // hover shadows, and sizing to clientWidth would overshoot the content box by exactly
+      // that padding, arming a phantom horizontal scrollbar whenever the layout fits exactly.
+      const observer = new ResizeObserver(([entry]) => { setStageWidth(entry.contentRect.width) })
       observer.observe(el)
       return () => { observer.disconnect() }
       /* v8 ignore stop */
@@ -141,6 +156,9 @@ export function makeAgentGraph(
     let totalTokens = 0
     for (const n of forest.nodes) totalTokens += n.head !== null ? n.head.tokens : 0
 
+    // The hovered card's lineage (ancestor chain + own subtree) lights its links; the rest dim.
+    const lit = lineageOf(forest, hoverId)
+
     const open = (id: string): void => {
       if (id === current.id) return
       openSessionVia(ctx, id)
@@ -172,54 +190,62 @@ export function makeAgentGraph(
         </div>
 
         <div className="lc-agents-stage" ref={stageRef}>
-          <svg
-            className="lc-agents-svg"
-            width={layout.width}
-            height={layout.height}
-            viewBox={`0 0 ${layout.width} ${layout.height}`}
-          >
-            {layout.links.map((link) => {
-              // Direct segment per link, colored by the child's family; a
-              // running child layers a flowing pulse of the same hue on top.
-              const d = `M ${link.x1} ${link.y1} L ${link.x2} ${link.y2}`
-              return (
-                <g key={link.to}>
-                  <path
-                    className={'lc-agents-link stroke-[1.5px] stroke-opacity-45' + (link.running ? ' lc-agents-link-live' : '')}
-                    d={d}
-                    stroke={link.color}
-                    fill="none"
-                  />
-                  {link.running ? <path className="lc-agents-flow animate-lc-agent-flow fill-none stroke-2" d={d} stroke={link.color} /> : null}
-                </g>
-              )
-            })}
-            {forest.nodes.map((node) => {
+          <div className="lc-agents-canvas" style={{ width: layout.width, height: layout.height }}>
+            <svg
+              className={'lc-agents-links' + (lit !== null ? ' lc-agents-focus' : '')}
+              width={layout.width}
+              height={layout.height}
+              viewBox={`0 0 ${layout.width} ${layout.height}`}
+            >
+              {layout.links.map((link) => {
+                const d = linkPath(link.x1, link.y1, link.x2, link.y2)
+                const on = lit !== null && lit.has(link.to)
+                return (
+                  <g key={link.to} className={on ? 'lc-agents-on' : undefined}>
+                    <path
+                      className={'lc-agents-link stroke-[1.5px]' + (link.running ? ' lc-agents-link-live' : '')}
+                      d={d}
+                      stroke={link.color}
+                      fill="none"
+                    />
+                    {link.running
+                      ? <path className="lc-agents-flow animate-lc-agent-flow fill-none stroke-2" d={d} stroke={link.color} />
+                      : null}
+                    <circle className="lc-agents-joint" cx={link.x1} cy={link.y1} r={2} fill={link.color} />
+                    <circle className="lc-agents-joint" cx={link.x2} cy={link.y2} r={3} fill={link.color} />
+                  </g>
+                )
+              })}
+            </svg>
+            {forest.nodes.map((node, index) => {
               const point = layout.points.find(p => p.id === node.id)
               /** v8 ignore next 2 -- layoutForest positions every forest node, so the lookup never misses. */
               if (point === undefined) return null
               return (
-                <AgentNodeView
+                <AgentCard
                   key={node.id}
                   node={node}
                   x={point.x}
                   y={point.y}
-                  captionW={layout.captionW}
+                  width={layout.cardW}
+                  index={index}
                   hovered={hoverId === node.id}
                   onHover={setHoverId}
                   onOpen={open}
                   onKeyOpen={keyOpen(node.id)}
+                  book={book}
+                  currency={currency}
                   t={t}
                   fmt={fmt}
                 />
               )
             })}
-          </svg>
+          </div>
         </div>
 
         {forest.solo ? <div className="lc-empty lc-agents-solo">{t('agents.solo')}</div> : null}
 
-        <Inspector node={inspected} t={t} fmt={fmt} />
+        <Inspector node={inspected} t={t} fmt={fmt} catLabel={catLabel} />
         <div className="lc-agents-legend">
           {CATS.map(c => (
             <span key={c.key} className="lc-agents-legend-item">
@@ -243,91 +269,95 @@ export function makeAgentGraph(
   return AgentGraph
 }
 
-interface NodeViewProps {
+interface CardProps {
   node: AgentNode
+  /** Card center x and top y in canvas coordinates; the card box derives from them. */
   x: number
   y: number
-  /** Label box width from the responsive layout (narrows as slots compress). */
-  captionW: number
+  width: number
+  /** DFS order — the entrance stagger slot. */
+  index: number
   hovered: boolean
   onHover: (id: string | null) => void
   onOpen: (id: string) => void
   onKeyOpen: (ev: KeyboardEvent) => void
+  /** The price book and display currency for the cost estimate (null book → no estimate shown). */
+  book: ModelBook | null
+  currency: CostCurrency
   t: ViewKit['t']
   fmt: ViewKit['fmt']
 }
 
-function AgentNodeView(props: NodeViewProps): ReactElement {
-  const { node, x, y, captionW } = props
+function AgentCard(props: CardProps): ReactElement {
+  const { node, x, y, width } = props
   const pct = node.head !== null ? node.head.pct : null
-  const ring = 2 * Math.PI * AGENT_RING_R
-  const segs = node.head !== null ? ringSegments(node.head.parts, pct, AGENT_RING_R, ringColorOf(pct)) : []
-  const cls = 'lc-agent-node'
+  const segs = node.head !== null ? barSegments(node.head.parts, pct, pressureColorOf(pct)) : []
+  // The headline figure is the agent's CONSUMPTION: the tokenUsage tally, with the
+  // fold's own cost ledger standing in when the tally is absent (cold relatives).
+  const consumed = node.billed !== null && node.billed > 0 ? node.billed
+    : node.costUsage !== null ? billedTokensOf(node.costUsage) : null
+  const cost = estimateSessionCost(node.costUsage, props.book, props.currency)
+  const metricBits: string[] = []
+  if (consumed !== null && consumed > 0) metricBits.push(props.fmt(consumed))
+  if (cost !== null) metricBits.push(formatCost(cost, props.currency))
+  // The request count stays off the card — one hover away in the inspector.
+  const meta = node.durationMs !== null ? fmtDurationCompact(node.durationMs) : ''
+  const cls = 'lc-agent-card animate-lc-agent-in motion-reduce:animate-none'
     + (node.isCurrent ? ' lc-agent-self' : '')
     + (node.running ? ' lc-agent-running' : '')
     + (node.completed && !node.running ? ' lc-agent-done' : '')
+    // lc-agent-hover carries no rule of its own — the hover/focus wash rides
+    // :hover/:focus-visible; the class stays as the specs' state anchor.
     + (props.hovered ? ' lc-agent-hover' : '')
     + (node.isCurrent ? '' : ' lc-agent-clickable')
-    // The halo's hover/focus wash rides group variants on the node (the React
-    // hover state only drives the inspector; lc-agent-hover stays as a test anchor).
-    + ' group/agent'
   return (
-    <g
+    <div
       className={cls}
-      transform={`translate(${x}, ${y})`}
+      style={{ left: x - width / 2, top: y, width, '--lc-i': Math.min(props.index, STAGGER_CAP) } as CSSProperties}
       data-agent={node.id}
-      role={node.isCurrent ? 'img' : 'button'}
+      role={node.isCurrent ? undefined : 'button'}
       tabIndex={node.isCurrent ? undefined : 0}
       onClick={() => { props.onOpen(node.id) }}
       onKeyDown={props.onKeyOpen}
       onMouseEnter={() => { props.onHover(node.id) }}
       onMouseLeave={() => { props.onHover(null) }}
+      onFocus={() => { props.onHover(node.id) }}
+      onBlur={() => { props.onHover(null) }}
     >
-      {/* Halo carries the state: wash for self, breathing green while running, faint green for done. */}
-      <circle
-        className={'lc-agent-halo fill-transparent group-hover/agent:fill-[var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2))] group-focus-visible/agent:fill-[var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2))]'
-          + (node.running ? ' animate-lc-agent-glow' : '')}
-        r={AGENT_NODE_R + 9}
-      />
-      <circle
-        className="lc-agent-track fill-(--dsw-alias-bg-layer-1) stroke-(--dsw-alias-border-l1) stroke-[1.5px]"
-        r={AGENT_NODE_R}
-      />
-      {segs.map(seg => (
-        <circle
-          key={seg.key}
-          className={'lc-agent-seg fill-none stroke-9' + (seg.free ? ' lc-agent-free' : '')}
-          r={AGENT_RING_R}
-          strokeDasharray={`${seg.len} ${ring - seg.len}`}
-          strokeDashoffset={-seg.offset}
-          // Inline style, not the stroke attribute: segment colors are CSS variables
-          // (var() is unusable in a presentation attribute). Free segments carry no
-          // inline stroke so the .lc-agent-free class rule keeps painting the remainder.
-          style={{ stroke: seg.free ? undefined : seg.color }}
-          transform="rotate(-90)"
-        />
-      ))}
-      <text className="lc-agent-pct fill-(--dsw-alias-label-primary)" textAnchor="middle" dy="0.32em">
-        {pct !== null ? `${pct}%` : (node.head !== null ? props.fmt(node.head.tokens) : '—')}
-      </text>
-      {/* HTML caption (foreignObject): the full label wraps instead of truncating;
-          the current agent is marked in text, keeping every node's ring semantics identical. */}
-      <foreignObject x={-captionW / 2} y={AGENT_NODE_R + 8} width={captionW} height={CAPTION_H}>
-        <div className="lc-agent-caption">
-          <div className="lc-agent-label">
-            {node.label}
-            {node.isCurrent ? <span className="lc-agents-badge lc-agent-self-badge">{props.t('agents.self')}</span> : null}
-          </div>
-          <div className="lc-agent-tokens">{node.head !== null ? props.fmt(node.head.tokens) : '—'}</div>
+      <div className="lc-agent-card-head">
+        {node.running || node.completed ? <i className="lc-agent-dot" /> : null}
+        <div className="lc-agent-label">{node.label}</div>
+        {/* The badge sits OUTSIDE the clamped label: an inline badge would be clipped away
+            whenever a long title claims both lines. The lc-agent-self-badge class carries no
+            rule of its own — it stays as the specs' anchor for the self marker. */}
+        {node.isCurrent ? <span className="lc-agents-badge lc-agent-self-badge">{props.t('agents.self')}</span> : null}
+      </div>
+      <div className="lc-agent-metric">
+        <b className="lc-agent-tokens">{metricBits.length > 0 ? metricBits.join(' · ') : '—'}</b>
+      </div>
+      {/* The free remainder is the bar's own track, so only occupied segments render. */}
+      <div className="lc-agent-bar">
+        {segs.filter(seg => !seg.free).map((seg, i) => (
+          <i
+            key={seg.key}
+            className="lc-agent-bar-seg animate-lc-stacked-in motion-reduce:animate-none"
+            style={{ width: `${seg.share * 100}%`, background: seg.color, '--lc-i': Math.min(i, STAGGER_CAP) } as CSSProperties}
+          />
+        ))}
+      </div>
+      {meta !== '' || pct !== null ? (
+        <div className="lc-agent-meta">
+          <span className="lc-agent-meta-text">{meta}</span>
+          {pct !== null ? <span className="lc-agent-pct" style={{ color: pressureColorOf(pct) }}>{pct}%</span> : null}
         </div>
-      </foreignObject>
-    </g>
+      ) : null}
+    </div>
   )
 }
 
-/** The detail strip mirroring the hovered (or current) node: identity, occupancy, activity, and the open hint. */
-function Inspector(props: { node: AgentNode; t: ViewKit['t']; fmt: ViewKit['fmt'] }): ReactElement {
-  const { node, t, fmt } = props
+/** The detail strip mirroring the hovered (or current) node: identity, occupancy, activity, composition, and the open hint. */
+function Inspector(props: { node: AgentNode; t: ViewKit['t']; fmt: ViewKit['fmt']; catLabel: ViewKit['catLabel'] }): ReactElement {
+  const { node, t, fmt, catLabel } = props
   const bits: string[] = []
   if (node.head !== null) {
     const head = node.head
@@ -338,16 +368,35 @@ function Inspector(props: { node: AgentNode; t: ViewKit['t']; fmt: ViewKit['fmt'
   if (node.requests > 0) bits.push(t('agents.requests', { n: node.requests }))
   if (node.billed !== null && node.billed > 0) bits.push(t('agents.billed', { n: fmt(node.billed) }))
   if (node.durationMs !== null) bits.push(fmtDurationCompact(node.durationMs))
+  const parts = node.head !== null ? node.head.parts.filter(p => (p.raw ?? p.value) > 0) : []
+  let rawTotal = 0
+  for (const p of parts) rawTotal += p.raw ?? p.value
   return (
     <div className="lc-agents-inspector">
-      <b className="lc-agents-inspector-name">{node.label}</b>
-      {node.isCurrent ? <span className="lc-agents-badge">{t('agents.self')}</span> : null}
-      {node.running ? <span className="lc-agents-badge lc-agents-badge-on">{t('agents.running')}</span> : null}
-      {node.identity !== null
-        ? <span className="lc-agents-badge">{t(node.identity.mode === 'one-shot' ? 'agents.oneshot' : 'agents.continuable')}</span>
-        : null}
-      <span className="lc-agents-inspector-stats">{bits.join(' · ')}</span>
-      {!node.isCurrent ? <span className="lc-agents-inspector-open">{t('agents.open')}</span> : null}
+      <div className="lc-agents-inspector-row">
+        <b className="lc-agents-inspector-name">{node.label}</b>
+        {node.isCurrent ? <span className="lc-agents-badge">{t('agents.self')}</span> : null}
+        {node.running ? <span className="lc-agents-badge lc-agents-badge-on">{t('agents.running')}</span> : null}
+        {node.identity !== null
+          ? <span className="lc-agents-badge">{t(node.identity.mode === 'one-shot' ? 'agents.oneshot' : 'agents.continuable')}</span>
+          : null}
+        <span className="lc-agents-inspector-stats">{bits.join(' · ')}</span>
+        {!node.isCurrent ? <span className="lc-agents-inspector-open">{t('agents.open')}</span> : null}
+      </div>
+      {parts.length > 0 ? (
+        <div className="lc-agents-inspector-parts">
+          {parts.map((p) => {
+            const count = p.raw ?? p.value
+            return (
+              <span key={p.key} className="lc-agents-part">
+                <i style={{ background: p.color }} />
+                {catLabel(p.key)}
+                <em>{`≈${fmt(count)} (${Math.round(count / rawTotal * 100)}%)`}</em>
+              </span>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }

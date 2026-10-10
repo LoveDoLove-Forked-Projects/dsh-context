@@ -1,12 +1,29 @@
 import { act, createElement as h } from 'react'
 import assert from 'node:assert/strict'
-import { afterEach, describe, test, vi } from 'vitest'
-import { makeAgentGraph, ringColorOf } from '../../../src/client/components/agentGraph'
+import { afterEach, beforeEach, describe, test, vi } from 'vitest'
+import { makeAgentGraph } from '../../../src/client/components/agentGraph'
+import { resetModelPrices, setModelPricesLoader } from '../../../src/client/modelPrices'
 import type { AgentSelfStats } from '../../../src/client/agentTree'
 import { TestClientCtx, asClientCtx } from '../helpers/harness'
-import { flush, hover, makeKit, mount, query, queryAll, text, unhover, wheel } from '../helpers/kit'
+import { blur, click, flush, focus, hover, makeKit, mount, query, queryAll, text, unhover, until, wheel } from '../helpers/kit'
 
 const kit = makeKit()
+
+// The price book's loader stays pending by default, so no card shows a cost
+// estimate unless a test arms the fixture itself.
+beforeEach(() => {
+  resetModelPrices()
+  setModelPricesLoader(() => new Promise(() => {}))
+})
+
+afterEach(() => {
+  resetModelPrices()
+})
+
+/** The price-book fixture (the stats board specs' own): deepseek-v4-flash at $0.15/$0.6/$0.003 per 1M. */
+const PROVIDERS = {
+  deepseek: { models: { 'deepseek-v4-flash': { cost: { input: 0.15, output: 0.6, cache_read: 0.003 } } } },
+}
 
 function timeline(total: number, requests = 0): unknown {
   return {
@@ -21,13 +38,6 @@ function timeline(total: number, requests = 0): unknown {
     droppedNodes: 0,
     archive: [],
   }
-}
-
-/** Click an SVG node (jsdom's SVGElement has no HTMLElement.click). */
-async function clickEl(el: Element): Promise<void> {
-  await act(async () => {
-    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-  })
 }
 
 class FakeSessions {
@@ -135,13 +145,13 @@ describe('AgentGraph — degrade arms', () => {
 })
 
 describe('AgentGraph — the family tree', () => {
-  test('renders nodes, chips, links, inspector, and the legend', async () => {
+  test('renders cards, chips, links, inspector, and the legend', async () => {
     const face = new FakeSessions(family())
     const View = makeView(face)
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
 
-    const nodes = queryAll(m.container, 'g.lc-agent-node')
-    assert.equal(nodes.length, 3)
+    const cards = queryAll(m.container, '.lc-agent-card')
+    assert.equal(cards.length, 3)
     assert.deepEqual(face.refreshed, ['root'])
 
     // Chips: 3 agents, 2 running, combined context tokens (self 500 + 830 + 950).
@@ -150,33 +160,46 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(rendered.includes('2 running'))
     assert.ok(rendered.includes('2.3k tokens in context'))
 
-    const self = query(m.container, 'g.lc-agent-self')
+    const self = query(m.container, '.lc-agent-card.lc-agent-self')
     assert.equal(self.getAttribute('data-agent'), 'root')
-    assert.equal(self.getAttribute('role'), 'img')
+    // The current card is inert: no button role, no tab stop.
+    assert.equal(self.getAttribute('role'), null)
+    assert.equal(self.getAttribute('tabindex'), null)
     assert.ok(text(self).includes('50%'))
+    // The headline figure is the CONSUMED tokens (self billed 1200), not the context size.
+    assert.ok(text(self).includes('1.2k'))
     assert.ok(self.querySelector('.lc-agent-self-badge') !== null)
-    assert.ok(query(m.container, 'g[data-agent="worker"]').querySelector('.lc-agent-self-badge') === null)
+    assert.ok(query(m.container, '[data-agent="worker"]').querySelector('.lc-agent-self-badge') === null)
 
-    // Links join both children: the running one layers a flowing pulse over the solid lineage stroke.
+    // Links join both children as bezier curves out of the root card's foot
+    // (x=208: root centers over the two leaf slots) with joint plugs at both ends;
+    // the running one layers a flowing pulse over the solid lineage stroke.
     const links = queryAll(m.container, 'path.lc-agents-link')
     assert.equal(links.length, 2)
+    assert.ok(links.every(l => l.getAttribute('d')?.startsWith('M 208 ')))
+    assert.ok(links.every(l => l.getAttribute('d')?.includes(' C ')))
     assert.equal(queryAll(m.container, 'path.lc-agents-link-live').length, 1)
     assert.equal(queryAll(m.container, 'path.lc-agents-flow').length, 1)
+    assert.equal(queryAll(m.container, 'circle.lc-agents-joint').length, 4)
 
-    const worker = query(m.container, 'g[data-agent="worker"]')
+    const worker = query(m.container, '[data-agent="worker"]')
+    assert.equal(worker.getAttribute('role'), 'button')
     assert.ok(text(worker).includes('worker-bee'))
     assert.ok(text(worker).includes('83%'))
+    // The headline is the billed consumption (150); the activity footer carries the duration.
+    assert.ok(text(worker).includes('150'))
+    assert.ok(text(worker).includes('42s'))
     assert.ok(worker.classList.contains('lc-agent-running'))
-    const workerSegs = worker.querySelectorAll('circle.lc-agent-seg')
-    assert.ok(workerSegs.length > 1)
-    assert.ok(worker.querySelector('circle.lc-agent-free') !== null)
+    // Timeline composition → one bar segment per non-empty category.
+    assert.equal(worker.querySelectorAll('.lc-agent-bar-seg').length, 3)
 
-    const done = query(m.container, 'g[data-agent="done"]')
-    assert.ok(text(done).includes('95%'))
+    const done = query(m.container, '[data-agent="done"]')
     assert.ok(done.classList.contains('lc-agent-done'))
-    const doneSegs = done.querySelectorAll('circle.lc-agent-seg')
-    assert.equal(doneSegs.length, 2)
-    assert.ok(done.querySelector('circle.lc-agent-free') !== null)
+    // Pressure-only: a single threshold-colored fill; no consumption data → a dash headline,
+    // and the meta row carries just the occupancy at its right.
+    assert.equal(done.querySelectorAll('.lc-agent-bar-seg').length, 1)
+    assert.ok(text(done).includes('—'))
+    assert.equal(query(done, '.lc-agent-meta').textContent, '95%')
 
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('Main Agent'))
@@ -185,6 +208,9 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(text(inspector).includes('3 requests'))
     assert.ok(text(inspector).includes('1.2k billed'))
     assert.ok(!text(inspector).includes('click to open'))
+    // The composition readout mirrors the inspected node's bar.
+    assert.ok(text(inspector).includes('User Messages'))
+    assert.ok(text(inspector).includes('≈500 (100%)'))
 
     assert.equal(queryAll(m.container, '.lc-agents-legend-item').length, 9)
 
@@ -202,7 +228,7 @@ describe('AgentGraph — the family tree', () => {
     const View = makeView(face)
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
 
-    const worker = query(m.container, 'g[data-agent="worker"]')
+    const worker = query(m.container, '[data-agent="worker"]')
     await hover(worker)
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('worker-bee'))
@@ -211,31 +237,54 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(text(inspector).includes('150 billed'))
     assert.ok(text(inspector).includes('42s'))
     assert.ok(text(inspector).includes('click to open'))
+    // The hovered node's composition readout lists every category share.
+    assert.ok(text(inspector).includes('System Prompt'))
+    assert.ok(text(inspector).includes('≈800 (96%)'))
     assert.ok(worker.classList.contains('lc-agent-hover'))
+    // Lineage focus: the hovered card's own link lights up, its sibling's stays dim.
+    assert.ok(query(m.container, '.lc-agents-links').classList.contains('lc-agents-focus'))
+    const lit = queryAll(m.container, 'g.lc-agents-on')
+    assert.equal(lit.length, 1)
     await unhover(worker)
     assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('Main Agent'))
+    assert.equal(queryAll(m.container, 'g.lc-agents-on').length, 0)
+    assert.ok(!query(m.container, '.lc-agents-links').classList.contains('lc-agents-focus'))
 
-    await clickEl(worker)
+    // Hovering the root lights its whole subtree (every link).
+    await hover(query(m.container, '[data-agent="root"]'))
+    assert.equal(queryAll(m.container, 'g.lc-agents-on').length, 2)
+    await unhover(query(m.container, '[data-agent="root"]'))
+
+    // Keyboard focus drives the same inspector + lineage affordance.
+    await focus(worker)
+    assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('worker-bee'))
+    assert.equal(queryAll(m.container, 'g.lc-agents-on').length, 1)
+    await blur(worker)
+    assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('Main Agent'))
+
+    await click(worker)
     assert.deepEqual(face.opened, ['worker'])
 
-    await hover(query(m.container, 'g[data-agent="done"]'))
+    await hover(query(m.container, '[data-agent="done"]'))
     const doneInspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(doneInspector).includes('one-shot'))
     assert.ok(text(doneInspector).includes('950 / 1.0k · 95%'))
-    await unhover(query(m.container, 'g[data-agent="done"]'))
+    // A pressure-only node has no composition row.
+    assert.equal(doneInspector.querySelector('.lc-agents-inspector-parts'), null)
+    await unhover(query(m.container, '[data-agent="done"]'))
     await act(async () => {
-      query(m.container, 'g[data-agent="done"]').dispatchEvent(
+      query(m.container, '[data-agent="done"]').dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
       )
     })
     assert.deepEqual(face.opened, ['worker', 'done'])
     await act(async () => {
-      query(m.container, 'g[data-agent="worker"]').dispatchEvent(
+      query(m.container, '[data-agent="worker"]').dispatchEvent(
         new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }),
       )
     })
     assert.deepEqual(face.opened, ['worker', 'done'])
-    await clickEl(query(m.container, 'g[data-agent="root"]'))
+    await click(query(m.container, '[data-agent="root"]'))
     assert.deepEqual(face.opened, ['worker', 'done'])
 
     await m.unmount()
@@ -246,7 +295,7 @@ describe('AgentGraph — the family tree', () => {
     const View = makeView(face)
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
     assert.ok(text(m.container).includes('No subagents yet'))
-    assert.equal(queryAll(m.container, 'g.lc-agent-node').length, 1)
+    assert.equal(queryAll(m.container, '.lc-agent-card').length, 1)
 
     await act(async () => {
       face.setState({
@@ -255,7 +304,7 @@ describe('AgentGraph — the family tree', () => {
       })
     })
     await flush()
-    assert.equal(queryAll(m.container, 'g.lc-agent-node').length, 2)
+    assert.equal(queryAll(m.container, '.lc-agent-card').length, 2)
     assert.ok(!text(m.container).includes('No subagents yet'))
     assert.ok(text(m.container).includes('2 agents'))
 
@@ -287,7 +336,7 @@ describe('AgentGraph — the family tree', () => {
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
     await flush()
     assert.deepEqual(face.refreshed, ['root'])
-    assert.equal(queryAll(m.container, 'g.lc-agent-node').length, 3)
+    assert.equal(queryAll(m.container, '.lc-agent-card').length, 3)
     await m.unmount()
   })
 
@@ -296,14 +345,14 @@ describe('AgentGraph — the family tree', () => {
     const bare: unknown = { list: face.list }
     const View = makeView(bare)
     const m = await mount(h(View, { sessionId: 'root' }))
-    assert.equal(queryAll(m.container, 'g.lc-agent-node').length, 3)
+    assert.equal(queryAll(m.container, '.lc-agent-card').length, 3)
     // No self stats: the current node falls back to its list-row timeline (230 tokens ≈ 23%).
-    const self = query(m.container, 'g.lc-agent-self')
+    const self = query(m.container, '.lc-agent-card.lc-agent-self')
     assert.ok(text(self).includes('23%'))
     await m.unmount()
   })
 
-  test('stat-less nodes render dashes; zero occupancy draws no ring', async () => {
+  test('stat-less nodes render dashes; zero occupancy draws no bar fill', async () => {
     const View = makeView(new FakeSessions({
       root: { displayTitle: 'Main', running: false, updatedAt: 1 },
       bare: { parentId: 'root', origin: 'subagent', updatedAt: 2 },
@@ -316,9 +365,13 @@ describe('AgentGraph — the family tree', () => {
         projectionValues: { subagent: { mode: 'one-shot', label: 'a-very-long-descriptor-label' } },
       },
       // Pressure sample without a window: tokens with no denominator, no percentage.
+      // Its settled time still fills the meta row (duration without an occupancy figure).
       windowless: {
         parentId: 'root', origin: 'subagent', updatedAt: 5,
-        projectionValues: { contextPressure: { pressureTokens: 640 } },
+        projectionValues: {
+          contextPressure: { pressureTokens: 640 },
+          subagentTiming: { settledMs: 5000 },
+        },
       },
       // Usage reported but all-zero: the billed bit stays out of the inspector.
       flatusage: {
@@ -328,33 +381,35 @@ describe('AgentGraph — the family tree', () => {
     }))
     const m = await mount(h(View, { sessionId: 'root', self: { head: null, billed: null, requests: 0 } }))
 
-    const bare = query(m.container, 'g[data-agent="bare"]')
+    const bare = query(m.container, '[data-agent="bare"]')
     assert.ok(text(bare).includes('—'))
-    assert.equal(bare.querySelectorAll('circle.lc-agent-seg').length, 0)
+    assert.equal(bare.querySelectorAll('.lc-agent-bar-seg').length, 0)
 
-    const zero = query(m.container, 'g[data-agent="zero"]')
+    const zero = query(m.container, '[data-agent="zero"]')
     assert.ok(text(zero).includes('0%'))
-    // Zero occupancy on a known window: just the free outline.
-    const zeroSegs = zero.querySelectorAll('circle.lc-agent-seg')
-    assert.equal(zeroSegs.length, 1)
-    assert.ok(zero.querySelector('circle.lc-agent-free') !== null)
+    // Zero occupancy on a known window: just the free track, no segments.
+    assert.equal(zero.querySelectorAll('.lc-agent-bar-seg').length, 0)
 
     // Long labels wrap in full — no ellipsis truncation.
-    assert.ok(text(query(m.container, 'g[data-agent="longname"]')).includes('a-very-long-descriptor-label'))
+    assert.ok(text(query(m.container, '[data-agent="longname"]')).includes('a-very-long-descriptor-label'))
 
     await hover(bare)
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('bare'))
     assert.equal(query(inspector, '.lc-agents-inspector-stats').textContent, '')
 
-    // Windowless pressure: a bare token figure, no ' / window' and no percentage.
-    await hover(query(m.container, 'g[data-agent="windowless"]'))
-    assert.equal(query(m.container, '.lc-agents-inspector-stats').textContent, '640')
+    // Windowless pressure: a bare token figure, no ' / window' and no percentage; the settled time trails it.
+    await hover(query(m.container, '[data-agent="windowless"]'))
+    assert.equal(query(m.container, '.lc-agents-inspector-stats').textContent, '640 · 5s')
+    const windowlessCard = query(m.container, '[data-agent="windowless"]')
+    assert.ok(!text(windowlessCard).includes('%'))
+    // The meta row carries the settled duration alone (no occupancy at its right).
+    assert.equal(query(windowlessCard, '.lc-agent-meta').textContent, '5s')
 
-    await hover(query(m.container, 'g[data-agent="flatusage"]'))
+    await hover(query(m.container, '[data-agent="flatusage"]'))
     assert.ok(!text(query(m.container, '.lc-agents-inspector')).includes('billed'))
 
-    assert.ok(text(query(m.container, 'g.lc-agent-self')).includes('—'))
+    assert.ok(text(query(m.container, '.lc-agent-card.lc-agent-self')).includes('—'))
 
     await m.unmount()
   })
@@ -366,18 +421,51 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(rendered.includes('Agent 网络'))
     assert.ok(rendered.includes('3 个 Agent'))
     assert.ok(rendered.includes('当前'))
-    await hover(query(m.container, 'g[data-agent="worker"]'))
+    await hover(query(m.container, '[data-agent="worker"]'))
     assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('多轮'))
     await m.unmount()
   })
-})
 
-describe('ringColorOf', () => {
-  test('occupancy thresholds', () => {
-    assert.equal(ringColorOf(null), 'var(--dsw-alias-border-l1)')
-    assert.equal(ringColorOf(95), 'var(--color-red-500)')
-    assert.equal(ringColorOf(70), 'var(--color-amber-500)')
-    assert.equal(ringColorOf(12), 'var(--color-green-500)')
+  /** peak: (1M uncached × $0.15 + 0.5M output × $0.6) × DeepSeek's peak factor 2 = $0.90 (¥6.00). */
+  const COST_LEDGER = { 'deepseek-official': { 'deepseek-v4-flash': { peak: { uncached: 1_000_000, cacheRead: 0, cacheWrite: 0, output: 500_000 } } } }
+
+  test('the headline prices the consumed tokens once the price book lands', async () => {
+    setModelPricesLoader(() => Promise.resolve(PROVIDERS))
+    const rows = family() as {
+      worker: { projectionValues: Record<string, unknown> }
+    }
+    // worker: both the tokenUsage tally and the cost ledger → '150 · $0.90'.
+    rows.worker.projectionValues.contextTimeline = { ...(timeline(800, 5) as Record<string, unknown>), cost: COST_LEDGER }
+    const byId: Record<string, unknown> = {
+      ...rows,
+      // cold: no tokenUsage tally at all — the fold's own cost ledger stands in (1.5M tokens priced).
+      cold: {
+        parentId: 'root', origin: 'subagent', running: false, updatedAt: 4,
+        projectionValues: { contextTimeline: { ...(timeline(100, 0) as Record<string, unknown>), cost: COST_LEDGER } },
+      },
+    }
+    const View = makeView(new FakeSessions(byId))
+    const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
+    await until(() => text(query(m.container, '[data-agent="worker"]')).includes('$0.90'), 'worker cost estimate')
+    // The tally wins over the ledger when both exist (150, not 1.5M); the ledger stands in for a tally-less node.
+    assert.ok(text(query(m.container, '[data-agent="worker"]')).includes('150 · $0.90'))
+    assert.ok(text(query(m.container, '[data-agent="cold"]')).includes('1.5M · $0.90'))
+    await m.unmount()
+
+    // zh reads the price in CNY.
+    const ViewZh = makeView(new FakeSessions(byId), { locale: 'zh' })
+    const mz = await mount(h(ViewZh, { sessionId: 'root', self: selfStats() }))
+    await until(() => text(query(mz.container, '[data-agent="worker"]')).includes('¥6.00'), 'zh cost estimate')
+    await mz.unmount()
+
+    // A locale face without getLocale falls back to USD.
+    const bare = new TestClientCtx({
+      services: { sessions: new FakeSessions(byId), uiWorkspace: { openSession: () => {} } },
+    })
+    Object.defineProperty(bare, 'locale', { value: {} })
+    const mb = await mount(h(makeAgentGraph(asClientCtx(bare), kit), { sessionId: 'root', self: selfStats() }))
+    await until(() => text(query(mb.container, '[data-agent="worker"]')).includes('$0.90'), 'usd fallback')
+    await mb.unmount()
   })
 })
 
@@ -443,9 +531,9 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     const { View, face } = makeFetchingView()
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
 
-    // The cold relative fetched at mount; until the read lands it wears the pressure-only fused ring (arc + free outline).
+    // The cold relative fetched at mount; until the read lands it wears the pressure-only fill.
     assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:done'])
-    assert.equal(query(m.container, 'g[data-agent="done"]').querySelectorAll('circle.lc-agent-seg').length, 2)
+    assert.equal(query(m.container, '[data-agent="done"]').querySelectorAll('.lc-agent-bar-seg').length, 1)
 
     // A snapshot tick while the read is in flight re-attaches the SAME
     // pending read; its duplicate landing settles on the identity bail-out instead of re-rendering.
@@ -458,9 +546,9 @@ describe('AgentGraph — cold-relative composition fetch', () => {
       rpc.release({ ok: true, status: 200, json: async () => ({ ok: true, value: detailValue(composedHead()) }) })
     })
     await flush()
-    // The head re-folds the ring: six composition arcs + the free remainder.
-    const composed = query(m.container, 'g[data-agent="done"]')
-    assert.equal(composed.querySelectorAll('circle.lc-agent-seg').length, 7)
+    // The head re-folds the bar: six composition segments, one per category.
+    const composed = query(m.container, '[data-agent="done"]')
+    assert.equal(composed.querySelectorAll('.lc-agent-bar-seg').length, 6)
     assert.ok(text(composed).includes('95%'), 'the pressure-anchored occupancy never changes')
 
     // A snapshot tick re-fetches nothing (the promise cache dedups).
@@ -471,23 +559,23 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:done'])
 
     // A remount (tab switch) resets the instance state but replays the
-    // factory-cached read: the ring recomposes with no new request.
+    // factory-cached read: the bar recomposes with no new request.
     await m.unmount()
     const remounted = await mount(h(View, { sessionId: 'root', self: selfStats() }))
     await flush()
     assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:done'], 'the cache never re-fetches')
-    const replayed = query(remounted.container, 'g[data-agent="done"]')
-    assert.equal(replayed.querySelectorAll('circle.lc-agent-seg').length, 7, 'the cached head replays into the fresh instance')
+    const replayed = query(remounted.container, '[data-agent="done"]')
+    assert.equal(replayed.querySelectorAll('.lc-agent-bar-seg').length, 6, 'the cached head replays into the fresh instance')
     await remounted.unmount()
   })
 
-  test('a failing fetch degrades to the pressure-only ring and never retries', async () => {
+  test('a failing fetch degrades to the pressure-only fill and never retries', async () => {
     const rpc = detailFetch({ reject: true })
     const { View, face } = makeFetchingView()
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
     await flush()
     assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:done'])
-    assert.equal(query(m.container, 'g[data-agent="done"]').querySelectorAll('circle.lc-agent-seg').length, 2)
+    assert.equal(query(m.container, '[data-agent="done"]').querySelectorAll('.lc-agent-bar-seg').length, 1)
     // A later snapshot tick (fresh forest, still pressure-only) re-fetches nothing.
     await act(async () => {
       face.setState(family())
@@ -504,13 +592,13 @@ describe('AgentGraph — cold-relative composition fetch', () => {
       const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
       await flush()
       assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:done'])
-      assert.equal(query(m.container, 'g[data-agent="done"]').querySelectorAll('circle.lc-agent-seg').length, 2)
-      assert.ok(text(query(m.container, 'g[data-agent="done"]')).includes('95%'))
+      assert.equal(query(m.container, '[data-agent="done"]').querySelectorAll('.lc-agent-bar-seg').length, 1)
+      assert.ok(text(query(m.container, '[data-agent="done"]')).includes('95%'))
       await m.unmount()
     }
   })
 
-  test('a hostile empty session id degrades to the pressure-only ring without fetching', async () => {
+  test('a hostile empty session id degrades to the pressure-only fill without fetching', async () => {
     const rpc = detailFetch({ head: composedHead() })
     const face = new FakeSessions({
       root: { displayTitle: 'Main', running: false, updatedAt: 10 },
@@ -524,12 +612,12 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
     await flush()
     assert.deepEqual(rpc.calls, [], 'an empty id never opens the detail route')
-    assert.equal(query(m.container, 'g[data-agent=""]').querySelectorAll('circle.lc-agent-seg').length, 2)
+    assert.equal(query(m.container, '[data-agent=""]').querySelectorAll('.lc-agent-bar-seg').length, 1)
     await m.unmount()
   })
 
   test('a head with no occupancy anchor still composes from the fold alone', async () => {
-    // No pressure on the row: the fetched head's fold total and window carry the ring.
+    // No pressure on the row: the fetched head's fold total and window carry the bar.
     const rpc = detailFetch({ head: composedHead(), defer: true })
     const face = new FakeSessions({
       root: { displayTitle: 'Main', running: false, updatedAt: 10 },
@@ -541,15 +629,15 @@ describe('AgentGraph — cold-relative composition fetch', () => {
     const ctx = new TestClientCtx({ services: { sessions: face } })
     const View = makeAgentGraph(asClientCtx(ctx), kit)
     const m = await mount(h(View, { sessionId: 'root', self: selfStats() }))
-    assert.equal(query(m.container, 'g[data-agent="cold"]').querySelectorAll('circle.lc-agent-seg').length, 0)
+    assert.equal(query(m.container, '[data-agent="cold"]').querySelectorAll('.lc-agent-bar-seg').length, 0)
     assert.deepEqual(rpc.calls, ['/api/dsh-context/detail:cold'])
 
     await act(async () => {
       rpc.release({ ok: true, status: 200, json: async () => ({ ok: true, value: detailValue(composedHead()) }) })
     })
     await flush()
-    const composed = query(m.container, 'g[data-agent="cold"]')
-    assert.equal(composed.querySelectorAll('circle.lc-agent-seg').length, 7, 'six arcs + the free remainder (no pressure arc)')
+    const composed = query(m.container, '[data-agent="cold"]')
+    assert.equal(composed.querySelectorAll('.lc-agent-bar-seg').length, 6, 'six category segments (no pressure fill)')
     assert.ok(text(composed).includes('60%'), 'the fold total prices against the head window')
     await m.unmount()
   })

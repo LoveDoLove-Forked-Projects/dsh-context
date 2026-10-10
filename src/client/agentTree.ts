@@ -40,6 +40,8 @@ export interface AgentStats {
   head: Headline | null
   requests: number
   billed: number | null
+  /** Cumulative session-cost ledger off the timeline — the card's price estimate rides it. */
+  costUsage: SessionCostUsage | null
   durationMs: number | null
   identity: AgentIdentity | null
 }
@@ -49,6 +51,8 @@ export interface AgentSelfStats {
   head: Headline | null
   billed: number | null
   requests: number
+  /** The tab's own cost ledger (the stats board's `data.cost`). */
+  costUsage?: SessionCostUsage | null
 }
 
 export interface AgentNode extends AgentStats {
@@ -75,19 +79,17 @@ export interface AgentForest {
 /** The card stays readable up to this many nodes; the rest folds into an overflow note. */
 export const AGENT_TREE_LIMIT = 25
 
-/** Donut geometry: node disc radius and the fused composition/occupancy ring radius (SVG units). */
-export const AGENT_NODE_R = 26
-export const AGENT_RING_R = 20
-/** Horizontal cell pitch adapts to the stage width between these bounds; each
- * node owns one cell, so the caption box (cell minus an 8px gutter) can never clip at a neighbor or the stage edge. */
-const SLOT_MAX = 184
-const SLOT_MIN = 112
-const CAPTION_GUTTER = 8
-/** Vertical pitch between depth levels: node radius + caption zone + a dedicated 28px link channel below it. */
-const LEVEL_H = 154
-/** Bottom edge of a node cell — links exit here, below the caption zone, so a connector never crosses a label. */
-const CELL_H = AGENT_NODE_R + 64
-const PAD_Y = 56
+/** Fixed card height — mirrored by `.lc-agent-card`'s `height` in agentGraph.css, so a link's
+ * exit point (card bottom) and entry point (card top) always land on the card's edge. */
+export const AGENT_CARD_H = 104
+/** Horizontal cell pitch adapts to the stage width between these bounds; each node owns one
+ * cell and the card fills it minus a 12px gutter, so a card never clips a neighbor or the stage edge. */
+const SLOT_MAX = 208
+const SLOT_MIN = 150
+const CARD_GUTTER = 12
+/** Vertical pitch between depth levels: card height + a dedicated 40px link channel below it. */
+const LEVEL_H = AGENT_CARD_H + 40
+const PAD_Y = 48
 
 export function agentRowOf(value: unknown): AgentRow | null {
   const rec = asRecord(value)
@@ -160,9 +162,28 @@ export function agentStatsOf(values: Record<string, unknown> | undefined): Agent
     // The split-generation wire head carries the tally precomputed; the inline generation's rows count their served records.
     requests: timeline !== null ? (timeline.counts?.steps ?? timeline.requests.length) : 0,
     billed,
+    costUsage: timeline?.cost ?? null,
     durationMs: agentDurationOf(values?.subagentTiming),
     identity: agentIdentityOf(values?.subagent),
   }
+}
+
+/**
+ * Spawn-order ranks from a parent row's `subagentCatalog` projection — the harness
+ * header popup's own sibling order (parent catalog event order). Absent, empty, or
+ * hostile values yield null and the caller keeps its activity heuristic; malformed
+ * entries drop alone.
+ */
+export function catalogOrderOf(values: Record<string, unknown> | undefined): Map<string, number> | null {
+  const cat = values?.subagentCatalog
+  if (!Array.isArray(cat)) return null
+  const order = new Map<string, number>()
+  for (const entry of cat) {
+    const rec = asRecord(entry)
+    if (rec === null || typeof rec.id !== 'string' || rec.id === '') continue
+    if (!order.has(rec.id)) order.set(rec.id, order.size)
+  }
+  return order.size > 0 ? order : null
 }
 
 interface AgentChild {
@@ -219,8 +240,20 @@ export function agentForestOf(
     list.push({ id, row })
     childrenOf.set(row.parentId, list)
   }
-  for (const kids of childrenOf.values()) {
+  for (const [pid, kids] of childrenOf) {
+    // Sibling order follows the parent's subagent catalog (the harness header popup's
+    // own spawn order) when cached; uncataloged children fall after cataloged ones,
+    // and catalog-less parents keep the activity heuristic untouched.
+    const order = catalogOrderOf(rows.get(pid)?.projections)
     kids.sort((a, b) => {
+      const ra = order?.get(a.id)
+      const rb = order?.get(b.id)
+      if (ra !== undefined || rb !== undefined) {
+        // Catalog ranks are unique per parent, so two ranked ids never tie here.
+        if (ra === undefined) return 1
+        if (rb === undefined) return -1
+        return ra - rb
+      }
       const runDelta = Number(b.row.running) - Number(a.row.running)
       if (runDelta !== 0) return runDelta
       const timeDelta = b.row.updatedAt - a.row.updatedAt
@@ -265,6 +298,7 @@ export function agentForestOf(
       node.head = self.head ?? node.head
       node.billed = self.billed ?? node.billed
       node.requests = self.requests > 0 ? self.requests : node.requests
+      node.costUsage = self.costUsage ?? node.costUsage
     }
     nodes.push(node)
     if (parentId !== undefined) edges.push({ from: parentId, to: id })
@@ -350,7 +384,8 @@ export interface AgentLink {
 export interface AgentLayout {
   width: number
   height: number
-  captionW: number
+  /** Card width from the responsive layout (narrows as slots compress). */
+  cardW: number
   points: AgentPoint[]
   links: AgentLink[]
 }
@@ -392,7 +427,7 @@ export function layoutForest(forest: AgentForest, stageWidth = 0): AgentLayout {
   /** v8 ignore next 1 -- a forest always holds at least the (possibly synthesized) current node. */
   if (forest.nodes.length > 0) place(forest.nodes[0])
 
-  const perLevel = stageWidth > 0 ? Math.max(2, Math.floor(stageWidth / SLOT_MIN)) : 0
+  const perLevel = stageWidth > 0 ? Math.max(1, Math.floor(stageWidth / SLOT_MIN)) : 0
 
   if (perLevel > 0 && leafSlots > perLevel) {
     // Wrapped layout: bands interleaved by kinship, so after each parent band
@@ -429,8 +464,8 @@ export function layoutForest(forest: AgentForest, stageWidth = 0): AgentLayout {
     if (forest.nodes.length > 0) emitBand([forest.nodes[0]], 0)
     return {
       width,
-      height: PAD_Y + (row - 1) * LEVEL_H + CELL_H + 28,
-      captionW: bandSlot - CAPTION_GUTTER,
+      height: PAD_Y + (row - 1) * LEVEL_H + AGENT_CARD_H + 24,
+      cardW: bandSlot - CARD_GUTTER,
       points,
       links: linksOf(forest, points),
     }
@@ -448,8 +483,8 @@ export function layoutForest(forest: AgentForest, stageWidth = 0): AgentLayout {
   const maxDepth = points.reduce((max, p) => Math.max(max, p.depth), 0)
   return {
     width: leafSlots * slot,
-    height: PAD_Y + maxDepth * LEVEL_H + CELL_H + 28,
-    captionW: slot - CAPTION_GUTTER,
+    height: PAD_Y + maxDepth * LEVEL_H + AGENT_CARD_H + 24,
+    cardW: slot - CARD_GUTTER,
     points,
     links: linksOf(forest, points),
   }
@@ -476,49 +511,84 @@ function linksOf(forest: AgentForest, points: AgentPoint[]): AgentLink[] {
       running: runningIds.has(edge.to),
       /* v8 ignore next 1 -- edges only connect visited nodes. */
       color: familyHue(nodeOf.get(edge.to)?.family ?? 0),
+      // Out of the parent card's bottom edge, into the child card's top edge. A wrapped
+      // band can drop a child several rows down, where the curve passes BEHIND the rows
+      // between (the link layer paints under the cards) — it reads as depth, not a crossing.
       x1: from.x,
-      y1: from.y + CELL_H,
+      y1: from.y + AGENT_CARD_H,
       x2: to.x,
-      y2: to.y - AGENT_NODE_R - 10,
+      y2: to.y,
     })
   }
   return links
 }
 
-export interface RingSeg {
+/** The hovered node's lineage: its ancestor chain plus its whole subtree — the set of
+ * node ids whose links light up under lineage focus. Null for no id or an unknown one. */
+export function lineageOf(forest: AgentForest, id: string | null): Set<string> | null {
+  if (id === null) return null
+  const byId = new Map(forest.nodes.map(n => [n.id, n]))
+  const start = byId.get(id)
+  if (start === undefined) return null
+  const lit = new Set<string>()
+  let cur: AgentNode | undefined = start
+  while (cur !== undefined) {
+    lit.add(cur.id)
+    cur = cur.parentId !== undefined ? byId.get(cur.parentId) : undefined
+  }
+  const queue = [id]
+  for (let i = 0; i < queue.length; i++) {
+    for (const n of forest.nodes) {
+      if (n.parentId === queue[i] && !lit.has(n.id)) {
+        lit.add(n.id)
+        queue.push(n.id)
+      }
+    }
+  }
+  return lit
+}
+
+export interface BarSeg {
   key: string
-  /** Segment color; the free remainder is styled by its CSS class instead. */
+  /** Segment color; the free remainder is styled by the bar's track instead. */
   color: string
-  len: number
-  offset: number
+  /** Share of the whole bar (0..1) — occupancy scales the composition, the free share closes it. */
+  share: number
   free: boolean
 }
 
-/** One fused ring per agent — the chat composer ring's own semantics: the
- * composition parts, scaled to the occupancy share, fill the circle and a
- * neutral remainder marks the free window. No known window fills the whole
- * circle; no composition falls back to a single occupancy arc. */
-export function ringSegments(parts: PartsPart[], pct: number | null, radius: number, fallbackColor: string): RingSeg[] {
-  const circumference = 2 * Math.PI * radius
+/** Threshold color for pressure-only fills (no composition data) and the card's pct figure. */
+export function pressureColorOf(pct: number | null): string {
+  if (pct === null) return 'var(--dsw-alias-border-l1)'
+  if (pct >= 90) return 'var(--color-red-500)'
+  if (pct >= 70) return 'var(--color-amber-500)'
+  return 'var(--color-green-500)'
+}
+
+/** One composition bar per agent — the chat composer ring's own semantics, flattened: the
+ * composition parts, scaled to the occupancy share, fill the bar and a neutral remainder marks
+ * the free window. No known window fills the whole bar; no composition falls back to a single
+ * threshold-colored occupancy fill. */
+export function barSegments(parts: PartsPart[], pct: number | null, fallbackColor: string): BarSeg[] {
   const occ = pct === null ? 1 : Math.min(100, Math.max(0, pct)) / 100
   let total = 0
   for (const p of parts) total += p.value > 0 ? p.value : 0
-  const segs: RingSeg[] = []
-  let offset = 0
+  const segs: BarSeg[] = []
+  let acc = 0
   if (total > 0) {
     for (const p of parts) {
       if (p.value <= 0) continue
-      const len = circumference * (p.value / total) * occ
-      if (len <= 0) continue
-      segs.push({ key: p.key, color: p.color, len, offset, free: false })
-      offset += len
+      const share = (p.value / total) * occ
+      if (share <= 0) continue
+      segs.push({ key: p.key, color: p.color, share, free: false })
+      acc += share
     }
   } else if (pct !== null && occ > 0) {
-    segs.push({ key: 'fill', color: fallbackColor, len: circumference * occ, offset: 0, free: false })
-    offset = circumference * occ
+    segs.push({ key: 'fill', color: fallbackColor, share: occ, free: false })
+    acc = occ
   }
-  if (pct !== null && offset < circumference) {
-    segs.push({ key: 'free', color: '', len: circumference - offset, offset, free: true })
+  if (pct !== null && acc < 1) {
+    segs.push({ key: 'free', color: '', share: 1 - acc, free: true })
   }
   return segs
 }
