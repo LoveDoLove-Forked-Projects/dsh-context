@@ -552,6 +552,7 @@ export function makeContextView(
               + numOf(usage.cacheReadTokens) + numOf(usage.cacheWriteTokens) : null,
             requests: requests.length,
             costUsage: data.cost ?? null,
+            durationMs: data.timing != null && data.timing.wallMs > 0 ? data.timing.wallMs : null,
           }}
         />
 

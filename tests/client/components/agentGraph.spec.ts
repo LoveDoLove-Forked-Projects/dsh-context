@@ -86,6 +86,7 @@ function selfStats(over: Partial<AgentSelfStats> = {}): AgentSelfStats {
     head: { tokens: 500, window: 1000, pct: 50, parts: [{ key: 'user', color: '#22c55e', value: 500 }] },
     billed: 1200,
     requests: 3,
+    durationMs: 387_000,
     ...over,
   }
 }
@@ -186,9 +187,15 @@ describe('AgentGraph — the family tree', () => {
     assert.equal(worker.getAttribute('role'), 'button')
     assert.ok(text(worker).includes('worker-bee'))
     assert.ok(text(worker).includes('83%'))
-    // The headline is the billed consumption (150); the activity footer carries the duration.
+    // The headline is the billed consumption (150); the activity footer carries the duration and the step count.
     assert.ok(text(worker).includes('150'))
     assert.ok(text(worker).includes('42s'))
+    assert.equal(query(worker, '.lc-agent-meta-text').textContent, '42s · 5 steps')
+    // The current agent writes no subagent-timing projection: the tab's own active time
+    // (AgentSelfStats.durationMs) is what fills its footer, beside the step count.
+    assert.equal(query(self, '.lc-agent-meta-text').textContent, '6m27s · 3 steps')
+    // Every card shares one pitch — the root claims no extra room.
+    assert.equal(self.style.width, worker.style.width)
     assert.ok(worker.classList.contains('lc-agent-running'))
     // Timeline composition → one bar segment per non-empty category.
     assert.equal(worker.querySelectorAll('.lc-agent-bar-seg').length, 3)
@@ -200,12 +207,13 @@ describe('AgentGraph — the family tree', () => {
     assert.equal(done.querySelectorAll('.lc-agent-bar-seg').length, 1)
     assert.ok(text(done).includes('—'))
     assert.equal(query(done, '.lc-agent-meta').textContent, '95%')
+    assert.equal(query(done, '.lc-agent-meta-text').textContent, '')
 
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('Main Agent'))
     assert.ok(text(inspector).includes('current'))
     assert.ok(text(inspector).includes('500 / 1.0k · 50%'))
-    assert.ok(text(inspector).includes('3 requests'))
+    assert.ok(text(inspector).includes('3 steps'))
     assert.ok(text(inspector).includes('1.2k billed'))
     assert.ok(!text(inspector).includes('click to open'))
     // The composition readout mirrors the inspected node's bar.
@@ -233,7 +241,7 @@ describe('AgentGraph — the family tree', () => {
     const inspector = query(m.container, '.lc-agents-inspector')
     assert.ok(text(inspector).includes('worker-bee'))
     assert.ok(text(inspector).includes('continuable'))
-    assert.ok(text(inspector).includes('5 requests'))
+    assert.ok(text(inspector).includes('5 steps'))
     assert.ok(text(inspector).includes('150 billed'))
     assert.ok(text(inspector).includes('42s'))
     assert.ok(text(inspector).includes('click to open'))
@@ -421,6 +429,7 @@ describe('AgentGraph — the family tree', () => {
     assert.ok(rendered.includes('Agent 网络'))
     assert.ok(rendered.includes('3 个 Agent'))
     assert.ok(rendered.includes('当前'))
+    assert.equal(query(m.container, '.lc-agent-card.lc-agent-self .lc-agent-meta-text').textContent, '6m27s · 3 步')
     await hover(query(m.container, '[data-agent="worker"]'))
     assert.ok(text(query(m.container, '.lc-agents-inspector')).includes('多轮'))
     await m.unmount()

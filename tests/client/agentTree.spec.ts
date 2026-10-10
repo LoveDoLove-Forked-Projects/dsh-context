@@ -186,12 +186,14 @@ describe('agentForestOf', () => {
   test('merges live self stats onto the current node', () => {
     const head = { tokens: 9, window: 10, pct: 90, parts: [] }
     const selfCost: SessionCostUsage = { p: { m: { peak: { uncached: 5, cacheRead: 0, cacheWrite: 0, output: 0 } } } }
-    const forest = agentForestOf(snap({}), 's1', { head, billed: 7, requests: 4, costUsage: selfCost })
+    const forest = agentForestOf(snap({}), 's1', { head, billed: 7, requests: 4, costUsage: selfCost, durationMs: 9000 })
     assert.ok(forest !== null)
     assert.equal(forest.nodes[0].head, head)
     assert.equal(forest.nodes[0].billed, 7)
     assert.equal(forest.nodes[0].requests, 4)
     assert.deepEqual(forest.nodes[0].costUsage, selfCost)
+    // The current agent's own active time — no subagent-timing projection exists for it.
+    assert.equal(forest.nodes[0].durationMs, 9000)
     // Null self fields keep the row-derived stats; zero requests never erases the row's count.
     const rowCost: SessionCostUsage = { p: { m: { off: { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 9 } } } }
     const withRow = agentForestOf(

@@ -53,6 +53,10 @@ export interface AgentSelfStats {
   requests: number
   /** The tab's own cost ledger (the stats board's `data.cost`). */
   costUsage?: SessionCostUsage | null
+  /** The current session's whole-step time (`data.timing.wallMs`, host-folded over the
+   * complete log). Not the harness's subagent measure — that folds turn windows, and a parent
+   * session never carries a `subagentTiming` projection at all — but the only duration it has. */
+  durationMs?: number | null
 }
 
 export interface AgentNode extends AgentStats {
@@ -299,6 +303,7 @@ export function agentForestOf(
       node.billed = self.billed ?? node.billed
       node.requests = self.requests > 0 ? self.requests : node.requests
       node.costUsage = self.costUsage ?? node.costUsage
+      node.durationMs = self.durationMs ?? node.durationMs
     }
     nodes.push(node)
     if (parentId !== undefined) edges.push({ from: parentId, to: id })

@@ -300,8 +300,11 @@ function AgentCard(props: CardProps): ReactElement {
   const metricBits: string[] = []
   if (consumed !== null && consumed > 0) metricBits.push(props.fmt(consumed))
   if (cost !== null) metricBits.push(formatCost(cost, props.currency))
-  // The request count stays off the card — one hover away in the inspector.
-  const meta = node.durationMs !== null ? fmtDurationCompact(node.durationMs) : ''
+  // Activity footer: the run's duration, then its step count. Either bit may be missing —
+  // a node that never ran has no steps, a cold one no timing yet.
+  const meta: string[] = []
+  if (node.durationMs !== null) meta.push(fmtDurationCompact(node.durationMs))
+  if (node.requests > 0) meta.push(props.t('agents.steps', { n: node.requests }))
   const cls = 'lc-agent-card animate-lc-agent-in motion-reduce:animate-none'
     + (node.isCurrent ? ' lc-agent-self' : '')
     + (node.running ? ' lc-agent-running' : '')
@@ -345,9 +348,9 @@ function AgentCard(props: CardProps): ReactElement {
           />
         ))}
       </div>
-      {meta !== '' || pct !== null ? (
+      {meta.length > 0 || pct !== null ? (
         <div className="lc-agent-meta">
-          <span className="lc-agent-meta-text">{meta}</span>
+          <span className="lc-agent-meta-text">{meta.join(' · ')}</span>
           {pct !== null ? <span className="lc-agent-pct" style={{ color: pressureColorOf(pct) }}>{pct}%</span> : null}
         </div>
       ) : null}
@@ -365,7 +368,7 @@ function Inspector(props: { node: AgentNode; t: ViewKit['t']; fmt: ViewKit['fmt'
     const pct = head.pct !== null ? ` · ${head.pct}%` : ''
     bits.push(`${fmt(head.tokens)}${window}${pct}`)
   }
-  if (node.requests > 0) bits.push(t('agents.requests', { n: node.requests }))
+  if (node.requests > 0) bits.push(t('agents.steps', { n: node.requests }))
   if (node.billed !== null && node.billed > 0) bits.push(t('agents.billed', { n: fmt(node.billed) }))
   if (node.durationMs !== null) bits.push(fmtDurationCompact(node.durationMs))
   const parts = node.head !== null ? node.head.parts.filter(p => (p.raw ?? p.value) > 0) : []
